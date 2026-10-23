@@ -136,7 +136,7 @@ fun VerificasionScreen(
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = EleganIvory,
                 shadowElevation = 14.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
