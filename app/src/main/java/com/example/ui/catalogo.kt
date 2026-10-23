@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
@@ -81,6 +82,7 @@ fun CatalogoScreen(
     products: List<Product>,
     selectedCategory: String,
     onCategoryChange: (String) -> Unit,
+    onNavigateToMenu: () -> Unit,
     onProductClick: (Product) -> Unit,
     onQuickAddToCart: (Product) -> Unit
 ) {
@@ -112,54 +114,72 @@ fun CatalogoScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White)
-                        .border(1.dp, Color(0xFFDDD5CE), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = EleganBurgundy,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
+                    IconButton(
+                        onClick = onNavigateToMenu,
+                        modifier = Modifier.testTag("catalogo_menu_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Abrir menú de categorías",
+                            tint = EleganCharcoal
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Row(
                         modifier = Modifier
                             .weight(1f)
-                            .testTag("catalogo_search_field"),
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = EleganCharcoal),
-                        cursorBrush = SolidColor(EleganBurgundy),
-                        decorationBox = { innerTextField ->
-                            Box {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "Buscar prendas, zapatos, perfumes...",
-                                        fontSize = 14.sp,
-                                        color = Color.Gray,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        }
-                    )
-                    if (searchQuery.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                            .height(38.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.dp, Color(0xFFDDD5CE), CircleShape)
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Limpiar búsqueda",
-                            tint = EleganCharcoal,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable { searchQuery = "" }
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = EleganBurgundy,
+                            modifier = Modifier.size(20.dp)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("catalogo_search_field"),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = EleganCharcoal),
+                            cursorBrush = SolidColor(EleganBurgundy),
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = "Buscar prendas, zapatos, perfumes...",
+                                            fontSize = 14.sp,
+                                            color = Color.Gray,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                        if (searchQuery.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Limpiar búsqueda",
+                                tint = EleganCharcoal,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable { searchQuery = "" }
+                            )
+                        }
                     }
                 }
             }

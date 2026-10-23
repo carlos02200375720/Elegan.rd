@@ -354,7 +354,7 @@ fun AppContent(
                             viewModel.setCategory(cat)
                             navigateTo(Screen.CATALOGO)
                         },
-                        onBack = { navigateTo(Screen.INICIO) }
+                        onBack = { navigateTo(previousScreen) }
                     )
                 }
 
@@ -363,6 +363,7 @@ fun AppContent(
                         products = products,
                         selectedCategory = selectedCategory,
                         onCategoryChange = { viewModel.setCategory(it) },
+                        onNavigateToMenu = { navigateTo(Screen.MENU) },
                         onProductClick = { prod ->
                             viewModel.selectProduct(prod)
                             navigateTo(Screen.PRODUCTO)
