@@ -1,6 +1,7 @@
 package com.example.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Close
@@ -40,15 +42,11 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -103,21 +102,67 @@ fun CatalogoScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Catálogo Elegan",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal,
-                            fontFamily = FontFamily.Serif
-                        )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                color = EleganIvory,
+                tonalElevation = 2.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFDDD5CE), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = EleganBurgundy,
+                        modifier = Modifier.size(20.dp)
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EleganIvory
-                )
-            )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("catalogo_search_field"),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = EleganCharcoal),
+                        cursorBrush = SolidColor(EleganBurgundy),
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Buscar prendas, zapatos, perfumes...",
+                                        fontSize = 14.sp,
+                                        color = Color.Gray,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Limpiar búsqueda",
+                            tint = EleganCharcoal,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable { searchQuery = "" }
+                        )
+                    }
+                }
+            }
         },
         containerColor = EleganIvory
     ) { padding ->
@@ -131,41 +176,6 @@ fun CatalogoScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Search field
-            item(span = { GridItemSpan(2) }) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 8.dp)
-                        .testTag("catalogo_search_field"),
-                    placeholder = { Text("Buscar prendas, zapatos, perfumes...", fontSize = 14.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = EleganBurgundy
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Limpiar")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = EleganBurgundy,
-                        unfocusedBorderColor = Color(0xFFDDD5CE)
-                    )
-                )
-            }
-
             // Categories horizontal scroll chips
             item(span = { GridItemSpan(2) }) {
                 LazyRow(
