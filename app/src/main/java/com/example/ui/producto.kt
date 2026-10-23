@@ -121,7 +121,7 @@ fun ProductoScreen(
         },
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = EleganIvory,
                 shadowElevation = 12.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
