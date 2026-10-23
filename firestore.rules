@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.description is string &&
+             data.category is string &&
+             data.price is number && data.price >= 0 &&
+             data.imageUrl is string &&
+             data.inStock is bool;
+    }
+
+    function isValidCartItem(data, userId) {
+      return data.userId == userId &&
+             data.productId is string && data.productId.size() > 0 &&
+             data.name is string && data.name.size() > 0 &&
+             data.price is number && data.price >= 0 &&
+             data.quantity is int && data.quantity > 0;
+    }
+
+    function isValidOrder(data, userId) {
+      return data.userId == userId &&
+             data.customerName is string && data.customerName.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             data.address is string && data.address.size() > 0 &&
+             data.paymentMethod is string &&
+             data.total is number && data.total >= 0 &&
+             data.status is string;
+    }
+
+    function isValidSupportMessage(data, userId) {
+      return data.userId == userId &&
+             data.sender is string &&
+             data.text is string && data.text.size() > 0;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+             data.email is string && data.email.size() > 0;
+    }
+
+    // Products: Available to authenticated users to read and seed
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidProduct(request.resource.data);
+    }
+
+    // Users and subcollections
+    match /users/{userId} {
+      allow read, update, create: if isOwner(userId) && isValidUserProfile(request.resource.data, userId);
+      allow delete: if isOwner(userId);
+
+      match /cart/{itemId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidCartItem(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /orders/{orderId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidOrder(request.resource.data, userId);
+        allow update, delete: if false;
+      }
+
+      match /messages/{messageId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSupportMessage(request.resource.data, userId);
+        allow update, delete: if false;
+      }
+    }
+  }
+}
