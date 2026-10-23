@@ -113,9 +113,9 @@ class MainActivity : ComponentActivity() {
                 AndroidColor.TRANSPARENT,
                 AndroidColor.TRANSPARENT
             ),
-            navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT)
+            navigationBarStyle = SystemBarStyle.light(getColor(R.color.elegan_ivory))
         )
-        window.navigationBarColor = AndroidColor.TRANSPARENT
+        window.navigationBarColor = getColor(R.color.elegan_ivory)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
@@ -226,8 +226,6 @@ fun AppContent(
     val showBottomBar = currentScreen in listOf(
         Screen.INICIO,
         Screen.CATALOGO,
-        Screen.CARRITO,
-        Screen.CHATS,
         Screen.PERFIL
     )
 
@@ -235,7 +233,8 @@ fun AppContent(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = Color.Transparent,
+                    modifier = Modifier.background(EleganIvory),
+                    containerColor = EleganIvory,
                     tonalElevation = 0.dp
                 ) {
                     NavigationBarItem(
