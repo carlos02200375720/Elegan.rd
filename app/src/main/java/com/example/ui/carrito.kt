@@ -149,7 +149,7 @@ fun CarritoScreen(
         bottomBar = {
             if (cartItems.isNotEmpty()) {
                 Surface(
-                    color = Color.White,
+                    color = EleganIvory,
                     shadowElevation = 14.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -187,7 +187,7 @@ fun CarritoScreen(
                                     .testTag("checkout_continue_btn")
                             ) {
                                 Text(
-                                    text = "Continuar a Verificación",
+                                    text = "Continuar",
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
