@@ -113,10 +113,7 @@ class MainActivity : ComponentActivity() {
                 AndroidColor.TRANSPARENT,
                 AndroidColor.TRANSPARENT
             ),
-            navigationBarStyle = SystemBarStyle.auto(
-                AndroidColor.TRANSPARENT,
-                AndroidColor.TRANSPARENT
-            )
+            navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT)
         )
         setContent {
             EleganTheme {
@@ -232,8 +229,8 @@ fun AppContent(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = Color.White,
-                    tonalElevation = 8.dp
+                    containerColor = EleganIvory,
+                    tonalElevation = 0.dp
                 ) {
                     NavigationBarItem(
                         selected = currentScreen == Screen.INICIO,
