@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
                 AndroidColor.TRANSPARENT,
                 AndroidColor.TRANSPARENT
             ),
-            navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT)
+            navigationBarStyle = SystemBarStyle.light(getColor(R.color.elegan_ivory))
         )
         setContent {
             EleganTheme {
@@ -240,7 +240,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color(0xFFFFDADA)
+                            indicatorColor = EleganIvory
                         ),
                         modifier = Modifier.testTag("nav_inicio")
                     )
@@ -256,7 +256,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color(0xFFFFDADA)
+                            indicatorColor = EleganIvory
                         ),
                         modifier = Modifier.testTag("nav_catalogo")
                     )
@@ -287,7 +287,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color(0xFFFFDADA)
+                            indicatorColor = EleganIvory
                         ),
                         modifier = Modifier.testTag("nav_carrito")
                     )
@@ -300,7 +300,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color(0xFFFFDADA)
+                            indicatorColor = EleganIvory
                         ),
                         modifier = Modifier.testTag("nav_chats")
                     )
@@ -313,7 +313,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color(0xFFFFDADA)
+                            indicatorColor = EleganIvory
                         ),
                         modifier = Modifier.testTag("nav_perfil")
                     )
