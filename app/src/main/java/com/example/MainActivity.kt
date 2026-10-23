@@ -65,7 +65,6 @@ import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
-import com.example.ui.theme.EleganNavigationBar
 import com.example.ui.theme.EleganTheme
 import com.example.ui.viewmodel.EleganViewModel
 import com.google.firebase.Firebase
@@ -114,9 +113,9 @@ class MainActivity : ComponentActivity() {
                 AndroidColor.TRANSPARENT,
                 AndroidColor.TRANSPARENT
             ),
-            navigationBarStyle = SystemBarStyle.light(getColor(R.color.elegan_navigation_bar))
+            navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT)
         )
-        window.navigationBarColor = getColor(R.color.elegan_navigation_bar)
+        window.navigationBarColor = AndroidColor.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
@@ -236,8 +235,7 @@ fun AppContent(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    modifier = Modifier.background(EleganNavigationBar),
-                    containerColor = EleganNavigationBar,
+                    containerColor = Color.Transparent,
                     tonalElevation = 0.dp
                 ) {
                     NavigationBarItem(
@@ -248,7 +246,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = EleganNavigationBar
+                            indicatorColor = Color.Transparent
                         ),
                         modifier = Modifier.testTag("nav_inicio")
                     )
@@ -264,7 +262,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = EleganNavigationBar
+                            indicatorColor = Color.Transparent
                         ),
                         modifier = Modifier.testTag("nav_catalogo")
                     )
@@ -295,7 +293,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = EleganNavigationBar
+                            indicatorColor = Color.Transparent
                         ),
                         modifier = Modifier.testTag("nav_carrito")
                     )
@@ -308,7 +306,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = EleganNavigationBar
+                            indicatorColor = Color.Transparent
                         ),
                         modifier = Modifier.testTag("nav_chats")
                     )
@@ -321,7 +319,7 @@ fun AppContent(
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EleganBurgundy,
                             selectedTextColor = EleganBurgundy,
-                            indicatorColor = EleganNavigationBar
+                            indicatorColor = Color.Transparent
                         ),
                         modifier = Modifier.testTag("nav_perfil")
                     )
