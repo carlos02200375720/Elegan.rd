@@ -13,6 +13,7 @@ import androidx.core.view.WindowCompat
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -331,8 +332,15 @@ fun AppContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+                .then(
+                    if (currentScreen == Screen.PRODUCTO) {
+                        Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    } else {
+                        Modifier
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding)
+                    }
+                )
         ) {
             when (currentScreen) {
                 Screen.INICIO -> {
@@ -384,6 +392,7 @@ fun AppContent(
                     if (prod != null) {
                         ProductoScreen(
                             product = prod,
+                            cartItemCount = cartItems.sumOf { it.quantity },
                             onAddToCart = { p, s, q ->
                                 viewModel.addToCart(p, s, q)
                             },
@@ -391,6 +400,7 @@ fun AppContent(
                                 viewModel.addToCart(p, s, q)
                                 navigateTo(Screen.CARRITO)
                             },
+                            onNavigateToCart = { navigateTo(Screen.CARRITO) },
                             onBack = { navigateTo(previousScreen) }
                         )
                     } else {

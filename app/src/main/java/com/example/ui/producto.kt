@@ -15,7 +15,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateTopPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,13 +32,15 @@ import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,8 +51,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -73,12 +77,13 @@ import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductoScreen(
     product: Product,
+    cartItemCount: Long,
     onAddToCart: (Product, String, Long) -> Unit,
     onBuyNow: (Product, String, Long) -> Unit,
+    onNavigateToCart: () -> Unit,
     onBack: () -> Unit
 ) {
     BackHandler { onBack() }
@@ -91,34 +96,7 @@ fun ProductoScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Detalle del Producto",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("producto_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = EleganCharcoal
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EleganIvory
-                )
-            )
-        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Surface(
                 color = EleganIvory,
@@ -187,154 +165,248 @@ fun ProductoScreen(
         },
         containerColor = EleganIvory
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .testTag("producto_screen")
-        ) {
-            // Hero product image
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1.1f)
-                        .background(Color(0xFFF0EBE3))
-                ) {
-                    AsyncImage(
-                        model = product.imageUrl,
-                        contentDescription = product.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    Surface(
-                        shape = RoundedCornerShape(bottomEnd = 12.dp),
-                        color = EleganBurgundyDark,
-                        modifier = Modifier.align(Alignment.TopStart)
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .testTag("producto_screen")
+            ) {
+                // Hero product image
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1.1f)
+                            .background(Color(0xFFF0EBE3))
                     ) {
-                        Text(
-                            text = product.category.uppercase(),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            letterSpacing = 1.sp
+                        AsyncImage(
+                            model = product.imageUrl,
+                            contentDescription = product.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
+
+                        Surface(
+                            shape = RoundedCornerShape(bottomEnd = 12.dp),
+                            color = EleganBurgundyDark,
+                            modifier = Modifier.align(Alignment.TopStart)
+                        ) {
+                            Text(
+                                text = product.category.uppercase(),
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                letterSpacing = 1.sp
+                            )
+                        }
                     }
                 }
-            }
 
-            // Info section
-            item {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = product.name,
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EleganCharcoal,
-                                    fontFamily = FontFamily.Serif
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Row {
-                                    repeat(5) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = null,
-                                            tint = EleganGold,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
+                // Info section
+                item {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "${product.rating} (${product.reviewCount} valoraciones)",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.SemiBold
+                                    text = product.name,
+                                    style = MaterialTheme.typography.headlineSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = EleganCharcoal,
+                                        fontFamily = FontFamily.Serif
                                     )
                                 )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row {
+                                        repeat(5) {
+                                            Icon(
+                                                imageVector = Icons.Default.Star,
+                                                contentDescription = null,
+                                                tint = EleganGold,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${product.rating} (${product.reviewCount} valoraciones)",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color.Gray,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    )
+                                }
                             }
+
+                            Text(
+                                text = "$${String.format("%.2f", product.price)}",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = EleganBurgundyDark
+                                )
+                            )
                         }
 
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color(0xFFE5DDD5))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Description
                         Text(
-                            text = "$${String.format("%.2f", product.price)}",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = EleganBurgundyDark
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = Color(0xFFE5DDD5))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Description
-                    Text(
-                        text = "Descripción",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = product.description,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF4A4A4A),
-                            lineHeight = 22.sp
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Size selector
-                    if (product.sizes.isNotEmpty()) {
-                        Text(
-                            text = "Seleccionar Talla / Medida:",
-                            style = MaterialTheme.typography.titleSmall.copy(
+                            text = "Descripción",
+                            style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = EleganCharcoal
                             )
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = product.description,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color(0xFF4A4A4A),
+                                lineHeight = 22.sp
+                            )
+                        )
 
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Size selector
+                        if (product.sizes.isNotEmpty()) {
+                            Text(
+                                text = "Seleccionar Talla / Medida:",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                for (size in product.sizes) {
+                                    val isSelected = size == selectedSize
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isSelected) EleganBurgundy else Color.White)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) EleganBurgundy else Color(0xFFD3CAC0),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { selectedSize = size }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                            .testTag("size_chip_$size"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = size,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                color = if (isSelected) Color.White else EleganCharcoal,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
+
+                        // Quantity selector
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            for (size in product.sizes) {
-                                val isSelected = size == selectedSize
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) EleganBurgundy else Color.White)
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (isSelected) EleganBurgundy else Color(0xFFD3CAC0),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable { selectedSize = size }
-                                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                                        .testTag("size_chip_$size"),
-                                    contentAlignment = Alignment.Center
+                            Text(
+                                text = "Cantidad:",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal
+                                )
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White)
+                                    .border(1.dp, Color(0xFFD3CAC0), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { if (quantity > 1) quantity-- },
+                                    modifier = Modifier.size(36.dp)
                                 ) {
+                                    Icon(Icons.Default.Remove, contentDescription = "Menos", tint = EleganBurgundy)
+                                }
+                                Text(
+                                    text = "$quantity",
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = EleganCharcoal
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                )
+                                IconButton(
+                                    onClick = { quantity++ },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = "Más", tint = EleganBurgundy)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Guarantee banner
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocalShipping,
+                                        contentDescription = null,
+                                        tint = EleganBurgundy,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
-                                        text = size,
+                                        text = "Envío y embalaje confidencial de lujo",
                                         style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = if (isSelected) Color.White else EleganCharcoal,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = EleganCharcoal
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Diamond,
+                                        contentDescription = null,
+                                        tint = EleganGold,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Autenticidad y confección artesanal certificada",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = EleganCharcoal
                                         )
                                     )
                                 }
@@ -343,98 +415,59 @@ fun ProductoScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
                     }
+                }
+            }
 
-                    // Quantity selector
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+                    .background(EleganIvory)
+                    .align(Alignment.TopCenter)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .height(56.dp)
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("producto_back_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = EleganCharcoal
+                    )
+                }
+
+                IconButton(
+                    onClick = onNavigateToCart,
+                    modifier = Modifier.testTag("producto_cart_button")
+                ) {
+                    BadgedBox(
+                        badge = {
+                            if (cartItemCount > 0L) {
+                                Badge(
+                                    containerColor = EleganBurgundy,
+                                    contentColor = Color.White
+                                ) {
+                                    Text("$cartItemCount")
+                                }
+                            }
+                        }
                     ) {
-                        Text(
-                            text = "Cantidad:",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal
-                            )
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Carrito",
+                            tint = EleganCharcoal
                         )
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.White)
-                                .border(1.dp, Color(0xFFD3CAC0), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                        ) {
-                            IconButton(
-                                onClick = { if (quantity > 1) quantity-- },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(Icons.Default.Remove, contentDescription = "Menos", tint = EleganBurgundy)
-                            }
-                            Text(
-                                text = "$quantity",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EleganCharcoal
-                                ),
-                                modifier = Modifier.padding(horizontal = 12.dp)
-                            )
-                            IconButton(
-                                onClick = { quantity++ },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Más", tint = EleganBurgundy)
-                            }
-                        }
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Guarantee banner
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.LocalShipping,
-                                    contentDescription = null,
-                                    tint = EleganBurgundy,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Envío y embalaje confidencial de lujo",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = EleganCharcoal
-                                    )
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Diamond,
-                                    contentDescription = null,
-                                    tint = EleganGold,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Autenticidad y confección artesanal certificada",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = EleganCharcoal
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }
