@@ -69,6 +69,11 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+  sourceSets {
+    getByName("main") {
+      java.srcDir("src/admin")
+    }
+  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files

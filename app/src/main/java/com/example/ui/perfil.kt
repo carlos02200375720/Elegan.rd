@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LocationOn
@@ -83,6 +86,7 @@ fun PerfilScreen(
     orders: List<Order>,
     onSaveProfile: (phone: String, address: String, city: String) -> Unit,
     onNavigateToChats: () -> Unit,
+    onNavigateToPublicar: () -> Unit = {},
     onSignOut: () -> Unit
 ) {
     val user = Firebase.auth.currentUser
@@ -107,9 +111,11 @@ fun PerfilScreen(
                         )
                     )
                 },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = EleganIvory)
             )
         },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = EleganIvory
     ) { padding ->
         LazyColumn(
@@ -118,6 +124,7 @@ fun PerfilScreen(
                 .padding(padding)
                 .padding(horizontal = 20.dp)
                 .testTag("perfil_screen"),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Profile Card
@@ -341,6 +348,52 @@ fun PerfilScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = EleganGold
+                        )
+                    }
+                }
+            }
+
+            // Panel de Publicación Admin (Publicar Producto y Anuncio)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .testTag("profile_admin_publicar_card"),
+                    colors = CardDefaults.cardColors(containerColor = EleganBurgundyDark),
+                    onClick = onNavigateToPublicar
+                ) {
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Campaign, contentDescription = null, tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Publicar Producto o Anuncio",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = "Panel Administrativo • Boutique Oficial",
+                                style = MaterialTheme.typography.bodySmall.copy(color = EleganGold)
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Color.White
                         )
                     }
                 }

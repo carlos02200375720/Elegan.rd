@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import android.content.Context
 import com.example.R
+import com.example.data.model.Announcement
 import com.example.data.model.CartItem
 import com.example.data.model.Order
 import com.example.data.model.Product
@@ -86,6 +87,7 @@ class EleganRepository(private val db: FirebaseFirestore) {
                         "sizes" to item.sizes,
                         "inStock" to item.inStock,
                         "isFeatured" to item.isFeatured,
+                        "mediaFormat" to item.mediaFormat,
                         "createdAt" to FieldValue.serverTimestamp()
                     )
                     docRef.set(data).await()
@@ -105,6 +107,53 @@ class EleganRepository(private val db: FirebaseFirestore) {
             handleFirestoreError(e, OperationType.GET, path)
             getInitialSampleProducts().find { it.id == productId }
         }
+    }
+
+    suspend fun addProduct(product: Product): String {
+        val docRef = if (product.id.isNotBlank()) {
+            db.collection("products").document(product.id)
+        } else {
+            db.collection("products").document()
+        }
+        val data = mapOf(
+            "name" to product.name,
+            "description" to product.description,
+            "category" to product.category,
+            "price" to product.price,
+            "imageUrl" to product.imageUrl,
+            "images" to product.images,
+            "rating" to product.rating,
+            "reviewCount" to product.reviewCount,
+            "sizes" to product.sizes,
+            "inStock" to product.inStock,
+            "isFeatured" to product.isFeatured,
+            "mediaFormat" to product.mediaFormat,
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+        docRef.set(data).await()
+        return docRef.id
+    }
+
+    suspend fun addAnnouncement(announcement: Announcement): String {
+        val docRef = if (announcement.id.isNotBlank()) {
+            db.collection("announcements").document(announcement.id)
+        } else {
+            db.collection("announcements").document()
+        }
+        val data = mapOf(
+            "title" to announcement.title,
+            "message" to announcement.message,
+            "type" to announcement.type,
+            "imageUrl" to announcement.imageUrl,
+            "discountCode" to announcement.discountCode,
+            "discountPercent" to announcement.discountPercent,
+            "ctaText" to announcement.ctaText,
+            "targetCategory" to announcement.targetCategory,
+            "isActive" to announcement.isActive,
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+        docRef.set(data).await()
+        return docRef.id
     }
 
     // -------------------------------------------------------------

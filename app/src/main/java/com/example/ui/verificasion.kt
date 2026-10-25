@@ -7,8 +7,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -107,22 +110,27 @@ fun VerificasionScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Verificación y Pago",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal,
-                            fontFamily = FontFamily.Serif
-                        )
-                    )
-                },
-                navigationIcon = {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                color = Color.White,
+                tonalElevation = 0.dp,
+                shadowElevation = 3.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     IconButton(
                         onClick = onBack,
-                        modifier = Modifier.testTag("verificasion_back_btn")
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .testTag("verificasion_back_btn")
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -130,17 +138,34 @@ fun VerificasionScreen(
                             tint = EleganCharcoal
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = EleganIvory)
-            )
+
+                    Text(
+                        text = "Verificación y Pago",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = EleganCharcoal,
+                            fontFamily = FontFamily.Serif
+                        ),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
         },
         bottomBar = {
             Surface(
-                color = EleganIvory,
+                color = Color.White,
+                tonalElevation = 0.dp,
                 shadowElevation = 14.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Button(
                         onClick = {
                             if (customerName.isBlank() || email.isBlank() || address.isBlank() || city.isBlank()) {
@@ -154,8 +179,9 @@ fun VerificasionScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
+                            .fillMaxHeight()
                             .testTag("confirm_order_btn"),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = EleganBurgundy,
@@ -164,15 +190,18 @@ fun VerificasionScreen(
                         enabled = !isSubmitting
                     ) {
                         if (isSubmitting) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Confirmar y Pagar $${String.format("%.2f", total)}",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+                                    fontSize = 15.sp
                                 )
                             }
                         }

@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.model.Announcement
 import com.example.data.model.CartItem
 import com.example.data.model.Order
 import com.example.data.model.Product
@@ -169,6 +170,28 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
     fun saveProfile(phone: String, address: String, city: String) {
         viewModelScope.launch {
             repository.saveUserProfile(phone, address, city)
+        }
+    }
+
+    fun publishProduct(product: Product, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                repository.addProduct(product)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun publishAnnouncement(announcement: Announcement, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                repository.addAnnouncement(announcement)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
         }
     }
 }

@@ -11,15 +11,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ConfirmationNumber
@@ -81,8 +85,11 @@ fun CarritoScreen(
     onUpdateQuantity: (String, Long) -> Unit,
     onRemoveItem: (String) -> Unit,
     onNavigateToVerificasion: (Double, Double, Double, Double) -> Unit,
-    onExploreCatalog: () -> Unit
+    onExploreCatalog: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
+    BackHandler(onBack = onBack)
+
     var couponCode by remember { mutableStateOf("") }
     var discountPercent by remember { mutableDoubleStateOf(0.0) }
     val scope = rememberCoroutineScope()
@@ -114,89 +121,127 @@ fun CarritoScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Mi Carrito",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal,
-                                fontFamily = FontFamily.Serif
-                            )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                color = Color.White,
+                tonalElevation = 0.dp,
+                shadowElevation = 3.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .testTag("cart_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Regresar",
+                            tint = EleganCharcoal
                         )
-                        if (cartItems.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = EleganBurgundy
-                            ) {
-                                Text(
-                                    text = "${cartItems.sumOf { it.quantity }}",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = EleganIvory)
-            )
+
+                    Text(
+                        text = "Mi Carrito",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = EleganCharcoal,
+                            fontFamily = FontFamily.Serif
+                        ),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+
+                    val totalItems = cartItems.sumOf { it.quantity }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (totalItems > 0) EleganBurgundy else Color(0xFFDDD5CE),
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 12.dp)
+                            .testTag("cart_items_indicator")
+                    ) {
+                        Text(
+                            text = "$totalItems",
+                            color = if (totalItems > 0) Color.White else EleganCharcoal,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
         },
         bottomBar = {
             if (cartItems.isNotEmpty()) {
                 Surface(
-                    color = EleganIvory,
+                    color = Color.White,
+                    tonalElevation = 0.dp,
                     shadowElevation = 14.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            Column {
-                                Text(
-                                    text = "Total a Pagar",
-                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.Gray)
+                            Text(
+                                text = "Total a Pagar",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color.Gray,
+                                    fontSize = 11.sp
                                 )
-                                Text(
-                                    text = "$${String.format("%.2f", total)}",
-                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = EleganBurgundyDark
-                                    )
+                            )
+                            Text(
+                                text = "$${String.format("%.2f", total)}",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganBurgundyDark,
+                                    fontSize = 16.sp
                                 )
-                            }
+                            )
+                        }
 
-                            Button(
-                                onClick = {
-                                    onNavigateToVerificasion(subtotal, discountAmount, shippingCost, total)
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = EleganBurgundy,
-                                    contentColor = Color.White
-                                ),
-                                modifier = Modifier
-                                    .height(50.dp)
-                                    .testTag("checkout_continue_btn")
-                            ) {
-                                Text(
-                                    text = "Continuar",
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                        Button(
+                            onClick = {
+                                onNavigateToVerificasion(subtotal, discountAmount, shippingCost, total)
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EleganBurgundy,
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                            modifier = Modifier
+                                .height(44.dp)
+                                .testTag("checkout_continue_btn")
+                        ) {
+                            Text(
+                                text = "Continuar",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                 }

@@ -13,8 +13,13 @@ import androidx.core.view.WindowCompat
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -30,6 +35,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,6 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.admin.PublicarScreen
+import com.example.data.model.Announcement
+import com.example.data.model.Product
 import com.example.ui.CarritoScreen
 import com.example.ui.CatalogoScreen
 import com.example.ui.ChatsScreen
@@ -81,7 +90,8 @@ enum class Screen {
     VERIFICASION,
     GRACIA,
     PERFIL,
-    CHATS
+    CHATS,
+    PUBLICAR
 }
 
 class MainActivity : ComponentActivity() {
@@ -110,18 +120,20 @@ class MainActivity : ComponentActivity() {
             window.isStatusBarContrastEnforced = false
         }
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(
-                AndroidColor.TRANSPARENT,
-                AndroidColor.TRANSPARENT
+            statusBarStyle = SystemBarStyle.light(
+                AndroidColor.WHITE,
+                AndroidColor.WHITE
             ),
-            navigationBarStyle = SystemBarStyle.light(getColor(R.color.elegan_ivory))
+            navigationBarStyle = SystemBarStyle.light(
+                AndroidColor.WHITE,
+                AndroidColor.WHITE
+            )
         )
-        window.navigationBarColor = getColor(R.color.elegan_ivory)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
-        WindowCompat.getInsetsController(window, window.decorView)
-            .isAppearanceLightNavigationBars = true
+        window.navigationBarColor = AndroidColor.WHITE
+        window.statusBarColor = AndroidColor.WHITE
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.isAppearanceLightStatusBars = true
+        insetsController.isAppearanceLightNavigationBars = true
         setContent {
             EleganTheme {
                 MainApp(onAppReady = { isAppReady = true })
@@ -168,12 +180,12 @@ fun MainApp(onAppReady: () -> Unit) {
 
     val activity = context as? Activity
     LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-            activity?.window?.let { window ->
-                val controller = WindowCompat.getInsetsController(window, window.decorView)
-                controller.isAppearanceLightStatusBars = true
-                controller.isAppearanceLightNavigationBars = true
-            }
+        activity?.window?.let { window ->
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            controller.isAppearanceLightStatusBars = true
+            controller.isAppearanceLightNavigationBars = true
+            window.statusBarColor = AndroidColor.WHITE
+            window.navigationBarColor = AndroidColor.WHITE
         }
     }
 
@@ -233,118 +245,128 @@ fun AppContent(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar(
-                    modifier = Modifier.background(EleganIvory),
-                    containerColor = EleganIvory,
-                    tonalElevation = 0.dp
+                Surface(
+                    color = Color.White,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.INICIO,
-                        onClick = { navigateTo(Screen.INICIO) },
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") },
-                        label = { Text("Inicio", fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EleganBurgundy,
-                            selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.testTag("nav_inicio")
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                    ) {
+                        NavigationBar(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(60.dp),
+                            containerColor = Color.White,
+                            tonalElevation = 0.dp,
+                            windowInsets = WindowInsets(0, 0, 0, 0)
+                        ) {
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.INICIO,
+                            onClick = { navigateTo(Screen.INICIO) },
+                            icon = { Icon(Icons.Default.Home, contentDescription = "Inicio", modifier = Modifier.size(20.dp)) },
+                            label = { Text("Inicio", fontSize = 10.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = EleganBurgundy,
+                                selectedTextColor = EleganBurgundy,
+                                indicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.testTag("nav_inicio")
+                        )
 
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.CATALOGO,
-                        onClick = {
-                            viewModel.setCategory("todo")
-                            navigateTo(Screen.CATALOGO)
-                        },
-                        icon = { Icon(Icons.Default.GridView, contentDescription = "Catálogo") },
-                        label = { Text("Catálogo", fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EleganBurgundy,
-                            selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.testTag("nav_catalogo")
-                    )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.CATALOGO,
+                            onClick = {
+                                viewModel.setCategory("todo")
+                                navigateTo(Screen.CATALOGO)
+                            },
+                            icon = { Icon(Icons.Default.GridView, contentDescription = "Catálogo", modifier = Modifier.size(20.dp)) },
+                            label = { Text("Catálogo", fontSize = 10.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = EleganBurgundy,
+                                selectedTextColor = EleganBurgundy,
+                                indicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.testTag("nav_catalogo")
+                        )
 
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.CARRITO,
-                        onClick = { navigateTo(Screen.CARRITO) },
-                        icon = {
-                            val totalQty = cartItems.sumOf { it.quantity }
-                            if (totalQty > 0) {
-                                BadgedBox(
-                                    badge = {
-                                        Badge(
-                                            containerColor = EleganBurgundy,
-                                            contentColor = Color.White
-                                        ) {
-                                            Text("$totalQty")
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.CARRITO,
+                            onClick = { navigateTo(Screen.CARRITO) },
+                            icon = {
+                                val totalQty = cartItems.sumOf { it.quantity }
+                                if (totalQty > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge(
+                                                containerColor = EleganBurgundy,
+                                                contentColor = Color.White
+                                            ) {
+                                                Text("$totalQty", fontSize = 9.sp)
+                                            }
                                         }
+                                    ) {
+                                        Icon(Icons.Default.ShoppingBag, contentDescription = "Carrito", modifier = Modifier.size(20.dp))
                                     }
-                                ) {
-                                    Icon(Icons.Default.ShoppingBag, contentDescription = "Carrito")
+                                } else {
+                                    Icon(Icons.Default.ShoppingBag, contentDescription = "Carrito", modifier = Modifier.size(20.dp))
                                 }
-                            } else {
-                                Icon(Icons.Default.ShoppingBag, contentDescription = "Carrito")
-                            }
-                        },
-                        label = { Text("Carrito", fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EleganBurgundy,
-                            selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.testTag("nav_carrito")
-                    )
+                            },
+                            label = { Text("Carrito", fontSize = 10.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = EleganBurgundy,
+                                selectedTextColor = EleganBurgundy,
+                                indicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.testTag("nav_carrito")
+                        )
 
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.CHATS,
-                        onClick = { navigateTo(Screen.CHATS) },
-                        icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Soporte") },
-                        label = { Text("Soporte", fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EleganBurgundy,
-                            selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.testTag("nav_chats")
-                    )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.CHATS,
+                            onClick = { navigateTo(Screen.CHATS) },
+                            icon = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Soporte", modifier = Modifier.size(20.dp)) },
+                            label = { Text("Soporte", fontSize = 10.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = EleganBurgundy,
+                                selectedTextColor = EleganBurgundy,
+                                indicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.testTag("nav_chats")
+                        )
 
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.PERFIL,
-                        onClick = { navigateTo(Screen.PERFIL) },
-                        icon = { Icon(Icons.Default.PersonOutline, contentDescription = "Perfil") },
-                        label = { Text("Perfil", fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EleganBurgundy,
-                            selectedTextColor = EleganBurgundy,
-                            indicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.testTag("nav_perfil")
-                    )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.PERFIL,
+                            onClick = { navigateTo(Screen.PERFIL) },
+                            icon = { Icon(Icons.Default.PersonOutline, contentDescription = "Perfil", modifier = Modifier.size(20.dp)) },
+                            label = { Text("Perfil", fontSize = 10.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = EleganBurgundy,
+                                selectedTextColor = EleganBurgundy,
+                                indicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.testTag("nav_perfil")
+                        )
+                        }
+                    }
                 }
             }
         },
-        containerColor = EleganIvory
+        containerColor = Color.White
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (currentScreen == Screen.PRODUCTO) {
-                        Modifier.padding(bottom = innerPadding.calculateBottomPadding())
-                    } else {
-                        Modifier
-                            .padding(innerPadding)
-                            .consumeWindowInsets(innerPadding)
-                    }
-                )
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         ) {
             when (currentScreen) {
                 Screen.INICIO -> {
                     InicioScreen(
                         featuredProducts = products,
+                        userProfile = userProfile,
+                        cartItemCount = cartItems.sumOf { it.quantity },
                         onNavigateToCatalogo = { cat ->
                             viewModel.setCategory(cat)
                             navigateTo(Screen.CATALOGO)
@@ -354,7 +376,8 @@ fun AppContent(
                             navigateTo(Screen.PRODUCTO)
                         },
                         onNavigateToMenu = { navigateTo(Screen.MENU) },
-                        onNavigateToChats = { navigateTo(Screen.CHATS) }
+                        onNavigateToChats = { navigateTo(Screen.CHATS) },
+                        onNavigateToCart = { navigateTo(Screen.CARRITO) }
                     )
                 }
 
@@ -422,7 +445,8 @@ fun AppContent(
                         onExploreCatalog = {
                             viewModel.setCategory("todo")
                             navigateTo(Screen.CATALOGO)
-                        }
+                        },
+                        onBack = { navigateTo(previousScreen) }
                     )
                 }
 
@@ -470,6 +494,7 @@ fun AppContent(
                         orders = orders,
                         onSaveProfile = { ph, ad, ct -> viewModel.saveProfile(ph, ad, ct) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) },
+                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
                         onSignOut = onSignOut
                     )
                 }
@@ -477,7 +502,20 @@ fun AppContent(
                 Screen.CHATS -> {
                     ChatsScreen(
                         messages = messages,
-                        onSendMessage = { text -> viewModel.sendSupportMessage(text) }
+                        onSendMessage = { text -> viewModel.sendSupportMessage(text) },
+                        onBack = { navigateTo(previousScreen) }
+                    )
+                }
+
+                Screen.PUBLICAR -> {
+                    PublicarScreen(
+                        onPublishProduct = { prod: Product ->
+                            viewModel.publishProduct(prod)
+                        },
+                        onPublishAnnouncement = { ann: Announcement ->
+                            viewModel.publishAnnouncement(ann)
+                        },
+                        onBack = { navigateTo(previousScreen) }
                     )
                 }
             }

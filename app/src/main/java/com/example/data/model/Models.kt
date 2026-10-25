@@ -13,13 +13,23 @@ data class Product(
     val category: String = "todo", // gorra, gafa, camisa, correa, pantalone, zapato, interiore, perfume
     val price: Double = 0.0,
     val imageUrl: String = "",
+    val images: List<String> = emptyList(),
     val rating: Double = 5.0,
     val reviewCount: Long = 0L,
     val sizes: List<String> = emptyList(),
     val inStock: Boolean = true,
     val isFeatured: Boolean = false,
+    val mediaFormat: String = "1:1", // "1:1", "3:4", "4:3"
     @ServerTimestamp val createdAt: Timestamp? = null
 )
+
+val Product.aspectRatioValue: Float
+    get() = when (mediaFormat.trim()) {
+        "3:4" -> 3f / 4f
+        "4:3" -> 4f / 3f
+        else -> 1f // default 1:1
+    }
+
 
 @IgnoreExtraProperties
 data class CartItem(
@@ -73,6 +83,21 @@ data class UserProfile(
     val address: String = "",
     val city: String = "",
     @ServerTimestamp val updatedAt: Timestamp? = null
+)
+
+@IgnoreExtraProperties
+data class Announcement(
+    @DocumentId val id: String = "",
+    val title: String = "",
+    val message: String = "",
+    val type: String = "banner", // "banner", "historia_9_16", "descuento", "coleccion"
+    val imageUrl: String = "",
+    val discountCode: String = "",
+    val discountPercent: Double = 0.0,
+    val ctaText: String = "Ver Más",
+    val targetCategory: String = "todo",
+    val isActive: Boolean = true,
+    @ServerTimestamp val createdAt: Timestamp? = null
 )
 
 enum class StoreCategory(val id: String, val title: String, val iconName: String) {

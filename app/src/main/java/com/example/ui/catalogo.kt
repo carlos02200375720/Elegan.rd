@@ -1,10 +1,12 @@
 package com.example.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,7 +18,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -49,6 +53,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,12 +62,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,6 +96,15 @@ fun CatalogoScreen(
     var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val categoryListState = rememberLazyListState()
+
+    LaunchedEffect(selectedCategory) {
+        val categories = StoreCategory.values()
+        val targetIndex = categories.indexOfFirst { it.id.equals(selectedCategory, ignoreCase = true) }
+        if (targetIndex >= 0) {
+            categoryListState.animateScrollToItem(targetIndex)
+        }
+    }
 
     val filteredProducts = remember(products, selectedCategory, searchQuery) {
         products.filter { prod ->
@@ -103,13 +119,14 @@ fun CatalogoScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                color = EleganIvory,
-                tonalElevation = 2.dp
+                color = Color.White,
+                shadowElevation = 2.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -133,7 +150,7 @@ fun CatalogoScreen(
                             .weight(1f)
                             .height(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
+                            .background(Color(0xFFF6F5F2))
                             .border(1.dp, Color(0xFFDDD5CE), CircleShape)
                             .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -192,41 +209,96 @@ fun CatalogoScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .testTag("catalogo_screen"),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 40.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Categories horizontal scroll chips
+            // Carrusel de categorías en tarjetas 9:16 (estética historias/estados, exactamente 4 visibles)
             item(span = { GridItemSpan(2) }) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 4.dp)
                 ) {
-                    items(StoreCategory.values()) { cat ->
-                        val isSelected = selectedCategory.equals(cat.id, ignoreCase = true)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onCategoryChange(cat.id) },
-                            label = {
-                                Text(
-                                    text = cat.title,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 13.sp
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(EleganBurgundy)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Categorías",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal,
+                                    fontFamily = FontFamily.Serif
                                 )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = EleganBurgundy,
-                                selectedLabelColor = Color.White,
-                                containerColor = Color.White,
-                                labelColor = EleganCharcoal
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                borderColor = if (isSelected) EleganBurgundy else Color(0xFFE2DCD5),
-                                enabled = true,
-                                selected = isSelected
-                            ),
-                            modifier = Modifier.testTag("filter_chip_${cat.id}")
-                        )
+                            )
+                        }
+
+                        if (selectedCategory != "todo") {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = EleganBurgundy.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, EleganBurgundy.copy(alpha = 0.35f)),
+                                modifier = Modifier.clickable { onCategoryChange("todo") }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Ver todo",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = EleganBurgundy,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Limpiar filtro",
+                                        tint = EleganBurgundy,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    BoxWithConstraints(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val spacing = 8.dp
+                        val cardWidth = ((maxWidth - (spacing * 3)) / 4).coerceAtLeast(70.dp)
+
+                        LazyRow(
+                            state = categoryListState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("catalogo_category_stories_row"),
+                            horizontalArrangement = Arrangement.spacedBy(spacing),
+                            contentPadding = PaddingValues(vertical = 2.dp)
+                        ) {
+                            items(StoreCategory.values()) { cat ->
+                                val isSelected = selectedCategory.equals(cat.id, ignoreCase = true)
+                                CatalogoCategoryStoryCard(
+                                    category = cat,
+                                    cardWidth = cardWidth,
+                                    isSelected = isSelected,
+                                    onClick = { onCategoryChange(cat.id) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -419,3 +491,153 @@ fun ProductGridCard(
         }
     }
 }
+
+@Composable
+fun CatalogoCategoryStoryCard(
+    category: StoreCategory,
+    cardWidth: androidx.compose.ui.unit.Dp,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val borderStroke = if (isSelected) {
+        BorderStroke(
+            2.5.dp,
+            Brush.verticalGradient(
+                colors = listOf(
+                    EleganGold,
+                    EleganBurgundy
+                )
+            )
+        )
+    } else {
+        BorderStroke(
+            1.dp,
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFE5DDD5),
+                    Color(0xFFC8BFB5)
+                )
+            )
+        )
+    }
+
+    Surface(
+        modifier = Modifier
+            .width(cardWidth)
+            .aspectRatio(9f / 16f)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .testTag("catalogo_cat_story_${category.id}"),
+        shape = RoundedCornerShape(10.dp),
+        border = borderStroke,
+        shadowElevation = if (isSelected) 6.dp else 2.dp,
+        color = EleganCharcoal
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Imagen representativa de la categoría
+            AsyncImage(
+                model = getCategoryStoryImage(category),
+                contentDescription = category.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Gradiente oscuro de fondo (superior para icono, inferior para texto)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = if (isSelected) 0.5f else 0.4f),
+                            0.28f to Color.Transparent,
+                            0.52f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.90f)
+                        )
+                    )
+            )
+
+            // Indicador / Avatar circular superior estilo estado de WhatsApp / historia de Instagram
+            Box(
+                modifier = Modifier
+                    .padding(5.dp)
+                    .align(Alignment.TopStart)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) EleganBurgundy else Color.Black.copy(alpha = 0.6f))
+                    .border(
+                        1.dp,
+                        if (isSelected) EleganGold else Color.White.copy(alpha = 0.8f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = getCategoryStoryIcon(category),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+
+            // Si está seleccionada, indicador activo dorado en la esquina superior derecha
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .padding(5.dp)
+                        .align(Alignment.TopEnd)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(EleganGold)
+                        .border(1.dp, Color.White, CircleShape)
+                )
+            }
+
+            // Nombre de la categoría en la parte inferior
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(EleganBurgundy.copy(alpha = 0.85f))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = category.title,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                fontSize = 9.5.sp,
+                                lineHeight = 11.sp,
+                                fontFamily = FontFamily.Serif
+                            ),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    Text(
+                        text = category.title,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 9.5.sp,
+                            lineHeight = 11.sp,
+                            fontFamily = FontFamily.Serif
+                        ),
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
