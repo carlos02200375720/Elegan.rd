@@ -2,6 +2,7 @@ package com.example.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LocationOn
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -98,6 +103,7 @@ fun PerfilScreen(
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -114,16 +120,18 @@ fun PerfilScreen(
                     .fillMaxSize()
                     .background(EleganIvory)
                     .testTag("perfil_screen"),
+                state = listState,
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
+                    Column {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -199,6 +207,85 @@ fun PerfilScreen(
                                     )
                                 }
                             }
+                        }
+                        }
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                ProfileMenuItem(
+                                    label = "Guardados",
+                                    icon = Icons.Default.Bookmark,
+                                    testTag = "profile_saved_menu",
+                                    onClick = { scope.launch { listState.animateScrollToItem(1) } }
+                                )
+                                ProfileMenuItem(
+                                    label = "Pedidos",
+                                    icon = Icons.Default.ReceiptLong,
+                                    testTag = "profile_orders_menu",
+                                    onClick = { scope.launch { listState.animateScrollToItem(6) } }
+                                )
+                                ProfileMenuItem(
+                                    label = "Entrega",
+                                    icon = Icons.Default.LocationOn,
+                                    testTag = "profile_delivery_menu",
+                                    onClick = { scope.launch { listState.animateScrollToItem(2) } }
+                                )
+                                ProfileMenuItem(
+                                    label = "Ajustes",
+                                    icon = Icons.Default.Settings,
+                                    testTag = "profile_settings_menu",
+                                    onClick = {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                "La configuración estará disponible próximamente"
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .testTag("profile_saved_section"),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bookmark,
+                                contentDescription = null,
+                                tint = EleganBurgundy,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Publicaciones guardadas",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal
+                                )
+                            )
+                            Text(
+                                text = "Tus publicaciones guardadas aparecerán aquí.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            )
                         }
                     }
                 }
@@ -540,6 +627,38 @@ fun PerfilScreen(
             }
 
         }
+    }
+}
+
+@Composable
+private fun ProfileMenuItem(
+    label: String,
+    icon: ImageVector,
+    testTag: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .testTag(testTag)
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = EleganBurgundy,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = EleganCharcoal,
+                fontWeight = FontWeight.Medium
+            )
+        )
     }
 }
 
