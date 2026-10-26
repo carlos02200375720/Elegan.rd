@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.Announcement
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 class EleganViewModel(application: Application) : AndroidViewModel(application) {
@@ -194,13 +196,16 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun publishProduct(product: Product, onResult: (Boolean) -> Unit = {}) {
+    fun publishProduct(product: Product, onResult: (Result<Unit>) -> Unit = {}) {
         viewModelScope.launch {
             try {
                 repository.addProduct(product)
-                onResult(true)
+                onResult(Result.success(Unit))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                onResult(false)
+                Log.e("EleganViewModel", "No se pudo publicar el producto.", e)
+                onResult(Result.failure(e))
             }
         }
     }

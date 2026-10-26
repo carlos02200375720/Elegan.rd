@@ -1,6 +1,9 @@
 package com.example.data.repository
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.util.Log
 import com.example.R
 import com.example.data.model.Announcement
 import com.example.data.model.CartItem
@@ -16,6 +19,11 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.snapshots
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +36,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class EleganRepository(
     private val db: FirebaseFirestore,
@@ -189,25 +198,135 @@ class EleganRepository(
         } else {
             db.collection("products").document()
         }
+        val productWithUploadedMedia = uploadProductMedia(product, docRef.id)
         val data = mapOf(
-            "name" to product.name,
-            "description" to product.description,
-            "category" to product.category,
-            "price" to product.price,
-            "imageUrl" to product.imageUrl,
-            "images" to product.images,
-            "rating" to product.rating,
-            "reviewCount" to product.reviewCount,
-            "sizes" to product.sizes,
-            "inStock" to product.inStock,
-            "isFeatured" to product.isFeatured,
-            "mediaFormat" to product.mediaFormat,
-            "videoUrl" to product.videoUrl,
-            "isVideo" to product.isVideo,
+            "name" to productWithUploadedMedia.name,
+            "description" to productWithUploadedMedia.description,
+            "category" to productWithUploadedMedia.category,
+            "price" to productWithUploadedMedia.price,
+            "imageUrl" to productWithUploadedMedia.imageUrl,
+            "images" to productWithUploadedMedia.images,
+            "rating" to productWithUploadedMedia.rating,
+            "reviewCount" to productWithUploadedMedia.reviewCount,
+            "sizes" to productWithUploadedMedia.sizes,
+            "inStock" to productWithUploadedMedia.inStock,
+            "isFeatured" to productWithUploadedMedia.isFeatured,
+            "mediaFormat" to productWithUploadedMedia.mediaFormat,
+            "videoUrl" to productWithUploadedMedia.videoUrl,
+            "isVideo" to productWithUploadedMedia.isVideo,
             "createdAt" to FieldValue.serverTimestamp()
         )
         docRef.set(data).await()
         return docRef.id
+    }
+
+    private suspend fun uploadProductMedia(product: Product, productId: String): Product {
+        val appContext = context
+            ?: throw IllegalStateException("No hay contexto disponible para subir los archivos del producto.")
+        val sourceVideo = product.videoUrl.takeIf { product.isVideo }.orEmpty()
+        var generatedThumbnail: File? = null
+
+        try {
+            val coverSource = product.imageUrl.ifBlank {
+                if (product.isVideo) {
+                    val thumbnail = withContext(Dispatchers.IO) {
+                        createVideoThumbnail(appContext, sourceVideo)
+                    }
+                    generatedThumbnail = thumbnail
+                    Uri.fromFile(thumbnail).toString()
+                } else {
+                    product.images.firstOrNull().orEmpty()
+                }
+            }
+            val uploadedVideoUrl = if (product.isVideo) {
+                uploadProductFile(sourceVideo, productId, "video")
+            } else {
+                ""
+            }
+            val uploadedCoverUrl = coverSource.takeIf { it.isNotBlank() }
+                ?.let { uploadProductFile(it, productId, "cover") }
+                .orEmpty()
+            val uploadedGallery = (product.images + listOfNotNull(product.imageUrl.takeIf { it.isNotBlank() }))
+                .distinct()
+                .filterNot { it == coverSource }
+                .mapIndexed { index, image -> uploadProductFile(image, productId, "gallery_$index") }
+            val normalizedImages = (listOf(uploadedCoverUrl) + uploadedGallery)
+                .filter { it.isNotBlank() }
+                .distinct()
+
+            return product.copy(
+                imageUrl = uploadedCoverUrl,
+                images = normalizedImages,
+                videoUrl = uploadedVideoUrl
+            )
+        } finally {
+            generatedThumbnail?.delete()
+        }
+    }
+
+    private suspend fun uploadProductFile(source: String, productId: String, label: String): String {
+        if (source.isBlank()) {
+            throw IllegalArgumentException("Falta seleccionar un archivo multimedia del producto.")
+        }
+
+        val uri = Uri.parse(source)
+        if (uri.scheme == "https" || uri.scheme == "http") return source
+        if (uri.scheme != "content" && uri.scheme != "file") {
+            throw IllegalArgumentException("El archivo seleccionado no tiene una ubicación válida.")
+        }
+
+        val appContext = context
+            ?: throw IllegalStateException("No hay contexto disponible para subir los archivos del producto.")
+        val mimeType = appContext.contentResolver.getType(uri)
+            ?: if (label == "video") "video/mp4" else "image/jpeg"
+        val extension = android.webkit.MimeTypeMap.getSingleton()
+            .getExtensionFromMimeType(mimeType)
+            ?.takeIf { it.isNotBlank() }
+            ?: if (label == "video") "mp4" else "jpg"
+        val storageRef = FirebaseStorage.getInstance()
+            .reference
+            .child("product-media/$productId/${label}_${UUID.randomUUID()}.$extension")
+        val metadata = StorageMetadata.Builder()
+            .setContentType(mimeType)
+            .build()
+
+        storageRef.putFile(uri, metadata).await()
+        return storageRef.downloadUrl.await().toString()
+    }
+
+    private fun createVideoThumbnail(context: Context, videoSource: String): File {
+        val uri = Uri.parse(videoSource)
+        if (uri.scheme != "content" && uri.scheme != "file") {
+            throw IllegalArgumentException("Selecciona una foto de portada para este video.")
+        }
+
+        val retriever = MediaMetadataRetriever()
+        val thumbnail = File.createTempFile("product_video_cover_", ".jpg", context.cacheDir)
+        try {
+            retriever.setDataSource(context, uri)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+                ?: 0L
+            val frameTimeUs = durationMs.coerceAtLeast(0L) * 100L
+            val frame = retriever.getFrameAtTime(frameTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                ?: throw IllegalStateException("No se pudo crear la portada del video. Selecciona una foto de portada.")
+            try {
+                FileOutputStream(thumbnail).use { output ->
+                    if (!frame.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, output)) {
+                        throw IllegalStateException("No se pudo guardar la portada del video.")
+                    }
+                }
+            } finally {
+                frame.recycle()
+            }
+            return thumbnail
+        } catch (exception: Exception) {
+            thumbnail.delete()
+            Log.e("EleganRepository", "No se pudo generar la portada del video del producto.", exception)
+            throw exception
+        } finally {
+            retriever.release()
+        }
     }
 
     suspend fun addAnnouncement(announcement: Announcement): String {

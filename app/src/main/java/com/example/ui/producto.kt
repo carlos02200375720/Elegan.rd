@@ -1,5 +1,8 @@
 package com.example.ui
 
+import android.net.Uri
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +38,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
@@ -56,6 +60,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,10 +73,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.data.model.Product
 import com.example.ui.theme.EleganBurgundy
@@ -100,6 +108,7 @@ fun ProductoScreen(
 
     val galleryImages = remember(product) { getProductGalleryImages(product) }
     val pagerState = rememberPagerState(pageCount = { galleryImages.size })
+    var showVideoPlayer by remember(product.videoUrl) { mutableStateOf(false) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -272,6 +281,36 @@ fun ProductoScreen(
                             )
                         }
 
+                        if (product.isVideo && product.videoUrl.isNotBlank()) {
+                            Surface(
+                                onClick = { showVideoPlayer = true },
+                                shape = RoundedCornerShape(24.dp),
+                                color = EleganBurgundy.copy(alpha = 0.92f),
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 52.dp)
+                                    .testTag("play_product_video")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayCircle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Reproducir video",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+
                         // Etiqueta de categoría en esquina superior izquierda
                         Surface(
                             shape = RoundedCornerShape(bottomEnd = 12.dp),
@@ -318,6 +357,7 @@ fun ProductoScreen(
                                 )
                             }
                         }
+
                     }
                 }
 
@@ -534,6 +574,60 @@ fun ProductoScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
                     }
+            }
+        }
+    }
+
+    if (showVideoPlayer) {
+        ProductVideoDialog(
+            videoUrl = product.videoUrl,
+            onDismiss = { showVideoPlayer = false }
+        )
+    }
+}
+
+@Composable
+private fun ProductVideoDialog(videoUrl: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var playbackFailed by remember(videoUrl) { mutableStateOf(false) }
+    val videoView = remember(videoUrl) {
+        VideoView(context).also { view ->
+            val controller = MediaController(context)
+            controller.setAnchorView(view)
+            view.setMediaController(controller)
+            view.setVideoURI(Uri.parse(videoUrl))
+            view.setOnPreparedListener { view.start() }
+            view.setOnErrorListener { _, _, _ ->
+                playbackFailed = true
+                true
+            }
+        }
+    }
+
+    DisposableEffect(videoView) {
+        onDispose { videoView.stopPlayback() }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.Black
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                AndroidView(
+                    factory = { videoView },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                )
+                if (playbackFailed) {
+                    Text(
+                        text = "No se pudo reproducir este video.",
+                        color = Color.White,
+                        modifier = Modifier.padding(20.dp)
+                    )
+                }
             }
         }
     }

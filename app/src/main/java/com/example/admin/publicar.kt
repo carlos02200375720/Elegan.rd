@@ -104,7 +104,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun PublicarScreen(
-    onPublishProduct: (Product) -> Unit = {},
+    onPublishProduct: (Product, (Result<Unit>) -> Unit) -> Unit = { _, onResult ->
+        onResult(Result.failure(IllegalStateException("No se configuró la publicación de productos.")))
+    },
     onPublishAnnouncement: (Announcement) -> Unit = {},
     onBack: () -> Unit
 ) {
@@ -153,9 +155,6 @@ fun PublicarScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             productVideoUrl = uri.toString()
-            if (productMainImageUrl.isBlank()) {
-                productMainImageUrl = uri.toString()
-            }
         }
     }
 
@@ -1170,20 +1169,14 @@ fun PublicarScreen(
                                 }
 
                                 isSubmittingProduct = true
-                                val effectiveImageUrl = if (productMainImageUrl.isNotBlank()) {
-                                    productMainImageUrl.trim()
-                                } else if (productMediaType == "video") {
-                                    productVideoUrl.trim()
-                                } else {
-                                    ""
-                                }
+                                val effectiveImageUrl = productMainImageUrl.trim()
                                 val newProduct = Product(
                                     name = productName.trim(),
                                     description = productDescription.trim(),
                                     category = productCategory,
                                     price = priceValue,
                                     imageUrl = effectiveImageUrl,
-                                    images = if (productGalleryImages.isNotEmpty()) listOf(effectiveImageUrl) + productGalleryImages else if (effectiveImageUrl.isNotBlank()) listOf(effectiveImageUrl) else emptyList(),
+                                    images = (listOf(effectiveImageUrl).filter { it.isNotBlank() } + productGalleryImages).distinct(),
                                     sizes = if (selectedSizes.isNotEmpty()) selectedSizes.toList() else listOf("Estándar"),
                                     inStock = isProductInStock,
                                     isFeatured = isProductFeatured,
@@ -1192,16 +1185,24 @@ fun PublicarScreen(
                                     isVideo = (productMediaType == "video")
                                 )
 
-                                onPublishProduct(newProduct)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("¡Producto '${newProduct.name}' publicado con éxito!")
-                                    productName = ""
-                                    productDescription = ""
-                                    productPriceText = ""
-                                    productMainImageUrl = ""
-                                    productVideoUrl = ""
-                                    productGalleryImages.clear()
-                                    isSubmittingProduct = false
+                                onPublishProduct(newProduct) { result ->
+                                    scope.launch {
+                                        result.onSuccess {
+                                            snackbarHostState.showSnackbar("¡Producto '${newProduct.name}' publicado con éxito!")
+                                            productName = ""
+                                            productDescription = ""
+                                            productPriceText = ""
+                                            productMainImageUrl = ""
+                                            productVideoUrl = ""
+                                            productGalleryImages.clear()
+                                        }.onFailure { error ->
+                                            snackbarHostState.showSnackbar(
+                                                error.localizedMessage
+                                                    ?: "No se pudo publicar el producto. Verifica Firebase Storage e inténtalo de nuevo."
+                                            )
+                                        }
+                                        isSubmittingProduct = false
+                                    }
                                 }
                             },
                             modifier = Modifier

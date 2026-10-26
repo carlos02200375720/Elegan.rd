@@ -381,6 +381,7 @@ fun AppContent(
                             navigateTo(Screen.PRODUCTO)
                         },
                         onNavigateToMenu = { navigateTo(Screen.MENU_ADMIN) },
+                        onNavigateToCategoryMenu = { navigateTo(Screen.MENU) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) },
                         onNavigateToCart = { navigateTo(Screen.CARRITO) }
                     )
@@ -402,7 +403,7 @@ fun AppContent(
                         products = products,
                         selectedCategory = selectedCategory,
                         onCategoryChange = { viewModel.setCategory(it) },
-                        onNavigateToMenu = { navigateTo(Screen.MENU_ADMIN) },
+                        onNavigateToMenu = { navigateTo(Screen.MENU) },
                         onProductClick = { prod ->
                             viewModel.selectProduct(prod)
                             navigateTo(Screen.PRODUCTO)
@@ -515,8 +516,8 @@ fun AppContent(
 
                 Screen.PUBLICAR -> {
                     PublicarScreen(
-                        onPublishProduct = { prod: Product ->
-                            viewModel.publishProduct(prod)
+                        onPublishProduct = { prod: Product, onResult: (Result<Unit>) -> Unit ->
+                            viewModel.publishProduct(prod, onResult)
                         },
                         onPublishAnnouncement = { ann: Announcement ->
                             viewModel.publishAnnouncement(ann)

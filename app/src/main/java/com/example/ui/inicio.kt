@@ -126,6 +126,7 @@ fun InicioScreen(
     onNavigateToCatalogo: (String) -> Unit,
     onNavigateToProduct: (Product) -> Unit,
     onNavigateToMenu: () -> Unit,
+    onNavigateToCategoryMenu: () -> Unit = onNavigateToMenu,
     onNavigateToChats: () -> Unit,
     onNavigateToCart: () -> Unit = {}
 ) {
@@ -198,7 +199,7 @@ fun InicioScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = onNavigateToMenu,
+                            onClick = onNavigateToCategoryMenu,
                             modifier = Modifier.testTag("inicio_menu_button")
                         ) {
                             Icon(
@@ -1053,13 +1054,13 @@ fun ProductPublicationPost(
                 .fillMaxWidth()
                 .aspectRatio(ratio)
                 .clip(RectangleShape)
-                .background(Color(0xFF141414)),
+                .background(Color(0xFFF0EBE3)),
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
                 model = product.imageUrl,
                 contentDescription = product.name,
-                contentScale = ContentScale.Fit, // No recorta la imagen
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable { onProductClick() }

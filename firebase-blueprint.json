@@ -10,6 +10,13 @@
         "category": { "type": "string" },
         "price": { "type": "number" },
         "imageUrl": { "type": "string" },
+        "images": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mediaFormat": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "isVideo": { "type": "boolean" },
         "rating": { "type": "number" },
         "reviewCount": { "type": "integer" },
         "sizes": {
