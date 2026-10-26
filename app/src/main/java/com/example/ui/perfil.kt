@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,8 +50,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -102,129 +101,114 @@ fun PerfilScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                modifier = Modifier.height(50.dp),
-                navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateToMenuAdmin,
-                        modifier = Modifier.testTag("perfil_menu_admin_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menú Administración",
-                            tint = EleganCharcoal
-                        )
-                    }
-                },
-                title = {},
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.Transparent
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(EleganIvory)
-                .padding(horizontal = 20.dp)
-                .testTag("perfil_screen"),
-            contentPadding = PaddingValues(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Profile Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(EleganIvory)
+                    .testTag("perfil_screen"),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
-                        val photoUrl = user?.photoUrl?.toString() ?: userProfile?.photoUrl
-                        if (!photoUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = photoUrl,
-                                contentDescription = "Foto de perfil",
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF0EBE3)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.icono),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(56.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = user?.displayName ?: userProfile?.displayName ?: "Caballero Elegan",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal,
-                                fontFamily = FontFamily.Serif
-                            )
-                        )
-
-                        Text(
-                            text = user?.email ?: userProfile?.email ?: "",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = EleganBurgundyDark
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding()
+                                .padding(top = 70.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Diamond,
-                                    contentDescription = null,
-                                    tint = EleganGold,
-                                    modifier = Modifier.size(14.dp)
+                            val photoUrl = user?.photoUrl?.toString() ?: userProfile?.photoUrl
+                            if (!photoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = photoUrl,
+                                    contentDescription = "Foto de perfil",
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "MIEMBRO CLUB ELEGAN",
-                                    fontSize = 11.sp,
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF0EBE3)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.icono),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(56.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = user?.displayName ?: userProfile?.displayName ?: "Caballero Elegan",
+                                style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    letterSpacing = 1.sp
+                                    color = EleganCharcoal,
+                                    fontFamily = FontFamily.Serif
                                 )
+                            )
+
+                            Text(
+                                text = user?.email ?: userProfile?.email ?: "",
+                                style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = EleganBurgundyDark
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Diamond,
+                                        contentDescription = null,
+                                        tint = EleganGold,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "MIEMBRO CLUB ELEGAN",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Edit Delivery Info
-            item {
+                // Edit Delivery Info
+                item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -316,11 +300,12 @@ fun PerfilScreen(
                 }
             }
 
-            // Customer Support shortcut card
-            item {
+                // Customer Support shortcut card
+                item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(16.dp)),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF26292E)),
                     onClick = onNavigateToChats
@@ -361,11 +346,12 @@ fun PerfilScreen(
                 }
             }
 
-            // Panel de Publicación Admin (Publicar Producto y Anuncio)
-            item {
+                // Panel de Publicación Admin (Publicar Producto y Anuncio)
+                item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .testTag("profile_admin_publicar_card"),
                     colors = CardDefaults.cardColors(containerColor = EleganBurgundyDark),
@@ -407,11 +393,12 @@ fun PerfilScreen(
                 }
             }
 
-            // Acceso a Menú Admin (menuadmin.kt)
-            item {
+                // Acceso a Menú Admin (menuadmin.kt)
+                item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .testTag("profile_admin_menu_card"),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -454,11 +441,12 @@ fun PerfilScreen(
                 }
             }
 
-            // Orders Header
-            item {
+                // Orders Header
+                item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
                         .padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -474,10 +462,12 @@ fun PerfilScreen(
                 }
             }
 
-            if (orders.isEmpty()) {
-                item {
+                if (orders.isEmpty()) {
+                    item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -493,46 +483,70 @@ fun PerfilScreen(
                             )
                         }
                     }
+                    }
+                } else {
+                    items(orders) { order ->
+                        OrderHistoryItemCard(
+                            order = order,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                    }
                 }
-            } else {
-                items(orders) { order ->
-                    OrderHistoryItemCard(order = order)
-                }
-            }
 
-            // Sign out button
-            item {
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedButton(
-                    onClick = onSignOut,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("sign_out_button"),
+                // Sign out button
+                item {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = onSignOut,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .height(50.dp)
+                            .testTag("sign_out_button"),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB00020)),
                     border = ButtonDefaults.outlinedButtonBorder.copy(
                         brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE57373))
                     )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Cerrar Sesión", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(30.dp))
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .height(50.dp)
+            ) {
+                IconButton(
+                    onClick = onNavigateToMenuAdmin,
+                    modifier = Modifier.testTag("perfil_menu_admin_button")
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menú Administración",
+                        tint = EleganCharcoal
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Cerrar Sesión", fontWeight = FontWeight.Bold)
                 }
-                Spacer(modifier = Modifier.height(30.dp))
             }
+
         }
     }
 }
 
 @Composable
-fun OrderHistoryItemCard(order: Order) {
+fun OrderHistoryItemCard(order: Order, modifier: Modifier = Modifier) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
