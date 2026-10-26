@@ -104,6 +104,7 @@ fun PerfilScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(50.dp),
                 navigationIcon = {
                     IconButton(
                         onClick = onNavigateToMenuAdmin,
@@ -116,18 +117,9 @@ fun PerfilScreen(
                         )
                     }
                 },
-                title = {
-                    Text(
-                        text = "Mi Perfil",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal,
-                            fontFamily = FontFamily.Serif
-                        )
-                    )
-                },
+                title = {},
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = EleganIvory)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
