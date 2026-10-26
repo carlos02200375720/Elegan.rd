@@ -253,7 +253,84 @@ fun MenuAdminScreen(
                 )
             }
 
-            // 1. ENLACE A PUBLICAR.KT
+            // 1. ENLACE A PERFIL.KT
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onNavigateToPerfil() }
+                        .testTag("menuadmin_link_perfil"),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF26292E).copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = "Perfil",
+                                tint = Color(0xFF26292E),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Mi Perfil de Usuario",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = EleganCharcoal
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = Color(0xFFEAEAEA),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "perfil.kt",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.DarkGray,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Gestionar datos de contacto, dirección de entrega, pedidos e historial",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color.Gray,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Ir a perfil",
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 2. ENLACE A PUBLICAR.KT
             item {
                 Card(
                     modifier = Modifier
@@ -330,7 +407,7 @@ fun MenuAdminScreen(
                 }
             }
 
-            // 2. ENLACE A PUBLICASIONE.KT (Control y administración de todas las publicaciones)
+            // 3. ENLACE A PUBLICASIONE.KT (Control y administración de todas las publicaciones)
             item {
                 Card(
                     modifier = Modifier
@@ -344,12 +421,12 @@ fun MenuAdminScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(40.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(EleganGold.copy(alpha = 0.18f)),
                             contentAlignment = Alignment.Center
@@ -358,11 +435,11 @@ fun MenuAdminScreen(
                                 imageVector = Icons.Default.Inventory2,
                                 contentDescription = "Publicaciones",
                                 tint = EleganBurgundy,
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(14.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -373,111 +450,13 @@ fun MenuAdminScreen(
                                         color = EleganCharcoal
                                     )
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    color = EleganBurgundy.copy(alpha = 0.1f),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = "publicasione.kt",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = EleganBurgundy,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                    )
-                                }
                             }
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(
-                                text = "Controlar y administrar todas las publicaciones existentes (stock, estado y eliminación)",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color.Gray,
-                                    fontSize = 12.sp
-                                )
-                            )
                         }
 
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Ir a control de publicaciones",
                             tint = EleganBurgundy,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // 3. ENLACE A PERFIL.KT
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onNavigateToPerfil() }
-                        .testTag("menuadmin_link_perfil"),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26292E).copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = "Perfil",
-                                tint = Color(0xFF26292E),
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Mi Perfil de Usuario",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = EleganCharcoal
-                                    )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    color = Color(0xFFEAEAEA),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = "perfil.kt",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.DarkGray,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(
-                                text = "Gestionar datos de contacto, dirección de entrega, pedidos e historial",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color.Gray,
-                                    fontSize = 12.sp
-                                )
-                            )
-                        }
-
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Ir a perfil",
-                            tint = Color.DarkGray,
                             modifier = Modifier.size(20.dp)
                         )
                     }
