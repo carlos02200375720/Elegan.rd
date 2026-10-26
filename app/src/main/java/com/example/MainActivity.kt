@@ -380,7 +380,7 @@ fun AppContent(
                             viewModel.selectProduct(prod)
                             navigateTo(Screen.PRODUCTO)
                         },
-                        onNavigateToMenu = { navigateTo(Screen.MENU_ADMIN) },
+                        onNavigateToMenu = { navigateTo(Screen.MENU) },
                         onNavigateToCategoryMenu = { navigateTo(Screen.MENU) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) },
                         onNavigateToCart = { navigateTo(Screen.CARRITO) }

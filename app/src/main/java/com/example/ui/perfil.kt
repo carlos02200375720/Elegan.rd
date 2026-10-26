@@ -123,12 +123,13 @@ fun PerfilScreen(
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = EleganIvory
+        containerColor = Color.Transparent
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(EleganIvory)
                 .padding(horizontal = 20.dp)
                 .testTag("perfil_screen"),
             contentPadding = PaddingValues(bottom = 16.dp),
