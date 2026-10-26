@@ -19,7 +19,9 @@ data class Product(
     val sizes: List<String> = emptyList(),
     val inStock: Boolean = true,
     val isFeatured: Boolean = false,
-    val mediaFormat: String = "1:1", // "1:1", "3:4", "4:3"
+    val mediaFormat: String = "1:1", // "1:1", "3:4", "4:3", "9:16", "16:9"
+    val videoUrl: String = "",
+    val isVideo: Boolean = false,
     @ServerTimestamp val createdAt: Timestamp? = null
 )
 
@@ -27,6 +29,8 @@ val Product.aspectRatioValue: Float
     get() = when (mediaFormat.trim()) {
         "3:4" -> 3f / 4f
         "4:3" -> 4f / 3f
+        "9:16" -> 9f / 16f
+        "16:9" -> 16f / 9f
         else -> 1f // default 1:1
     }
 
@@ -97,6 +101,8 @@ data class Announcement(
     val ctaText: String = "Ver Más",
     val targetCategory: String = "todo",
     val isActive: Boolean = true,
+    val videoUrl: String = "",
+    val isVideo: Boolean = false,
     @ServerTimestamp val createdAt: Timestamp? = null
 )
 

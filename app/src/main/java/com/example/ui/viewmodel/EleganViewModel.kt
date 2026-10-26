@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -38,13 +39,32 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
     private val _searchQuery = MutableStateFlow<String>("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _deletedProductIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _deletedAnnouncementIds = MutableStateFlow<Set<String>>(emptySet())
+
     // Products
-    val products: StateFlow<List<Product>> = repository.observeProducts()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = repository.getInitialSampleProducts()
-        )
+    val products: StateFlow<List<Product>> = combine(
+        repository.observeProducts(),
+        _deletedProductIds
+    ) { list, deletedIds ->
+        list.filter { it.id !in deletedIds }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000L),
+        initialValue = repository.getInitialSampleProducts()
+    )
+
+    // Announcements
+    val announcements: StateFlow<List<Announcement>> = combine(
+        repository.observeAnnouncements(),
+        _deletedAnnouncementIds
+    ) { list, deletedIds ->
+        list.filter { it.id !in deletedIds }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000L),
+        initialValue = repository.getInitialSampleAnnouncements()
+    )
 
     // Cart
     val cartItems: StateFlow<List<CartItem>> = repository.observeCart()
@@ -83,10 +103,11 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         )
 
     init {
-        // Automatically seed products to Firestore if empty
+        // Automatically seed products and announcements to Firestore if empty
         viewModelScope.launch {
             if (Firebase.auth.currentUser != null) {
                 repository.seedProductsIfEmpty()
+                repository.seedAnnouncementsIfEmpty()
             }
         }
     }
@@ -191,6 +212,50 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
                 onResult(true)
             } catch (e: Exception) {
                 onResult(false)
+            }
+        }
+    }
+
+    fun deleteProduct(productId: String, onResult: (Boolean) -> Unit = {}) {
+        _deletedProductIds.value = _deletedProductIds.value + productId
+        viewModelScope.launch {
+            try {
+                repository.deleteProduct(productId)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun toggleProductStock(productId: String, inStock: Boolean) {
+        viewModelScope.launch {
+            try {
+                repository.toggleProductStock(productId, inStock)
+            } catch (e: Exception) {
+                // Logged in repository
+            }
+        }
+    }
+
+    fun deleteAnnouncement(announcementId: String, onResult: (Boolean) -> Unit = {}) {
+        _deletedAnnouncementIds.value = _deletedAnnouncementIds.value + announcementId
+        viewModelScope.launch {
+            try {
+                repository.deleteAnnouncement(announcementId)
+                onResult(true)
+            } catch (e: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    fun toggleAnnouncementActive(announcementId: String, isActive: Boolean) {
+        viewModelScope.launch {
+            try {
+                repository.toggleAnnouncementActive(announcementId, isActive)
+            } catch (e: Exception) {
+                // Logged in repository
             }
         }
     }

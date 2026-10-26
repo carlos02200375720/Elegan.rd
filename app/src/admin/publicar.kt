@@ -1,6 +1,13 @@
 package com.example.admin
 
 import androidx.activity.compose.BackHandler
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.PhotoLibrary
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,8 +41,11 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -114,7 +124,40 @@ fun PublicarScreen(
     var productMainImageUrl by remember { mutableStateOf("") }
     var productMediaFormat by remember { mutableStateOf("1:1") }
     val productGalleryImages = remember { mutableStateListOf<String>() }
-    var newGalleryUrlInput by remember { mutableStateOf("") }
+
+    // Lanzadores para abrir la galería de fotos del dispositivo
+    val mainPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            productMainImageUrl = uri.toString()
+        }
+    }
+
+    val additionalPhotosPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 9)
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            val uriStr = uri.toString()
+            if (uriStr !in productGalleryImages && (productGalleryImages.size + if (productMainImageUrl.isNotBlank()) 1 else 0) < 10) {
+                productGalleryImages.add(uriStr)
+            }
+        }
+    }
+
+    var productMediaType by remember { mutableStateOf("foto") } // "foto" o "video"
+    var productVideoUrl by remember { mutableStateOf("") }
+
+    val productVideoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            productVideoUrl = uri.toString()
+            if (productMainImageUrl.isBlank()) {
+                productMainImageUrl = uri.toString()
+            }
+        }
+    }
 
     val availableSizeOptions = listOf("S", "M", "L", "XL", "XXL", "Única (Estándar)")
     val selectedSizes = remember { mutableStateListOf("S", "M", "L", "XL") }
@@ -128,7 +171,30 @@ fun PublicarScreen(
     var announcementTitle by remember { mutableStateOf("") }
     var announcementMessage by remember { mutableStateOf("") }
     var announcementType by remember { mutableStateOf("banner") } // banner, historia_9_16, descuento, coleccion
+    var announcementMediaType by remember { mutableStateOf("foto") } // "foto" o "video"
     var announcementImageUrl by remember { mutableStateOf("") }
+    var announcementVideoUrl by remember { mutableStateOf("") }
+
+    // Lanzador para la imagen del anuncio
+    val announcementPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            announcementImageUrl = uri.toString()
+        }
+    }
+
+    // Lanzador para el video del anuncio desde la galería
+    val announcementVideoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            announcementVideoUrl = uri.toString()
+            if (announcementImageUrl.isBlank()) {
+                announcementImageUrl = uri.toString()
+            }
+        }
+    }
     var announcementDiscountCode by remember { mutableStateOf("") }
     var announcementDiscountPercentText by remember { mutableStateOf("") }
     var announcementCtaText by remember { mutableStateOf("Ver Colección") }
@@ -376,9 +442,283 @@ fun PublicarScreen(
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 Text(
-                                    text = "Formato de Publicación en Inicio y Catálogo:",
+                                    text = "Tipo de Multimedia:",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
                                 )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf("foto" to "📸 Fotos / Galería", "video" to "🎥 Video del Producto").forEach { (typeCode, typeLabel) ->
+                                        val isSel = productMediaType == typeCode
+                                        OutlinedButton(
+                                            onClick = {
+                                                productMediaType = typeCode
+                                                if (typeCode == "video" && productMediaFormat !in listOf("9:16", "1:1", "16:9")) {
+                                                    productMediaFormat = "9:16"
+                                                } else if (typeCode == "foto" && productMediaFormat !in listOf("1:1", "3:4", "4:3")) {
+                                                    productMediaFormat = "1:1"
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = if (isSel) EleganBurgundy else Color.White,
+                                                contentColor = if (isSel) Color.White else EleganCharcoal
+                                            ),
+                                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                                brush = androidx.compose.ui.graphics.SolidColor(
+                                                    if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
+                                                )
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(typeLabel, fontSize = 11.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                if (productMediaType == "video") {
+                                    Text(
+                                        text = "Formato del Video:",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf("9:16" to "Reel (9:16)", "1:1" to "Cuadrado (1:1)", "16:9" to "Paisaje (16:9)").forEach { (formatCode, label) ->
+                                            val isSel = productMediaFormat == formatCode
+                                            OutlinedButton(
+                                                onClick = { productMediaFormat = formatCode },
+                                                modifier = Modifier.weight(1f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    containerColor = if (isSel) EleganBurgundy else Color.White,
+                                                    contentColor = if (isSel) Color.White else EleganCharcoal
+                                                ),
+                                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                                    brush = androidx.compose.ui.graphics.SolidColor(
+                                                        if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
+                                                    )
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(label, fontSize = 11.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Text(
+                                        text = "Video del Producto desde Galería:",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    if (productVideoUrl.isBlank()) {
+                                        Surface(
+                                            onClick = {
+                                                productVideoPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("admin_product_video_picker"),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color(0xFFF9F6F0),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.5.dp,
+                                                androidx.compose.ui.graphics.SolidColor(Color(0xFFD6CEC5))
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 24.dp, horizontal = 16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(54.dp)
+                                                        .background(EleganBurgundy.copy(alpha = 0.12f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Videocam,
+                                                        contentDescription = "Abrir galería de videos",
+                                                        tint = EleganBurgundy,
+                                                        modifier = Modifier.size(30.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Text(
+                                                    text = "Toca para abrir la galería de videos",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = EleganCharcoal
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Selecciona un video (Reel, demo, MP4) de tu producto",
+                                                    fontSize = 12.sp,
+                                                    color = Color.Gray
+                                                )
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Button(
+                                                    onClick = {
+                                                        productVideoPickerLauncher.launch(
+                                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                                        )
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                                ) {
+                                                    Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Abrir Galería de Videos", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1F24))
+                                        ) {
+                                            Column(modifier = Modifier.padding(16.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(46.dp)
+                                                            .background(EleganBurgundy.copy(alpha = 0.3f), CircleShape),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.PlayCircle,
+                                                            contentDescription = "Video",
+                                                            tint = EleganGold,
+                                                            modifier = Modifier.size(30.dp)
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Surface(
+                                                            color = EleganGold.copy(alpha = 0.2f),
+                                                            shape = RoundedCornerShape(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "VIDEO CARGADO • FORMATO $productMediaFormat",
+                                                                color = EleganGold,
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = "Video listo para publicar",
+                                                            color = Color.White,
+                                                            fontSize = 13.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Text(
+                                                            text = productVideoUrl.takeLast(35),
+                                                            color = Color.LightGray,
+                                                            fontSize = 10.sp
+                                                        )
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            productVideoPickerLauncher.launch(
+                                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                                            )
+                                                        },
+                                                        modifier = Modifier.weight(1f),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                                    ) {
+                                                        Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text("Cambiar Video", fontSize = 12.sp)
+                                                    }
+                                                    OutlinedButton(
+                                                        onClick = { productVideoUrl = "" },
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
+                                                    ) {
+                                                        Icon(Icons.Default.Delete, contentDescription = "Quitar video", tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Text(
+                                        text = "Foto de Portada / Miniatura (Opcional):",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    if (productMainImageUrl.isNotBlank() && productMainImageUrl != productVideoUrl) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            AsyncImage(
+                                                model = productMainImageUrl,
+                                                contentDescription = "Portada",
+                                                modifier = Modifier.size(54.dp).clip(RoundedCornerShape(8.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text("Portada seleccionada", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text("Se mostrará como miniatura del video", fontSize = 11.sp, color = Color.Gray)
+                                            }
+                                            IconButton(onClick = { productMainImageUrl = "" }) {
+                                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                                            }
+                                        }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = {
+                                                mainPhotoPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Elegir foto de portada desde galería", fontSize = 12.sp)
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Formato de Publicación en Inicio y Catálogo:",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                    )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -408,87 +748,159 @@ fun PublicarScreen(
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                OutlinedTextField(
-                                    value = productMainImageUrl,
-                                    onValueChange = { productMainImageUrl = it },
-                                    label = { Text("URL de la Imagen Principal") },
-                                    placeholder = { Text("https://images.unsplash.com/photo-...") },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("admin_product_img_input"),
-                                    singleLine = true,
-                                    trailingIcon = {
-                                        if (productMainImageUrl.isNotBlank()) {
-                                            IconButton(onClick = { productMainImageUrl = "" }) {
-                                                Icon(Icons.Default.Close, contentDescription = "Limpiar")
+                                                                Text(
+                                    text = "Imagen Principal del Producto:",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Campo interactivo para abrir la galería al hacer clic
+                                if (productMainImageUrl.isBlank()) {
+                                    Surface(
+                                        onClick = {
+                                            mainPhotoPickerLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("admin_product_main_photo_picker"),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0xFFF9F6F0),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.5.dp,
+                                            androidx.compose.ui.graphics.SolidColor(Color(0xFFD6CEC5))
+                                        )
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 22.dp, horizontal = 16.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(52.dp)
+                                                    .background(EleganBurgundy.copy(alpha = 0.12f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                                    contentDescription = "Abrir galería",
+                                                    tint = EleganBurgundy,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Text(
+                                                text = "Toca para abrir la galería de fotos",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = EleganCharcoal
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Selecciona la foto principal desde tu dispositivo",
+                                                fontSize = 12.sp,
+                                                color = Color.Gray
+                                            )
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Button(
+                                                onClick = {
+                                                    mainPhotoPickerLauncher.launch(
+                                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                    )
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                            ) {
+                                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Abrir Galería", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
-                                )
-
-                                // Botón rápido con sugerencias de muestra de calidad
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "O usar imagen curada de muestra:",
-                                        fontSize = 11.sp,
-                                        color = Color.Gray
-                                    )
-                                    OutlinedButton(
-                                        onClick = {
-                                            productMainImageUrl = when (productCategory) {
-                                                "gorra" -> "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&auto=format&fit=crop&q=80"
-                                                "gafa" -> "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=800&auto=format&fit=crop&q=80"
-                                                "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
-                                                "correa" -> "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80"
-                                                "pantalone" -> "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80"
-                                                "zapato" -> "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80"
-                                                "interiore" -> "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&auto=format&fit=crop&q=80"
-                                                "perfume" -> "https://images.unsplash.com/photo-1594035910387-fea47794261f?w=800&auto=format&fit=crop&q=80"
-                                                else -> "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
-                                            }
-                                        },
-                                        shape = RoundedCornerShape(6.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("Cargar Ejemplo", fontSize = 11.sp)
-                                    }
-                                }
-
-                                // Vista previa en vivo de la imagen principal
-                                if (productMainImageUrl.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(180.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFFF0EBE3)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AsyncImage(
-                                            model = productMainImageUrl,
-                                            contentDescription = "Vista previa",
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.65f),
-                                            shape = RoundedCornerShape(12.dp),
+                                } else {
+                                    // Vista previa de la imagen principal seleccionada desde la galería
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Box(
                                             modifier = Modifier
-                                                .align(Alignment.BottomEnd)
-                                                .padding(8.dp)
+                                                .fillMaxWidth()
+                                                .height(200.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Color(0xFFF0EBE3))
+                                                .clickable {
+                                                    mainPhotoPickerLauncher.launch(
+                                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                    )
+                                                },
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Text(
-                                                text = "Formato $productMediaFormat",
-                                                color = Color.White,
-                                                fontSize = 11.sp,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            AsyncImage(
+                                                model = productMainImageUrl,
+                                                contentDescription = "Foto principal del producto",
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize()
                                             )
+                                            Surface(
+                                                color = Color.Black.copy(alpha = 0.65f),
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier
+                                                    .align(Alignment.BottomEnd)
+                                                    .padding(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Formato $productMediaFormat",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                            Surface(
+                                                color = EleganBurgundy.copy(alpha = 0.9f),
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier
+                                                    .align(Alignment.TopStart)
+                                                    .padding(8.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Foto Principal", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    mainPhotoPickerLauncher.launch(
+                                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                    )
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = EleganBurgundy)
+                                            ) {
+                                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Cambiar Foto de Galería", fontSize = 12.sp)
+                                            }
+                                            OutlinedButton(
+                                                onClick = { productMainImageUrl = "" },
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red)
+                                            ) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Quitar foto", tint = Color.Red, modifier = Modifier.size(16.dp))
+                                            }
                                         }
                                     }
                                 }
@@ -520,58 +932,126 @@ fun PublicarScreen(
                                         )
                                     }
                                 }
-
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedTextField(
-                                        value = newGalleryUrlInput,
-                                        onValueChange = { newGalleryUrlInput = it },
-                                        placeholder = { Text("URL de imagen adicional") },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f)
+
+                                // Campo interactivo para abrir la galería del dispositivo para fotos adicionales
+                                Surface(
+                                    onClick = {
+                                        additionalPhotosPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("admin_product_additional_photos_picker"),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFF9F6F0),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        androidx.compose.ui.graphics.SolidColor(Color(0xFFD6CEC5))
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Button(
-                                        onClick = {
-                                            if (newGalleryUrlInput.isNotBlank()) {
-                                                productGalleryImages.add(newGalleryUrlInput.trim())
-                                                newGalleryUrlInput = ""
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
-                                        shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Icon(Icons.Default.Add, contentDescription = "Añadir")
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Collections,
+                                                contentDescription = "Galería",
+                                                tint = EleganBurgundy,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Toca para abrir la galería de fotos",
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = EleganCharcoal
+                                                )
+                                                Text(
+                                                    text = "Elige fotos adicionales de tu dispositivo",
+                                                    fontSize = 11.sp,
+                                                    color = Color.Gray
+                                                )
+                                            }
+                                        }
+                                        Button(
+                                            onClick = {
+                                                additionalPhotosPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Añadir", fontSize = 12.sp)
+                                        }
                                     }
                                 }
 
                                 if (productGalleryImages.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        items(productGalleryImages) { imgUrl ->
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 2.dp)
+                                    ) {
+                                        item {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(60.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .size(68.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, EleganBurgundy.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                                    .background(EleganBurgundy.copy(alpha = 0.05f))
+                                                    .clickable {
+                                                        additionalPhotosPickerLauncher.launch(
+                                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                        )
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Icon(Icons.Default.Add, contentDescription = "Añadir más", tint = EleganBurgundy, modifier = Modifier.size(22.dp))
+                                                    Text("Más", fontSize = 10.sp, color = EleganBurgundy, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                        items(productGalleryImages) { imgUriStr ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(68.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
                                                     .background(Color(0xFFEFE8E1))
                                             ) {
                                                 AsyncImage(
-                                                    model = imgUrl,
-                                                    contentDescription = null,
+                                                    model = imgUriStr,
+                                                    contentDescription = "Foto adicional de galería",
                                                     contentScale = ContentScale.Crop,
                                                     modifier = Modifier.fillMaxSize()
                                                 )
                                                 IconButton(
-                                                    onClick = { productGalleryImages.remove(imgUrl) },
+                                                    onClick = { productGalleryImages.remove(imgUriStr) },
                                                     modifier = Modifier
                                                         .size(22.dp)
                                                         .align(Alignment.TopEnd)
-                                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                                        .background(Color.Black.copy(alpha = 0.65f), CircleShape)
                                                 ) {
-                                                    Icon(Icons.Default.Close, contentDescription = "Quitar", tint = Color.White, modifier = Modifier.size(14.dp))
+                                                    Icon(
+                                                        Icons.Default.Close,
+                                                        contentDescription = "Quitar foto",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
                                                 }
                                             }
                                         }
@@ -580,6 +1060,7 @@ fun PublicarScreen(
                             }
                         }
                     }
+                }
 
                     // Tallas y Opciones
                     item {
@@ -676,23 +1157,39 @@ fun PublicarScreen(
                                     scope.launch { snackbarHostState.showSnackbar("Por favor ingresa un precio válido mayor a 0.") }
                                     return@Button
                                 }
-                                if (productMainImageUrl.isBlank()) {
-                                    scope.launch { snackbarHostState.showSnackbar("Por favor añade la URL de la imagen principal.") }
-                                    return@Button
+                                if (productMediaType == "video") {
+                                    if (productVideoUrl.isBlank()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Por favor selecciona el video del producto desde la galería.") }
+                                        return@Button
+                                    }
+                                } else {
+                                    if (productMainImageUrl.isBlank()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Por favor selecciona la imagen principal desde la galería de fotos.") }
+                                        return@Button
+                                    }
                                 }
 
                                 isSubmittingProduct = true
+                                val effectiveImageUrl = if (productMainImageUrl.isNotBlank()) {
+                                    productMainImageUrl.trim()
+                                } else if (productMediaType == "video") {
+                                    productVideoUrl.trim()
+                                } else {
+                                    ""
+                                }
                                 val newProduct = Product(
                                     name = productName.trim(),
                                     description = productDescription.trim(),
                                     category = productCategory,
                                     price = priceValue,
-                                    imageUrl = productMainImageUrl.trim(),
-                                    images = if (productGalleryImages.isNotEmpty()) listOf(productMainImageUrl.trim()) + productGalleryImages else emptyList(),
+                                    imageUrl = effectiveImageUrl,
+                                    images = if (productGalleryImages.isNotEmpty()) listOf(effectiveImageUrl) + productGalleryImages else if (effectiveImageUrl.isNotBlank()) listOf(effectiveImageUrl) else emptyList(),
                                     sizes = if (selectedSizes.isNotEmpty()) selectedSizes.toList() else listOf("Estándar"),
                                     inStock = isProductInStock,
                                     isFeatured = isProductFeatured,
-                                    mediaFormat = productMediaFormat
+                                    mediaFormat = productMediaFormat,
+                                    videoUrl = if (productMediaType == "video") productVideoUrl.trim() else "",
+                                    isVideo = (productMediaType == "video")
                                 )
 
                                 onPublishProduct(newProduct)
@@ -702,6 +1199,7 @@ fun PublicarScreen(
                                     productDescription = ""
                                     productPriceText = ""
                                     productMainImageUrl = ""
+                                    productVideoUrl = ""
                                     productGalleryImages.clear()
                                     isSubmittingProduct = false
                                 }
@@ -834,7 +1332,7 @@ fun PublicarScreen(
                         }
                     }
 
-                    // Imagen Promocional
+                    // Contenido Multimedia Promocional
                     item {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -843,7 +1341,7 @@ fun PublicarScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "3. Imagen del Anuncio",
+                                    text = "3. Contenido Multimedia del Anuncio",
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = EleganBurgundy
@@ -851,51 +1349,375 @@ fun PublicarScreen(
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                OutlinedTextField(
-                                    value = announcementImageUrl,
-                                    onValueChange = { announcementImageUrl = it },
-                                    label = { Text("URL de la Imagen Promocional") },
-                                    placeholder = { Text("https://images.unsplash.com/photo-...") },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("admin_announcement_img_input"),
-                                    singleLine = true
+                                // Selector: Imagen vs Video
+                                Text(
+                                    text = "Tipo de Multimedia:",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
                                 )
-
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("O sugerencia predeterminada:", fontSize = 11.sp, color = Color.Gray)
-                                    OutlinedButton(
-                                        onClick = {
-                                            announcementImageUrl = "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
-                                        },
-                                        shape = RoundedCornerShape(6.dp),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("Cargar Ejemplo", fontSize = 11.sp)
+                                    listOf("image" to "📸 Imagen / Banner", "video" to "🎥 Video Promocional / Spot").forEach { (typeKey, typeLabel) ->
+                                        val isSel = announcementMediaType == typeKey
+                                        OutlinedButton(
+                                            onClick = { announcementMediaType = typeKey },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = if (isSel) EleganBurgundy else Color.White,
+                                                contentColor = if (isSel) Color.White else EleganCharcoal
+                                            ),
+                                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                                brush = androidx.compose.ui.graphics.SolidColor(
+                                                    if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
+                                                )
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(typeLabel, fontSize = 11.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                        }
                                     }
                                 }
 
-                                if (announcementImageUrl.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(160.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFFF0EBE3)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AsyncImage(
-                                            model = announcementImageUrl,
-                                            contentDescription = "Vista previa del anuncio",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                if (announcementMediaType == "video") {
+                                    Text(
+                                        text = "Video Promocional desde Galería:",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    if (announcementVideoUrl.isBlank()) {
+                                        Surface(
+                                            onClick = {
+                                                announcementVideoPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("admin_announcement_video_picker"),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color(0xFFF9F6F0),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.5.dp,
+                                                androidx.compose.ui.graphics.SolidColor(Color(0xFFD6CEC5))
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 24.dp, horizontal = 16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(52.dp)
+                                                        .background(EleganBurgundy.copy(alpha = 0.12f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Videocam,
+                                                        contentDescription = "Abrir galería de videos",
+                                                        tint = EleganBurgundy,
+                                                        modifier = Modifier.size(28.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Text(
+                                                    text = "Toca para abrir la galería de videos",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = EleganCharcoal
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Selecciona un video publicitario (Spot, Story, Reel MP4)",
+                                                    fontSize = 12.sp,
+                                                    color = Color.Gray
+                                                )
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Button(
+                                                    onClick = {
+                                                        announcementVideoPickerLauncher.launch(
+                                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                                        )
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                                ) {
+                                                    Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Abrir Galería de Videos", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1F24))
+                                        ) {
+                                            Column(modifier = Modifier.padding(16.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(46.dp)
+                                                            .background(EleganBurgundy.copy(alpha = 0.3f), CircleShape),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.PlayCircle,
+                                                            contentDescription = "Video",
+                                                            tint = EleganGold,
+                                                            modifier = Modifier.size(30.dp)
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Surface(
+                                                            color = EleganGold.copy(alpha = 0.2f),
+                                                            shape = RoundedCornerShape(4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "VIDEO SPOT CARGADO",
+                                                                color = EleganGold,
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = "Spot publicitario listo para publicar",
+                                                            color = Color.White,
+                                                            fontSize = 13.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Text(
+                                                            text = announcementVideoUrl.takeLast(35),
+                                                            color = Color.LightGray,
+                                                            fontSize = 10.sp
+                                                        )
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            announcementVideoPickerLauncher.launch(
+                                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                                                            )
+                                                        },
+                                                        modifier = Modifier.weight(1f),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                                    ) {
+                                                        Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text("Cambiar Video", fontSize = 12.sp)
+                                                    }
+                                                    OutlinedButton(
+                                                        onClick = { announcementVideoUrl = "" },
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
+                                                    ) {
+                                                        Icon(Icons.Default.Delete, contentDescription = "Quitar video", tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    Text(
+                                        text = "Foto de Portada / Banner (Opcional):",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    if (announcementImageUrl.isNotBlank() && announcementImageUrl != announcementVideoUrl) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            AsyncImage(
+                                                model = announcementImageUrl,
+                                                contentDescription = "Portada Anuncio",
+                                                modifier = Modifier.size(54.dp).clip(RoundedCornerShape(8.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text("Portada seleccionada", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text("Se mostrará como miniatura del video spot", fontSize = 11.sp, color = Color.Gray)
+                                            }
+                                            IconButton(onClick = { announcementImageUrl = "" }) {
+                                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                                            }
+                                        }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = {
+                                                announcementPhotoPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Elegir imagen de portada desde galería", fontSize = 12.sp)
+                                        }
+                                    }
+                                } else {
+                                    // Imagen de Galería
+                                    if (announcementImageUrl.isBlank()) {
+                                        Surface(
+                                            onClick = {
+                                                announcementPhotoPickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("admin_announcement_photo_picker"),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color(0xFFF9F6F0),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.5.dp,
+                                                androidx.compose.ui.graphics.SolidColor(Color(0xFFD6CEC5))
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 22.dp, horizontal = 16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(48.dp)
+                                                        .background(EleganBurgundy.copy(alpha = 0.12f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AddPhotoAlternate,
+                                                        contentDescription = "Abrir galería",
+                                                        tint = EleganBurgundy,
+                                                        modifier = Modifier.size(26.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Text(
+                                                    text = "Toca para abrir la galería de fotos",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = EleganCharcoal
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Selecciona la imagen promocional desde tu dispositivo",
+                                                    fontSize = 12.sp,
+                                                    color = Color.Gray
+                                                )
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Button(
+                                                    onClick = {
+                                                        announcementPhotoPickerLauncher.launch(
+                                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                        )
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                                ) {
+                                                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Abrir Galería", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(180.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(Color(0xFFF0EBE3))
+                                                    .clickable {
+                                                        announcementPhotoPickerLauncher.launch(
+                                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                        )
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                AsyncImage(
+                                                    model = announcementImageUrl,
+                                                    contentDescription = "Vista previa del anuncio",
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                                Surface(
+                                                    color = EleganBurgundy.copy(alpha = 0.85f),
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    modifier = Modifier
+                                                        .align(Alignment.TopStart)
+                                                        .padding(8.dp)
+                                                    ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text("Imagen Seleccionada", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        announcementPhotoPickerLauncher.launch(
+                                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                        )
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EleganBurgundy)
+                                                ) {
+                                                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Cambiar Foto de Galería", fontSize = 12.sp)
+                                                }
+                                                OutlinedButton(
+                                                    onClick = { announcementImageUrl = "" },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red)
+                                                ) {
+                                                    Icon(Icons.Default.Delete, contentDescription = "Quitar foto", tint = Color.Red, modifier = Modifier.size(16.dp))
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -983,19 +1805,39 @@ fun PublicarScreen(
                                     scope.launch { snackbarHostState.showSnackbar("Por favor ingresa el título del anuncio.") }
                                     return@Button
                                 }
+                                if (announcementMediaType == "video") {
+                                    if (announcementVideoUrl.isBlank()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Por favor selecciona el video del anuncio desde la galería.") }
+                                        return@Button
+                                    }
+                                } else {
+                                    if (announcementImageUrl.isBlank()) {
+                                        scope.launch { snackbarHostState.showSnackbar("Por favor selecciona la imagen del anuncio desde la galería.") }
+                                        return@Button
+                                    }
+                                }
                                 val discountNum = announcementDiscountPercentText.toDoubleOrNull() ?: 0.0
 
                                 isSubmittingAnnouncement = true
+                                val effectiveAnnouncementImage = if (announcementImageUrl.isNotBlank()) {
+                                    announcementImageUrl.trim()
+                                } else if (announcementMediaType == "video") {
+                                    announcementVideoUrl.trim()
+                                } else {
+                                    ""
+                                }
                                 val newAnnouncement = Announcement(
                                     title = announcementTitle.trim(),
                                     message = announcementMessage.trim(),
                                     type = announcementType,
-                                    imageUrl = announcementImageUrl.trim(),
+                                    imageUrl = effectiveAnnouncementImage,
                                     discountCode = announcementDiscountCode.trim(),
                                     discountPercent = discountNum / 100.0,
                                     ctaText = announcementCtaText.trim().ifBlank { "Ver Más" },
                                     targetCategory = announcementTargetCategory,
-                                    isActive = isAnnouncementActive
+                                    isActive = isAnnouncementActive,
+                                    videoUrl = if (announcementMediaType == "video") announcementVideoUrl.trim() else "",
+                                    isVideo = (announcementMediaType == "video")
                                 )
 
                                 onPublishAnnouncement(newAnnouncement)
@@ -1004,6 +1846,7 @@ fun PublicarScreen(
                                     announcementTitle = ""
                                     announcementMessage = ""
                                     announcementImageUrl = ""
+                                    announcementVideoUrl = ""
                                     announcementDiscountCode = ""
                                     announcementDiscountPercentText = ""
                                     isSubmittingAnnouncement = false

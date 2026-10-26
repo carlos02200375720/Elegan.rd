@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -38,6 +39,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -87,6 +89,7 @@ fun PerfilScreen(
     onSaveProfile: (phone: String, address: String, city: String) -> Unit,
     onNavigateToChats: () -> Unit,
     onNavigateToPublicar: () -> Unit = {},
+    onNavigateToMenuAdmin: () -> Unit = {},
     onSignOut: () -> Unit
 ) {
     val user = Firebase.auth.currentUser
@@ -101,6 +104,18 @@ fun PerfilScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(
+                        onClick = onNavigateToMenuAdmin,
+                        modifier = Modifier.testTag("perfil_menu_admin_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menú Administración",
+                            tint = EleganCharcoal
+                        )
+                    }
+                },
                 title = {
                     Text(
                         text = "Mi Perfil",
@@ -394,6 +409,53 @@ fun PerfilScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = Color.White
+                        )
+                    }
+                }
+            }
+
+            // Acceso a Menú Admin (menuadmin.kt)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .testTag("profile_admin_menu_card"),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    onClick = onNavigateToMenuAdmin
+                ) {
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(EleganBurgundy.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Menu, contentDescription = null, tint = EleganBurgundy)
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Menú Administrativo",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = EleganCharcoal,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = "Panel de control principal • menuadmin.kt",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = EleganBurgundy
                         )
                     }
                 }

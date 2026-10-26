@@ -29,12 +29,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class EleganRepository(private val db: FirebaseFirestore) {
+class EleganRepository(
+    private val db: FirebaseFirestore,
+    private val context: Context? = null
+) {
 
     constructor(context: Context) : this(
         FirebaseFirestore.getInstance(
             context.applicationContext.getString(R.string.firestore_database_id)
-        )
+        ),
+        context.applicationContext
     )
 
     private val auth get() = Firebase.auth
@@ -44,26 +48,54 @@ class EleganRepository(private val db: FirebaseFirestore) {
             ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
     }
 
+    private fun getDeletedAnnouncementIds(): Set<String> {
+        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+        return prefs?.getStringSet("deleted_announcements", emptySet()) ?: emptySet()
+    }
+
+    private fun markAnnouncementDeleted(id: String) {
+        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return
+        val current = prefs.getStringSet("deleted_announcements", emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.add(id)
+        prefs.edit().putStringSet("deleted_announcements", current).apply()
+    }
+
+    private fun getDeletedProductIds(): Set<String> {
+        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+        return prefs?.getStringSet("deleted_products", emptySet()) ?: emptySet()
+    }
+
+    private fun markProductDeleted(id: String) {
+        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return
+        val current = prefs.getStringSet("deleted_products", emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.add(id)
+        prefs.edit().putStringSet("deleted_products", current).apply()
+    }
+
     // -------------------------------------------------------------
     // PRODUCTS
     // -------------------------------------------------------------
 
     fun observeProducts(): Flow<List<Product>> = flow {
         val path = "products"
-        emit(getInitialSampleProducts()) // Immediate fallback while Firestore syncs or initializes
+        val deletedIds = getDeletedProductIds()
+        emit(getInitialSampleProducts().filter { it.id !in deletedIds })
         db.collection(path)
             .snapshots()
             .map { snapshot ->
-                val list = snapshot.toObjects(Product::class.java)
+                val currentDeleted = getDeletedProductIds()
+                val list = snapshot.toObjects(Product::class.java).filter { it.id !in currentDeleted }
+                val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+                val isSeeded = prefs?.getBoolean("products_seeded", false) ?: false
                 if (list.isEmpty()) {
-                    getInitialSampleProducts()
+                    if (isSeeded) emptyList() else getInitialSampleProducts().filter { it.id !in currentDeleted }
                 } else {
                     list
                 }
             }
             .catch { error ->
                 if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                emit(getInitialSampleProducts())
+                emit(getInitialSampleProducts().filter { it.id !in getDeletedProductIds() })
             }
             .collect { emit(it) }
     }
@@ -71,10 +103,16 @@ class EleganRepository(private val db: FirebaseFirestore) {
     suspend fun seedProductsIfEmpty() {
         val path = "products"
         try {
+            val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+            val alreadySeeded = prefs?.getBoolean("products_seeded", false) ?: false
+            if (alreadySeeded) return
+
             val snapshot = db.collection(path).limit(1).get().await()
             if (snapshot.isEmpty) {
                 val samples = getInitialSampleProducts()
+                val deleted = getDeletedProductIds()
                 for (item in samples) {
+                    if (item.id in deleted) continue
                     val docRef = db.collection(path).document(item.id)
                     val data = mapOf(
                         "name" to item.name,
@@ -93,6 +131,42 @@ class EleganRepository(private val db: FirebaseFirestore) {
                     docRef.set(data).await()
                 }
             }
+            prefs?.edit()?.putBoolean("products_seeded", true)?.apply()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+        }
+    }
+
+    suspend fun seedAnnouncementsIfEmpty() {
+        val path = "announcements"
+        try {
+            val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+            val alreadySeeded = prefs?.getBoolean("announcements_seeded", false) ?: false
+            if (alreadySeeded) return
+
+            val snapshot = db.collection(path).limit(1).get().await()
+            if (snapshot.isEmpty) {
+                val samples = getInitialSampleAnnouncements()
+                val deleted = getDeletedAnnouncementIds()
+                for (item in samples) {
+                    if (item.id in deleted) continue
+                    val docRef = db.collection(path).document(item.id)
+                    val data = mapOf(
+                        "title" to item.title,
+                        "message" to item.message,
+                        "type" to item.type,
+                        "imageUrl" to item.imageUrl,
+                        "discountCode" to item.discountCode,
+                        "discountPercent" to item.discountPercent,
+                        "ctaText" to item.ctaText,
+                        "targetCategory" to item.targetCategory,
+                        "isActive" to item.isActive,
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )
+                    docRef.set(data).await()
+                }
+            }
+            prefs?.edit()?.putBoolean("announcements_seeded", true)?.apply()
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.WRITE, path)
         }
@@ -128,6 +202,8 @@ class EleganRepository(private val db: FirebaseFirestore) {
             "inStock" to product.inStock,
             "isFeatured" to product.isFeatured,
             "mediaFormat" to product.mediaFormat,
+            "videoUrl" to product.videoUrl,
+            "isVideo" to product.isVideo,
             "createdAt" to FieldValue.serverTimestamp()
         )
         docRef.set(data).await()
@@ -145,6 +221,8 @@ class EleganRepository(private val db: FirebaseFirestore) {
             "message" to announcement.message,
             "type" to announcement.type,
             "imageUrl" to announcement.imageUrl,
+            "videoUrl" to announcement.videoUrl,
+            "isVideo" to announcement.isVideo,
             "discountCode" to announcement.discountCode,
             "discountPercent" to announcement.discountPercent,
             "ctaText" to announcement.ctaText,
@@ -155,6 +233,121 @@ class EleganRepository(private val db: FirebaseFirestore) {
         docRef.set(data).await()
         return docRef.id
     }
+
+    fun observeAnnouncements(): Flow<List<Announcement>> = flow {
+        val path = "announcements"
+        val deletedIds = getDeletedAnnouncementIds()
+        emit(getInitialSampleAnnouncements().filter { it.id !in deletedIds })
+        db.collection(path)
+            .snapshots()
+            .map { snapshot ->
+                val currentDeleted = getDeletedAnnouncementIds()
+                val list = snapshot.toObjects(Announcement::class.java).filter { it.id !in currentDeleted }
+                val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+                val isSeeded = prefs?.getBoolean("announcements_seeded", false) ?: false
+                if (list.isEmpty()) {
+                    if (isSeeded) emptyList() else getInitialSampleAnnouncements().filter { it.id !in currentDeleted }
+                } else {
+                    list
+                }
+            }
+            .catch { error ->
+                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
+                emit(getInitialSampleAnnouncements().filter { it.id !in getDeletedAnnouncementIds() })
+            }
+            .collect { emit(it) }
+    }
+
+    suspend fun deleteProduct(productId: String) {
+        val path = "products/$productId"
+        markProductDeleted(productId)
+        try {
+            db.collection("products").document(productId).delete().await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+        }
+    }
+
+    suspend fun toggleProductStock(productId: String, inStock: Boolean) {
+        val path = "products/$productId"
+        try {
+            db.collection("products").document(productId)
+                .update("inStock", inStock)
+                .await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            throw e
+        }
+    }
+
+    suspend fun deleteAnnouncement(announcementId: String) {
+        val path = "announcements/$announcementId"
+        markAnnouncementDeleted(announcementId)
+        try {
+            db.collection("announcements").document(announcementId).delete().await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+        }
+    }
+
+    suspend fun toggleAnnouncementActive(announcementId: String, isActive: Boolean) {
+        val path = "announcements/$announcementId"
+        try {
+            db.collection("announcements").document(announcementId)
+                .update("isActive", isActive)
+                .await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            throw e
+        }
+    }
+
+    fun getInitialSampleAnnouncements(): List<Announcement> = listOf(
+        Announcement(
+            id = "ann_1",
+            title = "Gran Venta Sartorial 2026",
+            message = "Disfruta de hasta un 25% de descuento en trajes y camisas Oxford seleccionadas por tiempo limitado.",
+            type = "descuento",
+            imageUrl = "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80",
+            discountCode = "SARTORIAL25",
+            discountPercent = 25.0,
+            ctaText = "Ver Colección",
+            targetCategory = "camisa",
+            isActive = true
+        ),
+        Announcement(
+            id = "ann_2",
+            title = "Nueva Colección: Fragancias Noir",
+            message = "Descubre nuestras esencias exclusivas destiladas para el caballero contemporáneo.",
+            type = "banner",
+            imageUrl = "https://images.unsplash.com/photo-1594035910387-fea47794261f?w=800&auto=format&fit=crop&q=80",
+            discountCode = "",
+            discountPercent = 0.0,
+            ctaText = "Explorar Perfumes",
+            targetCategory = "perfume",
+            isActive = true
+        ),
+        Announcement(
+            id = "ann_3",
+            title = "Artesanía & Calzado Goodyear",
+            message = "Zapatos hechos a mano con pieles italianas de la más alta distinción.",
+            type = "coleccion",
+            imageUrl = "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
+            discountCode = "",
+            discountPercent = 0.0,
+            ctaText = "Ver Zapatos",
+            targetCategory = "zapato",
+            isActive = true
+        )
+    )
 
     // -------------------------------------------------------------
     // CART

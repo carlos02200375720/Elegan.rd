@@ -55,7 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.admin.MenuAdminScreen
 import com.example.admin.PublicarScreen
+import com.example.admin.PublicacionesScreen
 import com.example.data.model.Announcement
 import com.example.data.model.Product
 import com.example.ui.CarritoScreen
@@ -91,7 +93,9 @@ enum class Screen {
     GRACIA,
     PERFIL,
     CHATS,
-    PUBLICAR
+    PUBLICAR,
+    MENU_ADMIN,
+    PUBLICASIONE
 }
 
 class MainActivity : ComponentActivity() {
@@ -223,6 +227,7 @@ fun AppContent(
 
     // State flows
     val products by viewModel.products.collectAsState()
+    val announcements by viewModel.announcements.collectAsState()
     val cartItems by viewModel.cartItems.collectAsState()
     val orders by viewModel.orders.collectAsState()
     val messages by viewModel.messages.collectAsState()
@@ -375,7 +380,7 @@ fun AppContent(
                             viewModel.selectProduct(prod)
                             navigateTo(Screen.PRODUCTO)
                         },
-                        onNavigateToMenu = { navigateTo(Screen.MENU) },
+                        onNavigateToMenu = { navigateTo(Screen.MENU_ADMIN) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) },
                         onNavigateToCart = { navigateTo(Screen.CARRITO) }
                     )
@@ -397,7 +402,7 @@ fun AppContent(
                         products = products,
                         selectedCategory = selectedCategory,
                         onCategoryChange = { viewModel.setCategory(it) },
-                        onNavigateToMenu = { navigateTo(Screen.MENU) },
+                        onNavigateToMenu = { navigateTo(Screen.MENU_ADMIN) },
                         onProductClick = { prod ->
                             viewModel.selectProduct(prod)
                             navigateTo(Screen.PRODUCTO)
@@ -495,6 +500,7 @@ fun AppContent(
                         onSaveProfile = { ph, ad, ct -> viewModel.saveProfile(ph, ad, ct) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) },
                         onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
+                        onNavigateToMenuAdmin = { navigateTo(Screen.MENU_ADMIN) },
                         onSignOut = onSignOut
                     )
                 }
@@ -516,6 +522,33 @@ fun AppContent(
                             viewModel.publishAnnouncement(ann)
                         },
                         onBack = { navigateTo(previousScreen) }
+                    )
+                }
+
+                Screen.MENU_ADMIN -> {
+                    MenuAdminScreen(
+                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
+                        onNavigateToPublicaciones = { navigateTo(Screen.PUBLICASIONE) },
+                        onNavigateToPerfil = { navigateTo(Screen.PERFIL) },
+                        onNavigateToInicio = { navigateTo(Screen.INICIO) },
+                        onNavigateToCatalogo = { navigateTo(Screen.CATALOGO) },
+                        onNavigateToCategorias = { navigateTo(Screen.MENU) },
+                        onNavigateToChats = { navigateTo(Screen.CHATS) },
+                        onNavigateToCart = { navigateTo(Screen.CARRITO) },
+                        onBack = { navigateTo(previousScreen) }
+                    )
+                }
+
+                Screen.PUBLICASIONE -> {
+                    PublicacionesScreen(
+                        products = products,
+                        announcements = announcements,
+                        onDeleteProduct = { prodId -> viewModel.deleteProduct(prodId) },
+                        onToggleProductStock = { prodId, inStock -> viewModel.toggleProductStock(prodId, inStock) },
+                        onDeleteAnnouncement = { annId -> viewModel.deleteAnnouncement(annId) },
+                        onToggleAnnouncementActive = { annId, active -> viewModel.toggleAnnouncementActive(annId, active) },
+                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
+                        onBack = { navigateTo(Screen.MENU_ADMIN) }
                     )
                 }
             }
