@@ -32,15 +32,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.DryCleaning
 import androidx.compose.material.icons.filled.Favorite
@@ -50,6 +54,7 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -57,6 +62,7 @@ import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -87,7 +93,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,6 +117,7 @@ import com.example.R
 import com.example.data.model.Product
 import com.example.data.model.StoreCategory
 import com.example.data.model.UserProfile
+import com.example.ui.components.EleganVideoPlayer
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
@@ -970,6 +979,10 @@ fun ProductPublicationPost(
         }
     }
 
+    val mediaItems = remember(product) { getProductMediaItems(product) }
+    val pagerState = rememberPagerState(pageCount = { mediaItems.size })
+    val coroutineScope = rememberCoroutineScope()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1045,7 +1058,7 @@ fun ProductPublicationPost(
                 .clickable { onProductClick() }
         )
 
-        // 2. CONTENEDOR MULTIMEDIA:
+        // 2. CONTENEDOR MULTIMEDIA CON SCROLL HORIZONTAL (GALERÍA):
         // Se extiende de extremo a extremo (0px laterales en la pantalla)
         // 0px borde redondo en la parte superior y en la parte inferior (borde plano)
         // Formato 1:1, 3:4, 4:3 sin recortar imágenes
@@ -1057,14 +1070,122 @@ fun ProductPublicationPost(
                 .background(Color(0xFFF0EBE3)),
             contentAlignment = Alignment.Center
         ) {
-            AsyncImage(
-                model = product.imageUrl,
-                contentDescription = product.name,
-                contentScale = ContentScale.Fit,
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clickable { onProductClick() }
-            )
+                    .testTag("post_media_pager_${product.id}")
+            ) { page ->
+                when (val item = mediaItems.getOrNull(page)) {
+                    is GalleryMediaItem.Video -> {
+                        EleganVideoPlayer(
+                            videoUrl = item.videoUrl,
+                            posterUrl = item.posterUrl,
+                            aspectRatio = ratio,
+                            autoPlay = false,
+                            showControls = true,
+                            testTagPrefix = "inicio_video_${product.id}_$page",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    is GalleryMediaItem.Image -> {
+                        AsyncImage(
+                            model = item.imageUrl,
+                            contentDescription = "${product.name} - ${page + 1}",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable { onProductClick() }
+                        )
+                    }
+                    null -> {}
+                }
+            }
+
+            // Flechas sutiles para avance/retroceso rápido
+            if (mediaItems.size > 1 && pagerState.currentPage > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp)
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .clickable {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Anterior contenido",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            if (mediaItems.size > 1 && pagerState.currentPage < mediaItems.size - 1) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .clickable {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Siguiente contenido",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            // Indicador de contenido en la parte inferior izquierda (ej: 1/10)
+            if (mediaItems.isNotEmpty()) {
+                val currentItem = mediaItems.getOrNull(pagerState.currentPage)
+                val isCurrentVideo = currentItem is GalleryMediaItem.Video
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.Black.copy(alpha = 0.65f),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 12.dp, bottom = 12.dp)
+                        .testTag("post_content_indicator_${product.id}")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isCurrentVideo) Icons.Default.Videocam else Icons.Default.Collections,
+                            contentDescription = "Tipo de contenido",
+                            tint = if (isCurrentVideo) EleganGold else Color.White.copy(alpha = 0.95f),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${pagerState.currentPage + 1}/${mediaItems.size}",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
         }
 
         // 3. BARRA HORIZONTAL DE INTERACCIÓN:

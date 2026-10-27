@@ -3,6 +3,7 @@ package com.example.data.model
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
+import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.ServerTimestamp
 
 @IgnoreExtraProperties
@@ -21,9 +22,12 @@ data class Product(
     val isFeatured: Boolean = false,
     val mediaFormat: String = "1:1", // "1:1", "3:4", "4:3", "9:16", "16:9"
     val videoUrl: String = "",
-    val isVideo: Boolean = false,
+    @get:PropertyName("isVideo") @set:PropertyName("isVideo") var isVideo: Boolean = false,
     @ServerTimestamp val createdAt: Timestamp? = null
-)
+) {
+    val hasVideo: Boolean
+        get() = isVideo || videoUrl.isNotBlank()
+}
 
 val Product.aspectRatioValue: Float
     get() = when (mediaFormat.trim()) {
@@ -102,9 +106,12 @@ data class Announcement(
     val targetCategory: String = "todo",
     val isActive: Boolean = true,
     val videoUrl: String = "",
-    val isVideo: Boolean = false,
+    @get:PropertyName("isVideo") @set:PropertyName("isVideo") var isVideo: Boolean = false,
     @ServerTimestamp val createdAt: Timestamp? = null
-)
+) {
+    val hasVideo: Boolean
+        get() = isVideo || videoUrl.isNotBlank()
+}
 
 enum class StoreCategory(val id: String, val title: String, val iconName: String) {
     TODO("todo", "Todo", "grid_view"),

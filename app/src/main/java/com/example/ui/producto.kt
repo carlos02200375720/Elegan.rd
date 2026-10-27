@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Remove
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -82,12 +84,18 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.data.model.Product
+import com.example.ui.components.EleganVideoPlayer
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import kotlinx.coroutines.launch
+
+sealed interface GalleryMediaItem {
+    data class Video(val videoUrl: String, val posterUrl: String) : GalleryMediaItem
+    data class Image(val imageUrl: String) : GalleryMediaItem
+}
 
 @Composable
 fun ProductoScreen(
@@ -106,9 +114,8 @@ fun ProductoScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val galleryImages = remember(product) { getProductGalleryImages(product) }
-    val pagerState = rememberPagerState(pageCount = { galleryImages.size })
-    var showVideoPlayer by remember(product.videoUrl) { mutableStateOf(false) }
+    val mediaItems = remember(product) { getProductMediaItems(product) }
+    val pagerState = rememberPagerState(pageCount = { mediaItems.size })
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -273,41 +280,27 @@ fun ProductoScreen(
                             state = pagerState,
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
-                            AsyncImage(
-                                model = galleryImages[page],
-                                contentDescription = "${product.name} - Imagen ${page + 1}",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-
-                        if (product.isVideo && product.videoUrl.isNotBlank()) {
-                            Surface(
-                                onClick = { showVideoPlayer = true },
-                                shape = RoundedCornerShape(24.dp),
-                                color = EleganBurgundy.copy(alpha = 0.92f),
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 52.dp)
-                                    .testTag("play_product_video")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayCircle,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Reproducir video",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold
+                            when (val item = mediaItems.getOrNull(page)) {
+                                is GalleryMediaItem.Video -> {
+                                    EleganVideoPlayer(
+                                        videoUrl = item.videoUrl,
+                                        posterUrl = item.posterUrl,
+                                        aspectRatio = 1.1f,
+                                        autoPlay = false,
+                                        showControls = true,
+                                        testTagPrefix = "gallery_video_${product.id}",
+                                        modifier = Modifier.fillMaxSize()
                                     )
                                 }
+                                is GalleryMediaItem.Image -> {
+                                    AsyncImage(
+                                        model = item.imageUrl,
+                                        contentDescription = "${product.name} - Imagen ${page + 1}",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                null -> {}
                             }
                         }
 
@@ -327,7 +320,10 @@ fun ProductoScreen(
                             )
                         }
 
-                        // Indicador de contenido en la esquina inferior derecha (ejemplo: 1/10)
+                        // Indicador de contenido multimedia en la esquina inferior derecha
+                        val currentItem = mediaItems.getOrNull(pagerState.currentPage)
+                        val isCurrentVideo = currentItem is GalleryMediaItem.Video
+
                         Surface(
                             shape = RoundedCornerShape(14.dp),
                             color = Color.Black.copy(alpha = 0.65f),
@@ -342,14 +338,14 @@ fun ProductoScreen(
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Collections,
+                                    imageVector = if (isCurrentVideo) Icons.Default.Videocam else Icons.Default.Collections,
                                     contentDescription = "Contenido multimedia",
-                                    tint = Color.White.copy(alpha = 0.95f),
+                                    tint = if (isCurrentVideo) EleganGold else Color.White.copy(alpha = 0.95f),
                                     modifier = Modifier.size(13.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "${pagerState.currentPage + 1}/${galleryImages.size}",
+                                    text = if (isCurrentVideo) "Video • ${pagerState.currentPage + 1}/${mediaItems.size}" else "${pagerState.currentPage + 1}/${mediaItems.size}",
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
@@ -357,7 +353,6 @@ fun ProductoScreen(
                                 )
                             }
                         }
-
                     }
                 }
 
@@ -578,59 +573,30 @@ fun ProductoScreen(
         }
     }
 
-    if (showVideoPlayer) {
-        ProductVideoDialog(
-            videoUrl = product.videoUrl,
-            onDismiss = { showVideoPlayer = false }
-        )
-    }
 }
 
-@Composable
-private fun ProductVideoDialog(videoUrl: String, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    var playbackFailed by remember(videoUrl) { mutableStateOf(false) }
-    val videoView = remember(videoUrl) {
-        VideoView(context).also { view ->
-            val controller = MediaController(context)
-            controller.setAnchorView(view)
-            view.setMediaController(controller)
-            view.setVideoURI(Uri.parse(videoUrl))
-            view.setOnPreparedListener { view.start() }
-            view.setOnErrorListener { _, _, _ ->
-                playbackFailed = true
-                true
-            }
-        }
+/**
+ * Retorna la lista unificada de elementos multimedia (video y fotos) para la galería.
+ */
+fun getProductMediaItems(product: Product): List<GalleryMediaItem> {
+    val items = mutableListOf<GalleryMediaItem>()
+    val basePoster = if (product.imageUrl.isNotBlank() && !product.imageUrl.endsWith(".mp4", ignoreCase = true)) {
+        product.imageUrl
+    } else {
+        product.images.firstOrNull { it.isNotBlank() && !it.endsWith(".mp4", ignoreCase = true) }.orEmpty()
     }
 
-    DisposableEffect(videoView) {
-        onDispose { videoView.stopPlayback() }
+    if (product.hasVideo && product.videoUrl.isNotBlank()) {
+        items.add(GalleryMediaItem.Video(videoUrl = product.videoUrl, posterUrl = basePoster))
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = Color.Black
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                AndroidView(
-                    factory = { videoView },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                )
-                if (playbackFailed) {
-                    Text(
-                        text = "No se pudo reproducir este video.",
-                        color = Color.White,
-                        modifier = Modifier.padding(20.dp)
-                    )
-                }
-            }
+    val images = getProductGalleryImages(product)
+    images.forEach { imgUrl ->
+        if (imgUrl.isNotBlank() && !imgUrl.endsWith(".mp4", ignoreCase = true)) {
+            items.add(GalleryMediaItem.Image(imageUrl = imgUrl))
         }
     }
+    return if (items.isNotEmpty()) items else listOf(GalleryMediaItem.Image(basePoster))
 }
 
 /**
@@ -639,8 +605,25 @@ private fun ProductVideoDialog(videoUrl: String, onDismiss: () -> Unit) {
  * Si no, se proveen 10 perspectivas y detalles de alta calidad acordes a su categoría.
  */
 fun getProductGalleryImages(product: Product): List<String> {
-    if (product.images.isNotEmpty()) return product.images
-    val base = product.imageUrl.ifBlank { "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80" }
+    val userImages = (listOfNotNull(product.imageUrl.takeIf { it.isNotBlank() && !it.endsWith(".mp4", ignoreCase = true) }) +
+            product.images.filter { it.isNotBlank() && !it.endsWith(".mp4", ignoreCase = true) }).distinct()
+    if (userImages.isNotEmpty()) return userImages
+
+    val base = if (product.imageUrl.isNotBlank() && !product.imageUrl.endsWith(".mp4", ignoreCase = true)) {
+        product.imageUrl
+    } else {
+        when (product.category.lowercase().trim()) {
+            "gorra" -> "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=80"
+            "gafa" -> "https://images.unsplash.com/photo-1508296695146-257a814070b4?w=800&auto=format&fit=crop&q=80"
+            "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
+            "correa" -> "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80"
+            "pantalone" -> "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80"
+            "zapato" -> "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80"
+            "interiore" -> "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&auto=format&fit=crop&q=80"
+            "perfume" -> "https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80"
+            else -> "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
+        }
+    }
 
     val supplements = when (product.category.lowercase().trim()) {
         "gorra" -> listOf(
