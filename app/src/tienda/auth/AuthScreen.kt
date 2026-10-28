@@ -152,7 +152,6 @@ fun AuthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Logo badge
                 Box(
                     modifier = Modifier
                         .size(96.dp)
@@ -203,7 +202,6 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Google Sign In Button
                 Button(
                     onClick = {
                         isLoading = true

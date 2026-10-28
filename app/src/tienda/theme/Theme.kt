@@ -47,7 +47,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun EleganTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep distinct custom luxury branding
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -66,7 +66,6 @@ fun EleganTheme(
     )
 }
 
-// Backward compatibility alias
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

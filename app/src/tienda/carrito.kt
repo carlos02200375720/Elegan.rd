@@ -340,7 +340,6 @@ fun CarritoScreen(
                     )
                 }
 
-                // Coupon code card
                 item {
                     Card(
                         modifier = Modifier
@@ -422,7 +421,6 @@ fun CarritoScreen(
                     }
                 }
 
-                // Summary breakdown card
                 item {
                     ElevatedCard(
                         modifier = Modifier
@@ -570,7 +568,6 @@ fun CartItemRow(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Quantity controls
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -618,14 +615,20 @@ fun CartItemRow(
 }
 
 @Composable
-fun SummaryRow(label: String, value: String, valueColor: Color = EleganCharcoal) {
+fun SummaryRow(
+    label: String,
+    value: String,
+    valueColor: Color = EleganCharcoal
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = valueColor))
+        Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = valueColor))
     }
 }
+

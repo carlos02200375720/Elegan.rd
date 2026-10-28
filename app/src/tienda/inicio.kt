@@ -89,6 +89,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -140,30 +141,53 @@ fun InicioScreen(
     onNavigateToCart: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    var isHeaderVisible by remember { mutableStateOf(true) }
-    var previousIndex by remember { mutableIntStateOf(0) }
-    var previousScrollOffset by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        val currentIndex = listState.firstVisibleItemIndex
-        val currentOffset = listState.firstVisibleItemScrollOffset
+    // Cálculo optimizado del producto actualmente enfocado en la pantalla del usuario.
+    // Utiliza derivedStateOf para no provocar recomposiciones innecesarias durante el scroll,
+    // garantizando un desplazamiento vertical 100% fluido, continuo y suave a 60/120 FPS.
+    val focusedProductId by remember(listState, featuredProducts) {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@derivedStateOf null
 
-        if (currentIndex == 0 && currentOffset <= 20) {
-            isHeaderVisible = true
-        } else {
-            val isScrollingDown = currentIndex > previousIndex ||
-                (currentIndex == previousIndex && currentOffset > previousScrollOffset + 8)
-            val isScrollingUp = currentIndex < previousIndex ||
-                (currentIndex == previousIndex && currentOffset < previousScrollOffset - 8)
+            val vpStart = layoutInfo.viewportStartOffset
+            val vpEnd = layoutInfo.viewportEndOffset
+            val vpCenter = (vpStart + vpEnd) / 2
+            val productKeys = featuredProducts.map { it.id }.toSet()
+            val visibleProducts = visibleItems.filter { it.key in productKeys }
+            if (visibleProducts.isEmpty()) return@derivedStateOf null
 
-            if (isScrollingDown) {
-                isHeaderVisible = false
-            } else if (isScrollingUp) {
-                isHeaderVisible = true
+            // Prioridad 1: el producto que cruza el centro de visión del usuario en la pantalla
+            val centerProduct = visibleProducts.find { item ->
+                item.offset <= vpCenter && (item.offset + item.size) >= vpCenter
             }
+
+            if (centerProduct != null) {
+                val visibleTop = maxOf(centerProduct.offset, vpStart)
+                val visibleBottom = minOf(centerProduct.offset + centerProduct.size, vpEnd)
+                val visiblePx = (visibleBottom - visibleTop).coerceAtLeast(0)
+                if (visiblePx >= 100) {
+                    return@derivedStateOf centerProduct.key as? String
+                }
+            }
+
+            // Prioridad 2: el producto con mayor altura visible en el viewport
+            val maxVisible = visibleProducts.maxByOrNull { item ->
+                val visibleTop = maxOf(item.offset, vpStart)
+                val visibleBottom = minOf(item.offset + item.size, vpEnd)
+                (visibleBottom - visibleTop).coerceAtLeast(0)
+            }
+            if (maxVisible != null) {
+                val visibleTop = maxOf(maxVisible.offset, vpStart)
+                val visibleBottom = minOf(maxVisible.offset + maxVisible.size, vpEnd)
+                val visiblePx = (visibleBottom - visibleTop).coerceAtLeast(0)
+                if (visiblePx >= 140) {
+                    return@derivedStateOf maxVisible.key as? String
+                }
+            }
+            null
         }
-        previousIndex = currentIndex
-        previousScrollOffset = currentOffset
     }
 
     val context = LocalContext.current
@@ -185,104 +209,95 @@ fun InicioScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        AnimatedVisibility(
-            visible = isHeaderVisible,
-            enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(200)),
-            exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(animationSpec = tween(200))
+        // Barra superior fija para máxima estabilidad y scroll 100% continuo y fluido sin saltos de layout
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            color = Color.White,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    color = Color.White,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
+                IconButton(
+                    onClick = onNavigateToCategoryMenu,
+                    modifier = Modifier.testTag("inicio_menu_button")
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = onNavigateToCategoryMenu,
-                            modifier = Modifier.testTag("inicio_menu_button")
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menú",
+                        tint = EleganCharcoal
+                    )
+                }
+
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = EleganCharcoal,
+                        fontFamily = FontFamily.Serif,
+                        fontSize = 15.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                        .testTag("inicio_user_name")
+                )
+
+                IconButton(
+                    onClick = onNavigateToCart,
+                    modifier = Modifier.testTag("inicio_cart_button")
+                ) {
+                    if (cartItemCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = EleganBurgundy,
+                                    contentColor = Color.White
+                                ) {
+                                    Text("$cartItemCount", fontSize = 10.sp)
+                                }
+                            }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menú",
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = "Carrito",
                                 tint = EleganCharcoal
                             )
                         }
-
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal,
-                                fontFamily = FontFamily.Serif,
-                                fontSize = 15.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                                .testTag("inicio_user_name")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingBag,
+                            contentDescription = "Carrito",
+                            tint = EleganCharcoal
                         )
-
-                        IconButton(
-                            onClick = onNavigateToCart,
-                            modifier = Modifier.testTag("inicio_cart_button")
-                        ) {
-                            if (cartItemCount > 0) {
-                                BadgedBox(
-                                    badge = {
-                                        Badge(
-                                            containerColor = EleganBurgundy,
-                                            contentColor = Color.White
-                                        ) {
-                                            Text("$cartItemCount", fontSize = 10.sp)
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ShoppingBag,
-                                        contentDescription = "Carrito",
-                                        tint = EleganCharcoal
-                                    )
-                                }
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.ShoppingBag,
-                                    contentDescription = "Carrito",
-                                    tint = EleganCharcoal
-                                )
-                            }
-                        }
                     }
                 }
-
-                // Sombra únicamente en la parte inferior para mantener continuidad fluida con la barra de estado
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.07f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
             }
         }
+
+        // Sombra únicamente en la parte inferior para mantener continuidad fluida y elegante
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.5.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.07f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
 
         LazyColumn(
             state = listState,
@@ -293,7 +308,7 @@ fun InicioScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
         // Hero Luxury Banner
-        item {
+        item(key = "hero_banner") {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -441,7 +456,7 @@ fun InicioScreen(
         }
 
         // Categories quick slider (Historias / Estados en formato 9:16, 4 visibles)
-        item {
+        item(key = "categories_section") {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -510,14 +525,15 @@ fun InicioScreen(
         }
 
         // Publications feed (directo debajo del carrusel de categorías)
-        item {
+        item(key = "feed_spacer") {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Single column publications feed
+        // Single column publications feed con reciclado de alto rendimiento y detección de foco
         itemsIndexed(
             items = featuredProducts,
-            key = { _, prod -> prod.id }
+            key = { _, prod -> prod.id },
+            contentType = { _, _ -> "product_post" }
         ) { index, prod ->
             val isLiked = likedProductIds.contains(prod.id)
             val isSaved = savedProductIds.contains(prod.id)
@@ -527,6 +543,7 @@ fun InicioScreen(
                 "Carlos S." to "Excelente confección y acabados impecables.",
                 "Marcos R." to "La tela y el estilo superaron mis expectativas."
             )
+            val isPostFocused = (focusedProductId == prod.id)
 
             ProductPublicationPost(
                 product = prod,
@@ -535,6 +552,7 @@ fun InicioScreen(
                 isSaved = isSaved,
                 likeCount = currentLikes,
                 commentCount = currentComments.size,
+                isFocused = isPostFocused,
                 onLikeClick = {
                     val willLike = !isLiked
                     likedProductIds = if (willLike) likedProductIds + prod.id else likedProductIds - prod.id
@@ -568,7 +586,7 @@ fun InicioScreen(
         }
 
         // Concierge VIP banner
-        item {
+        item(key = "concierge_vip_card") {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -961,21 +979,24 @@ fun ProductPublicationPost(
     isSaved: Boolean,
     likeCount: Int,
     commentCount: Int,
+    isFocused: Boolean = false,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
     onSaveClick: () -> Unit,
     onShareClick: () -> Unit,
     onProductClick: () -> Unit
 ) {
-    // Determinar formato de publicación: 1:1, 3:4 o 4:3
-    val ratio = when (product.mediaFormat.trim()) {
-        "3:4" -> (3f / 4f)
-        "4:3" -> (4f / 3f)
-        "1:1" -> 1f
-        else -> when (index % 3) {
-            0 -> 1f
-            1 -> (3f / 4f)
-            else -> (4f / 3f)
+    // Determinar formato de publicación: 1:1, 3:4 o 4:3 con remember para scroll 100% fluido
+    val ratio = remember(product.mediaFormat, index) {
+        when (product.mediaFormat.trim()) {
+            "3:4" -> (3f / 4f)
+            "4:3" -> (4f / 3f)
+            "1:1" -> 1f
+            else -> when (index % 3) {
+                0 -> 1f
+                1 -> (3f / 4f)
+                else -> (4f / 3f)
+            }
         }
     }
 
@@ -1078,11 +1099,13 @@ fun ProductPublicationPost(
             ) { page ->
                 when (val item = mediaItems.getOrNull(page)) {
                     is GalleryMediaItem.Video -> {
+                        val isVideoFocused = isFocused && (pagerState.currentPage == page)
                         EleganVideoPlayer(
                             videoUrl = item.videoUrl,
                             posterUrl = item.posterUrl,
                             aspectRatio = ratio,
-                            autoPlay = false,
+                            autoPlay = isVideoFocused,
+                            isFocused = isVideoFocused,
                             showControls = true,
                             testTagPrefix = "inicio_video_${product.id}_$page",
                             modifier = Modifier.fillMaxSize()

@@ -2,7 +2,6 @@ package com.example.ui
 
 import android.net.Uri
 import android.widget.MediaController
-import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -120,72 +119,6 @@ fun ProductoScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 3.dp
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .testTag("producto_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = EleganCharcoal
-                        )
-                    }
-
-                    Text(
-                        text = "Detalle del Producto",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal,
-                            fontFamily = FontFamily.Serif
-                        ),
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-
-                    IconButton(
-                        onClick = onNavigateToCart,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .testTag("producto_cart_button")
-                    ) {
-                        BadgedBox(
-                            badge = {
-                                if (cartItemCount > 0L) {
-                                    Badge(
-                                        containerColor = EleganBurgundy,
-                                        contentColor = Color.White
-                                    ) {
-                                        Text("$cartItemCount")
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = "Carrito",
-                                tint = EleganCharcoal
-                            )
-                        }
-                    }
-                }
-            }
-        },
         bottomBar = {
             Surface(
                 color = Color.White,
@@ -261,19 +194,22 @@ fun ProductoScreen(
         },
         containerColor = EleganIvory
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .testTag("producto_screen")
+                .padding(bottom = padding.calculateBottomPadding())
         ) {
-                // Hero product image gallery
-                // Hero product image gallery (solo con indicador de contenido)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("producto_screen")
+            ) {
+                // Hero product image gallery (contenedor multimedia cuadrado 1:1)
                 item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(1.1f)
+                            .aspectRatio(1f)
                             .background(Color(0xFFF0EBE3))
                     ) {
                         HorizontalPager(
@@ -282,11 +218,13 @@ fun ProductoScreen(
                         ) { page ->
                             when (val item = mediaItems.getOrNull(page)) {
                                 is GalleryMediaItem.Video -> {
+                                    val isVideoFocused = (pagerState.currentPage == page)
                                     EleganVideoPlayer(
                                         videoUrl = item.videoUrl,
                                         posterUrl = item.posterUrl,
-                                        aspectRatio = 1.1f,
-                                        autoPlay = false,
+                                        aspectRatio = 1f,
+                                        autoPlay = isVideoFocused,
+                                        isFocused = isVideoFocused,
                                         showControls = true,
                                         testTagPrefix = "gallery_video_${product.id}",
                                         modifier = Modifier.fillMaxSize()
@@ -304,18 +242,20 @@ fun ProductoScreen(
                             }
                         }
 
-                        // Etiqueta de categoría en esquina superior izquierda
+                        // Etiqueta de categoría en esquina inferior izquierda
                         Surface(
-                            shape = RoundedCornerShape(bottomEnd = 12.dp),
-                            color = EleganBurgundyDark,
-                            modifier = Modifier.align(Alignment.TopStart)
+                            shape = RoundedCornerShape(12.dp),
+                            color = EleganBurgundyDark.copy(alpha = 0.9f),
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 12.dp, bottom = 12.dp)
                         ) {
                             Text(
                                 text = product.category.uppercase(),
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                 letterSpacing = 1.sp
                             )
                         }
@@ -569,14 +509,84 @@ fun ProductoScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
                     }
+                }
+            }
+
+            // Cabecera fija con fondo 100% transparente sobre la galería
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .background(Color.Transparent)
+                    .padding(horizontal = 12.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.85f),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .align(Alignment.CenterStart)
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("producto_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = EleganCharcoal,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.85f),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .align(Alignment.CenterEnd)
+                ) {
+                    IconButton(
+                        onClick = onNavigateToCart,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("producto_cart_button")
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (cartItemCount > 0L) {
+                                    Badge(
+                                        containerColor = EleganBurgundy,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("$cartItemCount")
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingCart,
+                                contentDescription = "Carrito",
+                                tint = EleganCharcoal,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
-
 }
 
 /**
  * Retorna la lista unificada de elementos multimedia (video y fotos) para la galería.
+ * Si el producto tiene video, la portada del video también acompaña como imagen la galería.
  */
 fun getProductMediaItems(product: Product): List<GalleryMediaItem> {
     val items = mutableListOf<GalleryMediaItem>()
@@ -587,16 +597,39 @@ fun getProductMediaItems(product: Product): List<GalleryMediaItem> {
     }
 
     if (product.hasVideo && product.videoUrl.isNotBlank()) {
-        items.add(GalleryMediaItem.Video(videoUrl = product.videoUrl, posterUrl = basePoster))
+        val videoPoster = basePoster.ifBlank {
+            getDefaultCategoryFallback(product.category)
+        }
+        items.add(GalleryMediaItem.Video(videoUrl = product.videoUrl, posterUrl = videoPoster))
+        // La portada que genera el video la toma como imagen para acompañar el contenido de la galería
+        if (videoPoster.isNotBlank()) {
+            items.add(GalleryMediaItem.Image(imageUrl = videoPoster))
+        }
     }
 
     val images = getProductGalleryImages(product)
     images.forEach { imgUrl ->
         if (imgUrl.isNotBlank() && !imgUrl.endsWith(".mp4", ignoreCase = true)) {
-            items.add(GalleryMediaItem.Image(imageUrl = imgUrl))
+            if (items.none { it is GalleryMediaItem.Image && it.imageUrl == imgUrl }) {
+                items.add(GalleryMediaItem.Image(imageUrl = imgUrl))
+            }
         }
     }
     return if (items.isNotEmpty()) items else listOf(GalleryMediaItem.Image(basePoster))
+}
+
+fun getDefaultCategoryFallback(category: String): String {
+    return when (category.lowercase().trim()) {
+        "gorra" -> "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=80"
+        "gafa" -> "https://images.unsplash.com/photo-1508296695146-257a814070b4?w=800&auto=format&fit=crop&q=80"
+        "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
+        "correa" -> "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80"
+        "pantalone" -> "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80"
+        "zapato" -> "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80"
+        "interiore" -> "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&auto=format&fit=crop&q=80"
+        "perfume" -> "https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80"
+        else -> "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
+    }
 }
 
 /**
@@ -612,17 +645,7 @@ fun getProductGalleryImages(product: Product): List<String> {
     val base = if (product.imageUrl.isNotBlank() && !product.imageUrl.endsWith(".mp4", ignoreCase = true)) {
         product.imageUrl
     } else {
-        when (product.category.lowercase().trim()) {
-            "gorra" -> "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=80"
-            "gafa" -> "https://images.unsplash.com/photo-1508296695146-257a814070b4?w=800&auto=format&fit=crop&q=80"
-            "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
-            "correa" -> "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80"
-            "pantalone" -> "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80"
-            "zapato" -> "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80"
-            "interiore" -> "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&auto=format&fit=crop&q=80"
-            "perfume" -> "https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80"
-            else -> "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
-        }
+        getDefaultCategoryFallback(product.category)
     }
 
     val supplements = when (product.category.lowercase().trim()) {

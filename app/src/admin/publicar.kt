@@ -213,10 +213,13 @@ fun PublicarScreen(
         if (uri != null) {
             val persisted = persistUriLocallyInApp(context, uri, "prod_video", isVideo = true)
             productVideoUrl = persisted
-            if (productMainImageUrl.isBlank()) {
-                val thumb = extractThumbnailLocally(context, persisted)
-                if (thumb != null) {
+            val thumb = extractThumbnailLocally(context, persisted)
+            if (thumb != null) {
+                if (productMainImageUrl.isBlank()) {
                     productMainImageUrl = thumb
+                }
+                if (thumb !in productGalleryImages) {
+                    productGalleryImages.add(0, thumb)
                 }
             }
         }
@@ -1242,7 +1245,7 @@ fun PublicarScreen(
                                 isSubmittingProduct = true
                                 val effectiveImageUrl = productMainImageUrl.trim().ifBlank {
                                     if (productMediaType == "video") {
-                                        when (productCategory.lowercase().trim()) {
+                                        extractThumbnailLocally(context, productVideoUrl) ?: when (productCategory.lowercase().trim()) {
                                             "gorra" -> "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=80"
                                             "gafa" -> "https://images.unsplash.com/photo-1508296695146-257a814070b4?w=800&auto=format&fit=crop&q=80"
                                             "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"

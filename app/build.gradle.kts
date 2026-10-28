@@ -72,6 +72,11 @@ android {
   sourceSets {
     getByName("main") {
       java.srcDir("src/admin")
+      kotlin.srcDir("src/admin")
+      java.srcDir("src/tienda")
+      kotlin.srcDir("src/tienda")
+      java.srcDir("src/data")
+      kotlin.srcDir("src/data")
     }
   }
 }
