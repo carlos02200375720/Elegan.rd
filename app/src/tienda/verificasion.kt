@@ -221,7 +221,6 @@ fun VerificasionScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(4.dp))
-                // Secure badge
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -246,7 +245,6 @@ fun VerificasionScreen(
                 }
             }
 
-            // Section 1: Delivery Address
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -355,7 +353,6 @@ fun VerificasionScreen(
                 }
             }
 
-            // Section 2: Payment Method
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -408,7 +405,6 @@ fun VerificasionScreen(
                 }
             }
 
-            // Section 3: Summary of Items
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

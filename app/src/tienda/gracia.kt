@@ -77,7 +77,6 @@ fun GraciaScreen(
     ) {
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Success Icon Circle
         Box(
             modifier = Modifier
                 .size(110.dp)
@@ -135,7 +134,6 @@ fun GraciaScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Order Info Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -221,7 +219,6 @@ fun GraciaScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Action Buttons
         Button(
             onClick = onNavigateToInicio,
             modifier = Modifier

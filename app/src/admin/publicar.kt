@@ -97,10 +97,65 @@ import com.example.data.model.Product
 import com.example.data.model.StoreCategory
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
+import android.content.Context
+import android.media.MediaMetadataRetriever
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
+import java.io.FileOutputStream
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import kotlinx.coroutines.launch
+
+private fun persistUriLocallyInApp(context: Context, sourceUri: Uri, prefix: String, isVideo: Boolean): String {
+    return try {
+        if (sourceUri.scheme == "file") {
+            val f = File(sourceUri.path ?: "")
+            if (f.exists() && f.length() > 0) return sourceUri.toString()
+        }
+        val mediaDir = File(context.filesDir, "product_media").apply { if (!exists()) mkdirs() }
+        val ext = if (isVideo) "mp4" else "jpg"
+        val targetFile = File(mediaDir, "${prefix}_${System.currentTimeMillis()}.$ext")
+        context.contentResolver.openInputStream(sourceUri)?.use { input ->
+            FileOutputStream(targetFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        if (targetFile.exists() && targetFile.length() > 0) {
+            Uri.fromFile(targetFile).toString()
+        } else {
+            sourceUri.toString()
+        }
+    } catch (_: Exception) {
+        sourceUri.toString()
+    }
+}
+
+private fun extractThumbnailLocally(context: Context, videoUriStr: String): String? {
+    return try {
+        val uri = Uri.parse(videoUriStr)
+        val retriever = MediaMetadataRetriever()
+        retriever.setDataSource(context, uri)
+        val frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: retriever.frameAtTime
+        if (frame != null) {
+            val mediaDir = File(context.filesDir, "product_media").apply { if (!exists()) mkdirs() }
+            val thumbFile = File(mediaDir, "thumb_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(thumbFile).use { out ->
+                frame.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
+            }
+            frame.recycle()
+            retriever.release()
+            if (thumbFile.exists() && thumbFile.length() > 0) {
+                Uri.fromFile(thumbFile).toString()
+            } else null
+        } else {
+            retriever.release()
+            null
+        }
+    } catch (_: Exception) {
+        null
+    }
+}
 
 @Composable
 fun PublicarScreen(
@@ -112,6 +167,7 @@ fun PublicarScreen(
 ) {
     BackHandler { onBack() }
 
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -132,7 +188,8 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            productMainImageUrl = uri.toString()
+            val persisted = persistUriLocallyInApp(context, uri, "main_photo", isVideo = false)
+            productMainImageUrl = persisted
         }
     }
 
@@ -140,9 +197,9 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 9)
     ) { uris: List<Uri> ->
         uris.forEach { uri ->
-            val uriStr = uri.toString()
-            if (uriStr !in productGalleryImages && (productGalleryImages.size + if (productMainImageUrl.isNotBlank()) 1 else 0) < 10) {
-                productGalleryImages.add(uriStr)
+            val persisted = persistUriLocallyInApp(context, uri, "gallery_photo", isVideo = false)
+            if (persisted !in productGalleryImages && (productGalleryImages.size + if (productMainImageUrl.isNotBlank()) 1 else 0) < 10) {
+                productGalleryImages.add(persisted)
             }
         }
     }
@@ -154,7 +211,17 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            productVideoUrl = uri.toString()
+            val persisted = persistUriLocallyInApp(context, uri, "prod_video", isVideo = true)
+            productVideoUrl = persisted
+            val thumb = extractThumbnailLocally(context, persisted)
+            if (thumb != null) {
+                if (productMainImageUrl.isBlank()) {
+                    productMainImageUrl = thumb
+                }
+                if (thumb !in productGalleryImages) {
+                    productGalleryImages.add(0, thumb)
+                }
+            }
         }
     }
 
@@ -179,7 +246,8 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            announcementImageUrl = uri.toString()
+            val persisted = persistUriLocallyInApp(context, uri, "ann_photo", isVideo = false)
+            announcementImageUrl = persisted
         }
     }
 
@@ -188,9 +256,15 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            announcementVideoUrl = uri.toString()
+            val persisted = persistUriLocallyInApp(context, uri, "ann_video", isVideo = true)
+            announcementVideoUrl = persisted
             if (announcementImageUrl.isBlank()) {
-                announcementImageUrl = uri.toString()
+                val thumb = extractThumbnailLocally(context, persisted)
+                if (thumb != null) {
+                    announcementImageUrl = thumb
+                } else {
+                    announcementImageUrl = persisted
+                }
             }
         }
     }
@@ -1169,7 +1243,23 @@ fun PublicarScreen(
                                 }
 
                                 isSubmittingProduct = true
-                                val effectiveImageUrl = productMainImageUrl.trim()
+                                val effectiveImageUrl = productMainImageUrl.trim().ifBlank {
+                                    if (productMediaType == "video") {
+                                        extractThumbnailLocally(context, productVideoUrl) ?: when (productCategory.lowercase().trim()) {
+                                            "gorra" -> "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800&auto=format&fit=crop&q=80"
+                                            "gafa" -> "https://images.unsplash.com/photo-1508296695146-257a814070b4?w=800&auto=format&fit=crop&q=80"
+                                            "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
+                                            "correa" -> "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80"
+                                            "pantalone" -> "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80"
+                                            "zapato" -> "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80"
+                                            "interiore" -> "https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&auto=format&fit=crop&q=80"
+                                            "perfume" -> "https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=800&auto=format&fit=crop&q=80"
+                                            else -> "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80"
+                                        }
+                                    } else {
+                                        ""
+                                    }
+                                }
                                 val newProduct = Product(
                                     name = productName.trim(),
                                     description = productDescription.trim(),
@@ -1197,8 +1287,7 @@ fun PublicarScreen(
                                             productGalleryImages.clear()
                                         }.onFailure { error ->
                                             snackbarHostState.showSnackbar(
-                                                error.localizedMessage
-                                                    ?: "No se pudo publicar el producto. Verifica Firebase Storage e inténtalo de nuevo."
+                                                "Error al publicar: ${error.localizedMessage ?: "Verifica la conexión a internet e inténtalo de nuevo."}"
                                             )
                                         }
                                         isSubmittingProduct = false

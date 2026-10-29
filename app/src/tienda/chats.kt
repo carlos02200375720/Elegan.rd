@@ -160,9 +160,9 @@ fun ChatsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF2E7D32))
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF2E7D32))
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(

@@ -4,7 +4,7 @@ import java.time.Duration
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.google.devtools.ksp)
+  // alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
 }
@@ -72,6 +72,11 @@ android {
   sourceSets {
     getByName("main") {
       java.srcDir("src/admin")
+      kotlin.srcDir("src/admin")
+      java.srcDir("src/tienda")
+      kotlin.srcDir("src/tienda")
+      java.srcDir("src/data")
+      kotlin.srcDir("src/data")
     }
   }
 }
@@ -144,8 +149,8 @@ dependencies {
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
-  "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
+  // "ksp"(libs.androidx.room.compiler)
+  // "ksp"(libs.moshi.kotlin.codegen)
 }
 
 tasks.withType<Test> {

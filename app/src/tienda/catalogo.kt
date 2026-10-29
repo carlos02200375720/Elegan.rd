@@ -213,7 +213,6 @@ fun CatalogoScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Carrusel de categorías en tarjetas 9:16 (estética historias/estados, exactamente 4 visibles)
             item(span = { GridItemSpan(2) }) {
                 Column(
                     modifier = Modifier
@@ -303,7 +302,6 @@ fun CatalogoScreen(
                 }
             }
 
-            // Results count
             item(span = { GridItemSpan(2) }) {
                 Row(
                     modifier = Modifier
@@ -322,7 +320,6 @@ fun CatalogoScreen(
                 }
             }
 
-            // Empty state
             if (filteredProducts.isEmpty()) {
                 item(span = { GridItemSpan(2) }) {
                     Box(
@@ -361,7 +358,6 @@ fun CatalogoScreen(
                 }
             }
 
-            // Product Cards Grid
             items(filteredProducts, key = { it.id }) { product ->
                 ProductGridCard(
                     product = product,
@@ -423,7 +419,6 @@ fun ProductGridCard(
                     )
                 }
 
-                // Quick add button
                 IconButton(
                     onClick = onAddToCart,
                     modifier = Modifier
@@ -534,7 +529,6 @@ fun CatalogoCategoryStoryCard(
         color = EleganCharcoal
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Imagen representativa de la categoría
             AsyncImage(
                 model = getCategoryStoryImage(category),
                 contentDescription = category.title,
@@ -542,7 +536,6 @@ fun CatalogoCategoryStoryCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Gradiente oscuro de fondo (superior para icono, inferior para texto)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -556,7 +549,6 @@ fun CatalogoCategoryStoryCard(
                     )
             )
 
-            // Indicador / Avatar circular superior estilo estado de WhatsApp / historia de Instagram
             Box(
                 modifier = Modifier
                     .padding(5.dp)
@@ -579,7 +571,6 @@ fun CatalogoCategoryStoryCard(
                 )
             }
 
-            // Si está seleccionada, indicador activo dorado en la esquina superior derecha
             if (isSelected) {
                 Box(
                     modifier = Modifier
@@ -592,7 +583,6 @@ fun CatalogoCategoryStoryCard(
                 )
             }
 
-            // Nombre de la categoría en la parte inferior
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -640,4 +630,3 @@ fun CatalogoCategoryStoryCard(
         }
     }
 }
-

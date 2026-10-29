@@ -28,7 +28,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
 
     private val repository = EleganRepository(application)
 
-    // Current navigation or filter state
     private val _selectedCategory = MutableStateFlow<String>("todo")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
@@ -44,7 +43,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
     private val _deletedProductIds = MutableStateFlow<Set<String>>(emptySet())
     private val _deletedAnnouncementIds = MutableStateFlow<Set<String>>(emptySet())
 
-    // Products
     val products: StateFlow<List<Product>> = combine(
         repository.observeProducts(),
         _deletedProductIds
@@ -56,7 +54,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = repository.getInitialSampleProducts()
     )
 
-    // Announcements
     val announcements: StateFlow<List<Announcement>> = combine(
         repository.observeAnnouncements(),
         _deletedAnnouncementIds
@@ -68,7 +65,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = repository.getInitialSampleAnnouncements()
     )
 
-    // Cart
     val cartItems: StateFlow<List<CartItem>> = repository.observeCart()
         .catch { emit(emptyList()) }
         .stateIn(
@@ -77,6 +73,7 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
+<<<<<<< HEAD:app/src/main/java/com/example/ui/viewmodel/EleganViewModel.kt
     // Saved publications
     val savedProductIds: StateFlow<Set<String>> = repository.observeSavedProductIds()
         .catch { error ->
@@ -90,6 +87,8 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         )
 
     // Orders
+=======
+>>>>>>> 1ee769ce27eca73008f9037b1904e7be8cb5848a:app/src/tienda/viewmodel/EleganViewModel.kt
     val orders: StateFlow<List<Order>> = repository.observeOrders()
         .catch { emit(emptyList()) }
         .stateIn(
@@ -98,7 +97,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-    // Support Chat Messages
     val messages: StateFlow<List<SupportMessage>> = repository.observeMessages()
         .catch { emit(emptyList()) }
         .stateIn(
@@ -107,7 +105,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-    // User Profile
     val userProfile: StateFlow<UserProfile?> = repository.observeUserProfile()
         .catch { emit(null) }
         .stateIn(
@@ -117,7 +114,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         )
 
     init {
-        // Automatically seed products and announcements to Firestore if empty
         viewModelScope.launch {
             if (Firebase.auth.currentUser != null) {
                 repository.seedProductsIfEmpty()
@@ -208,7 +204,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
                 _lastCreatedOrderId.value = orderId
                 onSuccess(orderId)
             } catch (e: Exception) {
-                // Structured logged in repository
             }
         }
     }
@@ -268,7 +263,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 repository.toggleProductStock(productId, inStock)
             } catch (e: Exception) {
-                // Logged in repository
             }
         }
     }
@@ -290,7 +284,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 repository.toggleAnnouncementActive(announcementId, isActive)
             } catch (e: Exception) {
-                // Logged in repository
             }
         }
     }
