@@ -15,6 +15,7 @@ data class Product(
     val price: Double = 0.0,
     val imageUrl: String = "",
     val images: List<String> = emptyList(),
+    val colors: List<String> = emptyList(),
     val rating: Double = 5.0,
     val reviewCount: Long = 0L,
     val sizes: List<String> = emptyList(),
@@ -68,6 +69,7 @@ data class CartItem(
     val price: Double = 0.0,
     val imageUrl: String = "",
     val selectedSize: String = "",
+    val selectedColor: String = "",
     val quantity: Long = 1L,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null

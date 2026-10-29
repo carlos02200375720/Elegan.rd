@@ -261,9 +261,9 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addToCart(product: Product, size: String, quantity: Long = 1L) {
+    fun addToCart(product: Product, size: String, quantity: Long = 1L, color: String = "") {
         viewModelScope.launch {
-            repository.addToCart(product, size, quantity)
+            repository.addToCart(product, size, quantity, color)
         }
     }
 

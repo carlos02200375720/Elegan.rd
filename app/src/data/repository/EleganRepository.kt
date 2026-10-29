@@ -276,6 +276,7 @@ class EleganRepository(
                 put("price", product.price)
                 put("imageUrl", product.imageUrl)
                 put("images", JSONArray(product.images))
+                put("colors", JSONArray(product.colors))
                 put("rating", product.rating)
                 put("reviewCount", product.reviewCount)
                 put("sizes", JSONArray(product.sizes))
@@ -314,6 +315,13 @@ class EleganRepository(
                         sizesList.add(sizesArray.optString(j))
                     }
                 }
+                val colorsArray = obj.optJSONArray("colors")
+                val colorsList = mutableListOf<String>()
+                if (colorsArray != null) {
+                    for (j in 0 until colorsArray.length()) {
+                        colorsList.add(colorsArray.optString(j))
+                    }
+                }
                 list.add(
                     Product(
                         id = obj.optString("id"),
@@ -323,6 +331,7 @@ class EleganRepository(
                         price = obj.optDouble("price", 0.0),
                         imageUrl = obj.optString("imageUrl"),
                         images = imagesList,
+                        colors = colorsList,
                         rating = obj.optDouble("rating", 5.0),
                         reviewCount = obj.optLong("reviewCount", 0L),
                         sizes = sizesList,
@@ -439,6 +448,7 @@ class EleganRepository(
                 "price" to finalProduct.price,
                 "imageUrl" to safeImageUrl,
                 "images" to finalProduct.images,
+                "colors" to finalProduct.colors,
                 "rating" to finalProduct.rating,
                 "reviewCount" to finalProduct.reviewCount,
                 "sizes" to finalProduct.sizes,
@@ -1059,10 +1069,15 @@ class EleganRepository(
         }
     }
 
-    suspend fun addToCart(product: Product, selectedSize: String, quantity: Long = 1L) {
+    suspend fun addToCart(
+        product: Product,
+        selectedSize: String,
+        quantity: Long = 1L,
+        selectedColor: String = ""
+    ) {
         val uid = requireUserId()
         val cartRef = db.collection("users").document(uid).collection("cart")
-        val cartItemId = "${product.id}_$selectedSize"
+        val cartItemId = "${product.id}_${selectedSize}_${selectedColor}".replace("/", "-")
         val docRef = cartRef.document(cartItemId)
 
         try {
@@ -1083,6 +1098,7 @@ class EleganRepository(
                     "price" to product.price,
                     "imageUrl" to product.imageUrl,
                     "selectedSize" to selectedSize,
+                    "selectedColor" to selectedColor,
                     "quantity" to quantity,
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()

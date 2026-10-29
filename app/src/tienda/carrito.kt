@@ -555,6 +555,12 @@ fun CartItemRow(
                         style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
                     )
                 }
+                if (item.selectedColor.isNotBlank()) {
+                    Text(
+                        text = "Color: ${item.selectedColor}",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -631,4 +637,3 @@ fun SummaryRow(
         Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = valueColor))
     }
 }
-

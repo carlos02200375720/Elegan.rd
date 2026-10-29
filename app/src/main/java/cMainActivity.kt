@@ -438,7 +438,8 @@ fun AppContent(
                         },
                         onQuickAddToCart = { prod ->
                             val defaultSize = prod.sizes.firstOrNull() ?: "Estándar"
-                            viewModel.addToCart(prod, defaultSize, 1L)
+                            val defaultColor = prod.colors.firstOrNull().orEmpty()
+                            viewModel.addToCart(prod, defaultSize, 1L, defaultColor)
                         }
                     )
                 }
@@ -453,11 +454,11 @@ fun AppContent(
                             onToggleSave = { onResult ->
                                 viewModel.toggleSaveProduct(prod.id, onResult)
                             },
-                            onAddToCart = { p, s, q ->
-                                viewModel.addToCart(p, s, q)
+                            onAddToCart = { p, s, color, q ->
+                                viewModel.addToCart(p, s, q, color)
                             },
-                            onBuyNow = { p, s, q ->
-                                viewModel.addToCart(p, s, q)
+                            onBuyNow = { p, s, color, q ->
+                                viewModel.addToCart(p, s, q, color)
                                 navigateTo(Screen.CARRITO)
                             },
                             onNavigateToCart = { navigateTo(Screen.CARRITO) },

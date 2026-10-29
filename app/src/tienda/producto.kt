@@ -105,8 +105,8 @@ fun ProductoScreen(
     cartItemCount: Long,
     isSaved: Boolean = false,
     onToggleSave: ((Result<Boolean>) -> Unit) -> Unit = {},
-    onAddToCart: (Product, String, Long) -> Unit,
-    onBuyNow: (Product, String, Long) -> Unit,
+    onAddToCart: (Product, String, String, Long) -> Unit,
+    onBuyNow: (Product, String, String, Long) -> Unit,
     onNavigateToCart: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -114,7 +114,8 @@ fun ProductoScreen(
 
     val context = LocalContext.current
     val defaultSize = product.sizes.firstOrNull() ?: "Estándar"
-    var selectedSize by remember { mutableStateOf(defaultSize) }
+    var selectedSize by remember(product.id) { mutableStateOf(defaultSize) }
+    var selectedColor by remember(product.id) { mutableStateOf(product.colors.firstOrNull().orEmpty()) }
     var quantity by remember { mutableLongStateOf(1L) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -143,7 +144,7 @@ fun ProductoScreen(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            onAddToCart(product, selectedSize, quantity)
+                            onAddToCart(product, selectedSize, selectedColor, quantity)
                             scope.launch {
                                 snackbarHostState.showSnackbar("¡Añadido al carrito con éxito!")
                             }
@@ -176,7 +177,7 @@ fun ProductoScreen(
 
                     Button(
                         onClick = {
-                            onBuyNow(product, selectedSize, quantity)
+                            onBuyNow(product, selectedSize, selectedColor, quantity)
                         },
                         modifier = Modifier
                             .weight(1.2f)
@@ -420,6 +421,48 @@ fun ProductoScreen(
                                 }
                             }
 
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
+
+                        if (product.colors.isNotEmpty()) {
+                            Text(
+                                text = "Seleccionar Color:",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                product.colors.forEach { color ->
+                                    val isSelected = color == selectedColor
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isSelected) EleganBurgundy else Color.White)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) EleganBurgundy else Color(0xFFD3CAC0),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { selectedColor = color }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                            .testTag("color_chip_$color"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = color,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                color = if (isSelected) Color.White else EleganCharcoal,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        )
+                                    }
+                                }
+                            }
                             Spacer(modifier = Modifier.height(20.dp))
                         }
 

@@ -24,7 +24,9 @@ service cloud.firestore {
              data.productId is string && data.productId.size() > 0 &&
              data.name is string && data.name.size() > 0 &&
              data.price is number && data.price >= 0 &&
-             data.quantity is int && data.quantity > 0;
+             data.quantity is int && data.quantity > 0 &&
+             (!('selectedColor' in data) ||
+               (data.selectedColor is string && data.selectedColor.size() <= 80));
     }
 
     function isValidSavedPublication(data, userId, productId) {

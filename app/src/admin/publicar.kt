@@ -157,6 +157,16 @@ private fun extractThumbnailLocally(context: Context, videoUriStr: String): Stri
     }
 }
 
+private fun getProductVariantSuggestions(category: String): List<String> = when (category) {
+    "camisa", "interiore" -> listOf("S", "M", "L", "XL", "XXL")
+    "pantalone" -> listOf("30 x 30", "32 x 30", "34 x 30", "36 x 30")
+    "perfume" -> listOf("30 ml", "50 ml", "100 ml")
+    "zapato" -> listOf("40", "41", "42", "43", "44", "45")
+    "gorra" -> listOf("Única (Estándar)", "S/M", "L/XL")
+    "gafa", "correa" -> listOf("Única (Estándar)")
+    else -> listOf("Única (Estándar)")
+}
+
 @Composable
 fun PublicarScreen(
     onPublishProduct: (Product, (Result<Unit>) -> Unit) -> Unit = { _, onResult ->
@@ -225,8 +235,11 @@ fun PublicarScreen(
         }
     }
 
-    val availableSizeOptions = listOf("S", "M", "L", "XL", "XXL", "Única (Estándar)")
+    val availableSizeOptions = getProductVariantSuggestions(productCategory)
     val selectedSizes = remember { mutableStateListOf("S", "M", "L", "XL") }
+    val selectedColors = remember { mutableStateListOf<String>() }
+    var customVariant by remember { mutableStateOf("") }
+    var customColor by remember { mutableStateOf("") }
     var isProductFeatured by remember { mutableStateOf(true) }
     var isProductInStock by remember { mutableStateOf(true) }
     var isSubmittingProduct by remember { mutableStateOf(false) }
@@ -484,7 +497,11 @@ fun PublicarScreen(
                                         val isSelected = productCategory == cat.id
                                         FilterChip(
                                             selected = isSelected,
-                                            onClick = { productCategory = cat.id },
+                                            onClick = {
+                                                productCategory = cat.id
+                                                selectedSizes.clear()
+                                                selectedSizes.addAll(getProductVariantSuggestions(cat.id))
+                                            },
                                             label = { Text(cat.title, fontSize = 12.sp) },
                                             colors = FilterChipDefaults.filterChipColors(
                                                 selectedContainerColor = EleganBurgundy,
@@ -1144,7 +1161,7 @@ fun PublicarScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "4. Tallas y Disponibilidad",
+                                    text = "4. Variantes, Colores y Disponibilidad",
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = EleganBurgundy
@@ -1153,15 +1170,16 @@ fun PublicarScreen(
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 Text(
-                                    text = "Tallas disponibles para el cliente:",
+                                    text = when (productCategory) {
+                                        "pantalone" -> "Tallas / medidas disponibles (ej. 34 x 30):"
+                                        "perfume" -> "Presentaciones disponibles (ej. 50 ml):"
+                                        else -> "Tallas o variantes disponibles:"
+                                    },
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     availableSizeOptions.forEach { sz ->
                                         val isSelected = selectedSizes.contains(sz)
                                         FilterChip(
@@ -1175,6 +1193,146 @@ fun PublicarScreen(
                                                 selectedLabelColor = Color.White
                                             )
                                         )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = customVariant,
+                                        onValueChange = { customVariant = it },
+                                        label = { Text("Agregar talla o medida") },
+                                        placeholder = {
+                                            Text(
+                                                when (productCategory) {
+                                                    "pantalone" -> "Ej. 34 x 30"
+                                                    "perfume" -> "Ej. 75 ml"
+                                                    else -> "Ej. XXL, Única"
+                                                }
+                                            )
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("admin_product_variant_input"),
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions.Default,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = EleganBurgundy,
+                                            focusedLabelColor = EleganBurgundy
+                                        )
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            val variant = customVariant.trim()
+                                            if (variant.isNotEmpty() && selectedSizes.none { it.equals(variant, true) }) {
+                                                selectedSizes.add(variant)
+                                                customVariant = ""
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .background(EleganBurgundy)
+                                            .testTag("admin_add_product_variant")
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = "Agregar variante", tint = Color.White)
+                                    }
+                                }
+                                if (selectedSizes.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        items(selectedSizes.toList()) { variant ->
+                                            FilterChip(
+                                                selected = true,
+                                                onClick = { selectedSizes.remove(variant) },
+                                                label = { Text("$variant  ×", fontSize = 11.sp) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = EleganBurgundy,
+                                                    selectedLabelColor = Color.White
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+                                HorizontalDivider(color = Color(0xFFEEE7DF))
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "Colores disponibles:",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    items(listOf("Negro", "Blanco", "Azul", "Gris", "Marrón", "Rojo")) { color ->
+                                        val isSelected = color in selectedColors
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                if (isSelected) selectedColors.remove(color)
+                                                else selectedColors.add(color)
+                                            },
+                                            label = { Text(color, fontSize = 11.sp) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = EleganBurgundy,
+                                                selectedLabelColor = Color.White
+                                            )
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = customColor,
+                                        onValueChange = { customColor = it },
+                                        label = { Text("Agregar otro color") },
+                                        placeholder = { Text("Ej. Verde oliva") },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("admin_product_color_input"),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = EleganBurgundy,
+                                            focusedLabelColor = EleganBurgundy
+                                        )
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            val color = customColor.trim()
+                                            if (color.isNotEmpty() && selectedColors.none { it.equals(color, true) }) {
+                                                selectedColors.add(color)
+                                                customColor = ""
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .background(EleganBurgundy)
+                                            .testTag("admin_add_product_color")
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = "Agregar color", tint = Color.White)
+                                    }
+                                }
+                                if (selectedColors.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        items(selectedColors.toList()) { color ->
+                                            FilterChip(
+                                                selected = true,
+                                                onClick = { selectedColors.remove(color) },
+                                                label = { Text("$color  ×", fontSize = 11.sp) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = EleganGold,
+                                                    selectedLabelColor = EleganCharcoal
+                                                )
+                                            )
+                                        }
                                     }
                                 }
 
@@ -1268,6 +1426,7 @@ fun PublicarScreen(
                                     imageUrl = effectiveImageUrl,
                                     images = (listOf(effectiveImageUrl).filter { it.isNotBlank() } + productGalleryImages).distinct(),
                                     sizes = if (selectedSizes.isNotEmpty()) selectedSizes.toList() else listOf("Estándar"),
+                                    colors = selectedColors.toList(),
                                     inStock = isProductInStock,
                                     isFeatured = isProductFeatured,
                                     mediaFormat = productMediaFormat,
@@ -1285,6 +1444,11 @@ fun PublicarScreen(
                                             productMainImageUrl = ""
                                             productVideoUrl = ""
                                             productGalleryImages.clear()
+                                            selectedSizes.clear()
+                                            selectedSizes.addAll(availableSizeOptions)
+                                            selectedColors.clear()
+                                            customVariant = ""
+                                            customColor = ""
                                         }.onFailure { error ->
                                             snackbarHostState.showSnackbar(
                                                 "Error al publicar: ${error.localizedMessage ?: "Verifica la conexión a internet e inténtalo de nuevo."}"
