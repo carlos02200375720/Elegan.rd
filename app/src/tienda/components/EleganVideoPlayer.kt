@@ -440,60 +440,6 @@ fun EleganVideoPlayer(
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = Color.Black.copy(alpha = 0.65f),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Videocam,
-                    contentDescription = null,
-                    tint = EleganGold,
-                    modifier = Modifier.size(13.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "VIDEO",
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp
-                )
-            }
-        }
-
-        if (isPrepared && showControls) {
-            IconButton(
-                onClick = {
-                    val nextMute = !isMuted
-                    isMuted = nextMute
-                    mediaPlayerRef?.let { mp ->
-                        try {
-                            if (nextMute) mp.setVolume(0f, 0f) else mp.setVolume(1f, 1f)
-                        } catch (_: Exception) {}
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(32.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                    .testTag("${testTagPrefix}_mute_btn")
-            ) {
-                Icon(
-                    imageVector = if (isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
-                    contentDescription = if (isMuted) "Activar sonido" else "Silenciar",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
 
         AnimatedVisibility(
             visible = !isPlaying || showOverlayControls || isCompleted,

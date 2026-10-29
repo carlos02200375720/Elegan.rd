@@ -61,6 +61,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -69,6 +70,10 @@ import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+
+const val SUPER_ADMIN_EMAIL = "cg0220037@gmail.com"
 
 @Composable
 fun MenuAdminScreen(
@@ -83,6 +88,80 @@ fun MenuAdminScreen(
     onBack: () -> Unit
 ) {
     BackHandler { onBack() }
+
+    val currentUser = Firebase.auth.currentUser
+    val userEmail = (currentUser?.email ?: "").trim()
+    val providerEmails = currentUser?.providerData?.mapNotNull { it.email?.trim() } ?: emptyList()
+    val isSuperAdmin = currentUser != null && (
+        userEmail.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) ||
+        providerEmails.any { it.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) }
+    )
+
+    if (!isSuperAdmin) {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            containerColor = Color(0xFFF9F7F5)
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFEBEE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AdminPanelSettings,
+                                contentDescription = null,
+                                tint = Color(0xFFD32F2F),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Acceso Restringido",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = EleganCharcoal
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Este panel administrativo está reservado exclusivamente para el usuario Super Administrador ($SUPER_ADMIN_EMAIL).",
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = onBack,
+                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundyDark),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Text("Volver a Mi Perfil", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -149,7 +228,7 @@ fun MenuAdminScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "ADMIN",
+                                text = "SUPER ADMIN",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = EleganBurgundy,
@@ -228,10 +307,11 @@ fun MenuAdminScreen(
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Gestión integral de catálogo, publicaciones y cuenta",
+                                    text = "Super Administrador: $SUPER_ADMIN_EMAIL",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFFD0D0D0),
-                                        fontSize = 12.sp
+                                        color = EleganGold,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 )
                             }

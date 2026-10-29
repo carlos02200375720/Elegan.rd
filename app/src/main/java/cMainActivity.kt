@@ -234,6 +234,7 @@ fun AppContent(
     val messages by viewModel.messages.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val savedProductIds by viewModel.savedProductIds.collectAsState()
+    val savedProducts by viewModel.savedProducts.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedProduct by viewModel.selectedProduct.collectAsState()
     val lastOrderId by viewModel.lastCreatedOrderId.collectAsState()
@@ -380,9 +381,7 @@ fun AppContent(
                         userProfile = userProfile,
                         cartItemCount = cartItems.sumOf { it.quantity },
                         savedProductIds = savedProductIds,
-                        onSetProductSaved = { productId, isSaved, onResult ->
-                            viewModel.setProductSaved(productId, isSaved, onResult)
-                        },
+                        onToggleSaveProduct = { id -> viewModel.toggleSaveProduct(id) },
                         onNavigateToCatalogo = { cat ->
                             viewModel.setCategory(cat)
                             navigateTo(Screen.CATALOGO)
@@ -432,6 +431,8 @@ fun AppContent(
                         ProductoScreen(
                             product = prod,
                             cartItemCount = cartItems.sumOf { it.quantity },
+                            isSaved = savedProductIds.contains(prod.id),
+                            onToggleSave = { viewModel.toggleSaveProduct(prod.id) },
                             onAddToCart = { p, s, q ->
                                 viewModel.addToCart(p, s, q)
                             },
@@ -509,6 +510,12 @@ fun AppContent(
                     PerfilScreen(
                         userProfile = userProfile,
                         orders = orders,
+                        savedProducts = savedProducts,
+                        onProductClick = { prod ->
+                            viewModel.selectProduct(prod)
+                            navigateTo(Screen.PRODUCTO)
+                        },
+                        onExploreClick = { navigateTo(Screen.INICIO) },
                         onSaveProfile = { ph, ad, ct -> viewModel.saveProfile(ph, ad, ct) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) },
                         onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },

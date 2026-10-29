@@ -134,7 +134,7 @@ fun InicioScreen(
     userProfile: UserProfile? = null,
     cartItemCount: Long = 0L,
     savedProductIds: Set<String> = emptySet(),
-    onSetProductSaved: (String, Boolean, (Result<Unit>) -> Unit) -> Unit = { _, _, _ -> },
+    onToggleSaveProduct: ((String) -> Unit)? = null,
     onNavigateToCatalogo: (String) -> Unit,
     onNavigateToProduct: (Product) -> Unit,
     onNavigateToMenu: () -> Unit,
@@ -191,9 +191,10 @@ fun InicioScreen(
             null
         }
     }
+
     val context = LocalContext.current
     var likedProductIds by remember { mutableStateOf(setOf<String>()) }
-    var likedProductIds by remember { mutableStateOf(setOf<String>()) }
+    var localSavedProductIds by remember { mutableStateOf(setOf<String>()) }
     var productLikeCounts by remember { mutableStateOf(mapOf<String, Int>()) }
     var productComments by remember { mutableStateOf(mapOf<String, List<Pair<String, String>>>()) }
     var activeCommentProduct by remember { mutableStateOf<Product?>(null) }
@@ -537,7 +538,7 @@ fun InicioScreen(
             contentType = { _, _ -> "product_post" }
         ) { index, prod ->
             val isLiked = likedProductIds.contains(prod.id)
-            val isSaved = savedProductIds.contains(prod.id)
+            val isSaved = if (onToggleSaveProduct != null) savedProductIds.contains(prod.id) else localSavedProductIds.contains(prod.id)
             val defaultLikes = (prod.reviewCount.toInt().coerceAtLeast(18))
             val currentLikes = productLikeCounts[prod.id] ?: defaultLikes
             val currentComments = productComments[prod.id] ?: listOf(
@@ -565,14 +566,16 @@ fun InicioScreen(
                 },
                 onSaveClick = {
                     val willSave = !isSaved
-                    onSetProductSaved(prod.id, willSave) { result ->
-                        val message = if (result.isSuccess) {
-                            if (willSave) "Guardado en tus favoritos" else "Eliminado de tus favoritos"
-                        } else {
-                            "No se pudo actualizar tu publicación guardada"
-                        }
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    if (onToggleSaveProduct != null) {
+                        onToggleSaveProduct(prod.id)
+                    } else {
+                        localSavedProductIds = if (willSave) localSavedProductIds + prod.id else localSavedProductIds - prod.id
                     }
+                    Toast.makeText(
+                        context,
+                        if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 },
                 onShareClick = {
                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -1128,54 +1131,6 @@ fun ProductPublicationPost(
                 }
             }
 
-            // Flechas sutiles para avance/retroceso rápido
-            if (mediaItems.size > 1 && pagerState.currentPage > 0) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 8.dp)
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .clickable {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Anterior contenido",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            if (mediaItems.size > 1 && pagerState.currentPage < mediaItems.size - 1) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp)
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .clickable {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Siguiente contenido",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
 
             // Indicador de contenido en la parte inferior izquierda (ej: 1/10)
             if (mediaItems.isNotEmpty()) {

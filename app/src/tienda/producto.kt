@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.net.Uri
 import android.widget.MediaController
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +32,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -100,6 +103,8 @@ sealed interface GalleryMediaItem {
 fun ProductoScreen(
     product: Product,
     cartItemCount: Long,
+    isSaved: Boolean = false,
+    onToggleSave: () -> Unit = {},
     onAddToCart: (Product, String, Long) -> Unit,
     onBuyNow: (Product, String, Long) -> Unit,
     onNavigateToCart: () -> Unit,
@@ -107,6 +112,7 @@ fun ProductoScreen(
 ) {
     BackHandler { onBack() }
 
+    val context = LocalContext.current
     val defaultSize = product.sizes.firstOrNull() ?: "Estándar"
     var selectedSize by remember { mutableStateOf(defaultSize) }
     var quantity by remember { mutableLongStateOf(1L) }
@@ -544,38 +550,71 @@ fun ProductoScreen(
                     }
                 }
 
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.85f),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .align(Alignment.CenterEnd)
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(
-                        onClick = onNavigateToCart,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .testTag("producto_cart_button")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.85f),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        BadgedBox(
-                            badge = {
-                                if (cartItemCount > 0L) {
-                                    Badge(
-                                        containerColor = EleganBurgundy,
-                                        contentColor = Color.White
-                                    ) {
-                                        Text("$cartItemCount")
-                                    }
-                                }
-                            }
+                        IconButton(
+                            onClick = {
+                                onToggleSave()
+                                val willSave = !isSaved
+                                Toast.makeText(
+                                    context,
+                                    if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("producto_bookmark_button")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = "Carrito",
-                                tint = EleganCharcoal,
+                                imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                contentDescription = if (isSaved) "Quitar de guardados" else "Guardar publicación",
+                                tint = if (isSaved) EleganGold else EleganCharcoal,
                                 modifier = Modifier.size(20.dp)
                             )
+                        }
+                    }
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.85f),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        IconButton(
+                            onClick = onNavigateToCart,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("producto_cart_button")
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (cartItemCount > 0L) {
+                                        Badge(
+                                            containerColor = EleganBurgundy,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text("$cartItemCount")
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Carrito",
+                                    tint = EleganCharcoal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }

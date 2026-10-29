@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Diamond
@@ -55,6 +56,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,28 +77,53 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.model.Order
+import com.example.data.model.Product
 import com.example.data.model.UserProfile
+import com.example.ui.components.SavedPublicationsGrid
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
+
+const val SUPER_ADMIN_EMAIL = "cg0220037@gmail.com"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PerfilScreen(
     userProfile: UserProfile?,
     orders: List<Order>,
+    savedProducts: List<Product> = emptyList(),
+    onProductClick: (Product) -> Unit = {},
+    onExploreClick: () -> Unit = {},
     onSaveProfile: (phone: String, address: String, city: String) -> Unit,
     onNavigateToChats: () -> Unit,
     onNavigateToPublicar: () -> Unit = {},
     onNavigateToMenuAdmin: () -> Unit = {},
     onSignOut: () -> Unit
 ) {
-    val user = Firebase.auth.currentUser
+    var user by remember { mutableStateOf(Firebase.auth.currentUser) }
+    DisposableEffect(Unit) {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            user = auth.currentUser
+        }
+        Firebase.auth.addAuthStateListener(listener)
+        onDispose {
+            Firebase.auth.removeAuthStateListener(listener)
+        }
+    }
+
+    val currentEmail = (user?.email ?: userProfile?.email ?: "").trim()
+    val providerEmails = user?.providerData?.mapNotNull { it.email?.trim() } ?: emptyList()
+    val isSuperAdmin = user != null && (
+        currentEmail.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) ||
+        providerEmails.any { it.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) }
+    )
+
     var phone by remember(userProfile) { mutableStateOf(userProfile?.phone ?: "") }
     var address by remember(userProfile) { mutableStateOf(userProfile?.address ?: "") }
     var city by remember(userProfile) { mutableStateOf(userProfile?.city ?: "") }
@@ -185,21 +212,21 @@ fun PerfilScreen(
 
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = EleganBurgundyDark
+                                color = if (isSuperAdmin) EleganBurgundyDark else EleganBurgundyDark
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Diamond,
+                                        imageVector = if (isSuperAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Diamond,
                                         contentDescription = null,
                                         tint = EleganGold,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "MIEMBRO CLUB ELEGAN",
+                                        text = if (isSuperAdmin) "SUPER ADMINISTRADOR" else "MIEMBRO CLUB ELEGAN",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
@@ -254,40 +281,15 @@ fun PerfilScreen(
                 }
 
                 item {
-                    Card(
+                    SavedPublicationsGrid(
+                        savedProducts = savedProducts,
+                        onProductClick = onProductClick,
+                        onExploreClick = onExploreClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
-                            .testTag("profile_saved_section"),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Bookmark,
-                                contentDescription = null,
-                                tint = EleganBurgundy,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Publicaciones guardadas",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EleganCharcoal
-                                )
-                            )
-                            Text(
-                                text = "Tus publicaciones guardadas aparecerán aquí.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                            )
-                        }
-                    }
+                            .testTag("profile_saved_section")
+                    )
                 }
 
                 // Edit Delivery Info
@@ -433,100 +435,101 @@ fun PerfilScreen(
                 }
             }
 
-                // Panel de Publicación Admin (Publicar Producto y Anuncio)
-                item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .testTag("profile_admin_publicar_card"),
-                    colors = CardDefaults.cardColors(containerColor = EleganBurgundyDark),
-                    onClick = onNavigateToPublicar
-                ) {
-                    Row(
-                        modifier = Modifier.padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+                // Panel de Publicación Admin y Menú Admin (Exclusivo Super Administrador)
+                if (isSuperAdmin) {
+                    item {
+                        Card(
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .testTag("profile_admin_publicar_card"),
+                            colors = CardDefaults.cardColors(containerColor = EleganBurgundyDark),
+                            onClick = onNavigateToPublicar
                         ) {
-                            Icon(Icons.Default.Campaign, contentDescription = null, tint = Color.White)
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Publicar Producto o Anuncio",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
+                            Row(
+                                modifier = Modifier.padding(18.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Campaign, contentDescription = null, tint = Color.White)
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Publicar Producto o Anuncio",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Text(
+                                        text = "Panel Administrativo • Boutique Oficial",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = EleganGold)
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color.White
                                 )
-                            )
-                            Text(
-                                text = "Panel Administrativo • Boutique Oficial",
-                                style = MaterialTheme.typography.bodySmall.copy(color = EleganGold)
-                            )
+                            }
                         }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            tint = Color.White
-                        )
                     }
-                }
-            }
 
-                // Acceso a Menú Admin (menuadmin.kt)
-                item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .testTag("profile_admin_menu_card"),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    onClick = onNavigateToMenuAdmin
-                ) {
-                    Row(
-                        modifier = Modifier.padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+                    item {
+                        Card(
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(EleganBurgundy.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .testTag("profile_admin_menu_card"),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            onClick = onNavigateToMenuAdmin
                         ) {
-                            Icon(Icons.Default.Menu, contentDescription = null, tint = EleganBurgundy)
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Menú Administrativo",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = EleganCharcoal,
-                                    fontWeight = FontWeight.Bold
+                            Row(
+                                modifier = Modifier.padding(18.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(EleganBurgundy.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Menu, contentDescription = null, tint = EleganBurgundy)
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Menú Administrativo",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            color = EleganCharcoal,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Text(
+                                        text = "Panel de control principal • menuadmin.kt",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = EleganBurgundy
                                 )
-                            )
-                            Text(
-                                text = "Panel de control principal • menuadmin.kt",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                            )
+                            }
                         }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            tint = EleganBurgundy
-                        )
                     }
                 }
-            }
 
                 // Orders Header
                 item {
@@ -608,21 +611,23 @@ fun PerfilScreen(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .statusBarsPadding()
-                    .height(50.dp)
-            ) {
-                IconButton(
-                    onClick = onNavigateToMenuAdmin,
-                    modifier = Modifier.testTag("perfil_menu_admin_button")
+            if (isSuperAdmin) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .height(50.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Menú Administración",
-                        tint = EleganCharcoal
-                    )
+                    IconButton(
+                        onClick = onNavigateToMenuAdmin,
+                        modifier = Modifier.testTag("perfil_menu_admin_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menú Administración",
+                            tint = EleganCharcoal
+                        )
+                    }
                 }
             }
 

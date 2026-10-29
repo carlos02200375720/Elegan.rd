@@ -54,6 +54,20 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = repository.getInitialSampleProducts()
     )
 
+    private val _savedProductIds = MutableStateFlow<Set<String>>(setOf("prod_gorra_1", "prod_gorra_2"))
+    val savedProductIds: StateFlow<Set<String>> = _savedProductIds.asStateFlow()
+
+    val savedProducts: StateFlow<List<Product>> = combine(
+        products,
+        _savedProductIds
+    ) { allProducts, savedIds ->
+        allProducts.filter { it.id in savedIds }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000L),
+        initialValue = emptyList()
+    )
+
     val announcements: StateFlow<List<Announcement>> = combine(
         repository.observeAnnouncements(),
         _deletedAnnouncementIds
@@ -132,6 +146,19 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
 
     fun selectProduct(product: Product) {
         _selectedProduct.value = product
+    }
+
+    fun toggleSaveProduct(productId: String) {
+        val current = _savedProductIds.value
+        _savedProductIds.value = if (productId in current) {
+            current - productId
+        } else {
+            current + productId
+        }
+    }
+
+    fun isProductSaved(productId: String): Boolean {
+        return productId in _savedProductIds.value
     }
 
     fun addToCart(product: Product, size: String, quantity: Long = 1L) {
