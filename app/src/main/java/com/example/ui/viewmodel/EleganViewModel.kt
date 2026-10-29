@@ -77,6 +77,18 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
+    // Saved publications
+    val savedProductIds: StateFlow<Set<String>> = repository.observeSavedProductIds()
+        .catch { error ->
+            Log.e("EleganViewModel", "No se pudieron cargar las publicaciones guardadas.", error)
+            emit(emptySet())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptySet()
+        )
+
     // Orders
     val orders: StateFlow<List<Order>> = repository.observeOrders()
         .catch { emit(emptyList()) }
@@ -147,6 +159,24 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
     fun clearCart() {
         viewModelScope.launch {
             repository.clearCart()
+        }
+    }
+
+    fun setProductSaved(
+        productId: String,
+        isSaved: Boolean,
+        onResult: (Result<Unit>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                repository.setProductSaved(productId, isSaved)
+                onResult(Result.success(Unit))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "No se pudo actualizar la publicación guardada.", e)
+                onResult(Result.failure(e))
+            }
         }
     }
 

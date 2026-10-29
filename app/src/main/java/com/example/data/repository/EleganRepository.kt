@@ -485,6 +485,49 @@ class EleganRepository(
             .collect { emit(it) }
     }
 
+    fun observeSavedProductIds(): Flow<Set<String>> = flow {
+        val uid = requireUserId()
+        val path = "users/$uid/savedPublications"
+        db.collection("users").document(uid).collection("savedPublications")
+            .snapshots()
+            .map { snapshot -> snapshot.documents.map { it.id }.toSet() }
+            .catch { error ->
+                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
+                throw error
+            }
+            .collect { emit(it) }
+    }
+
+    suspend fun setProductSaved(productId: String, isSaved: Boolean) {
+        require(productId.isNotBlank()) { "Product ID cannot be blank." }
+        val uid = requireUserId()
+        val savedRef = db.collection("users").document(uid)
+            .collection("savedPublications").document(productId)
+
+        try {
+            if (isSaved) {
+                savedRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "productId" to productId,
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                savedRef.delete().await()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(
+                e,
+                if (isSaved) OperationType.WRITE else OperationType.DELETE,
+                savedRef.path
+            )
+            throw e
+        }
+    }
+
     suspend fun addToCart(product: Product, selectedSize: String, quantity: Long = 1L) {
         val uid = requireUserId()
         val cartRef = db.collection("users").document(uid).collection("cart")

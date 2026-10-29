@@ -233,6 +233,7 @@ fun AppContent(
     val orders by viewModel.orders.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val savedProductIds by viewModel.savedProductIds.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedProduct by viewModel.selectedProduct.collectAsState()
     val lastOrderId by viewModel.lastCreatedOrderId.collectAsState()
@@ -378,6 +379,10 @@ fun AppContent(
                         featuredProducts = products,
                         userProfile = userProfile,
                         cartItemCount = cartItems.sumOf { it.quantity },
+                        savedProductIds = savedProductIds,
+                        onSetProductSaved = { productId, isSaved, onResult ->
+                            viewModel.setProductSaved(productId, isSaved, onResult)
+                        },
                         onNavigateToCatalogo = { cat ->
                             viewModel.setCategory(cat)
                             navigateTo(Screen.CATALOGO)

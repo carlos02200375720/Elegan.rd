@@ -27,6 +27,12 @@ service cloud.firestore {
              data.quantity is int && data.quantity > 0;
     }
 
+    function isValidSavedPublication(data, userId, productId) {
+      return data.userId == userId &&
+             data.productId == productId &&
+             data.productId is string && data.productId.size() > 0;
+    }
+
     function isValidOrder(data, userId) {
       return data.userId == userId &&
              data.customerName is string && data.customerName.size() > 0 &&
@@ -77,6 +83,13 @@ service cloud.firestore {
       match /cart/{itemId} {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId) && isValidCartItem(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /savedPublications/{productId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+          isValidSavedPublication(request.resource.data, userId, productId);
         allow delete: if isOwner(userId);
       }
 

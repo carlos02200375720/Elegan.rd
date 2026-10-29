@@ -123,6 +123,8 @@ fun InicioScreen(
     featuredProducts: List<Product>,
     userProfile: UserProfile? = null,
     cartItemCount: Long = 0L,
+    savedProductIds: Set<String> = emptySet(),
+    onSetProductSaved: (String, Boolean, (Result<Unit>) -> Unit) -> Unit = { _, _, _ -> },
     onNavigateToCatalogo: (String) -> Unit,
     onNavigateToProduct: (Product) -> Unit,
     onNavigateToMenu: () -> Unit,
@@ -156,10 +158,9 @@ fun InicioScreen(
         previousIndex = currentIndex
         previousScrollOffset = currentOffset
     }
-
     val context = LocalContext.current
     var likedProductIds by remember { mutableStateOf(setOf<String>()) }
-    var savedProductIds by remember { mutableStateOf(setOf<String>()) }
+    var likedProductIds by remember { mutableStateOf(setOf<String>()) }
     var productLikeCounts by remember { mutableStateOf(mapOf<String, Int>()) }
     var productComments by remember { mutableStateOf(mapOf<String, List<Pair<String, String>>>()) }
     var activeCommentProduct by remember { mutableStateOf<Product?>(null) }
@@ -537,12 +538,14 @@ fun InicioScreen(
                 },
                 onSaveClick = {
                     val willSave = !isSaved
-                    savedProductIds = if (willSave) savedProductIds + prod.id else savedProductIds - prod.id
-                    Toast.makeText(
-                        context,
-                        if (willSave) "Guardado en tus favoritos" else "Eliminado de tus favoritos",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    onSetProductSaved(prod.id, willSave) { result ->
+                        val message = if (result.isSuccess) {
+                            if (willSave) "Guardado en tus favoritos" else "Eliminado de tus favoritos"
+                        } else {
+                            "No se pudo actualizar tu publicación guardada"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
                 },
                 onShareClick = {
                     val sendIntent = Intent(Intent.ACTION_SEND).apply {

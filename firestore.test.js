@@ -70,6 +70,27 @@ test("User cannot read or write to other user's cart", async () => {
   }));
 });
 
+test("Saved publications persist per user and cannot be accessed by another user", async () => {
+  const user1Db = testEnv.authenticatedContext("user1").firestore();
+  const user2Db = testEnv.authenticatedContext("user2").firestore();
+  const user1Saved = user1Db.collection("users").doc("user1")
+    .collection("savedPublications").doc("product1");
+  const otherUserSaved = user2Db.collection("users").doc("user1")
+    .collection("savedPublications").doc("product1");
+
+  await assertSucceeds(user1Saved.set({
+    userId: "user1",
+    productId: "product1"
+  }));
+  await assertSucceeds(user1Saved.get());
+  await assertFails(otherUserSaved.get());
+  await assertFails(otherUserSaved.set({
+    userId: "user1",
+    productId: "product2"
+  }));
+  await assertSucceeds(user1Saved.delete());
+});
+
 test("User can create order in own orders collection but not update or delete", async () => {
   const user1Db = testEnv.authenticatedContext("user1").firestore();
 
