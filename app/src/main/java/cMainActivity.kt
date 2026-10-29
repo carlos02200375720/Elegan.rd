@@ -235,6 +235,9 @@ fun AppContent(
     val userProfile by viewModel.userProfile.collectAsState()
     val savedProductIds by viewModel.savedProductIds.collectAsState()
     val savedProducts by viewModel.savedProducts.collectAsState()
+    val publicationStats by viewModel.publicationStats.collectAsState()
+    val likedPublicationIds by viewModel.likedPublicationIds.collectAsState()
+    val publicationComments by viewModel.publicationComments.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedProduct by viewModel.selectedProduct.collectAsState()
     val lastOrderId by viewModel.lastCreatedOrderId.collectAsState()
@@ -381,7 +384,22 @@ fun AppContent(
                         userProfile = userProfile,
                         cartItemCount = cartItems.sumOf { it.quantity },
                         savedProductIds = savedProductIds,
-                        onToggleSaveProduct = { id -> viewModel.toggleSaveProduct(id) },
+                        publicationStats = publicationStats,
+                        likedPublicationIds = likedPublicationIds,
+                        publicationComments = publicationComments,
+                        onToggleLike = { id, onResult ->
+                            viewModel.togglePublicationLike(id, onResult)
+                        },
+                        onOpenComments = viewModel::openPublicationComments,
+                        onSubmitComment = { productId, displayName, text, onResult ->
+                            viewModel.addPublicationComment(productId, displayName, text, onResult)
+                        },
+                        onRecordShare = { productId, onResult ->
+                            viewModel.recordPublicationShare(productId, onResult)
+                        },
+                        onToggleSaveProduct = { id, onResult ->
+                            viewModel.toggleSaveProduct(id, onResult)
+                        },
                         onNavigateToCatalogo = { cat ->
                             viewModel.setCategory(cat)
                             navigateTo(Screen.CATALOGO)
@@ -432,7 +450,9 @@ fun AppContent(
                             product = prod,
                             cartItemCount = cartItems.sumOf { it.quantity },
                             isSaved = savedProductIds.contains(prod.id),
-                            onToggleSave = { viewModel.toggleSaveProduct(prod.id) },
+                            onToggleSave = { onResult ->
+                                viewModel.toggleSaveProduct(prod.id, onResult)
+                            },
                             onAddToCart = { p, s, q ->
                                 viewModel.addToCart(p, s, q)
                             },

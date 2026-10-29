@@ -115,6 +115,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
+import com.example.data.model.PublicationComment
+import com.example.data.model.PublicationStats
 import com.example.data.model.Product
 import com.example.data.model.StoreCategory
 import com.example.data.model.UserProfile
@@ -134,7 +136,14 @@ fun InicioScreen(
     userProfile: UserProfile? = null,
     cartItemCount: Long = 0L,
     savedProductIds: Set<String> = emptySet(),
-    onToggleSaveProduct: ((String) -> Unit)? = null,
+    onToggleSaveProduct: ((String, (Result<Boolean>) -> Unit) -> Unit)? = null,
+    publicationStats: Map<String, PublicationStats>,
+    likedPublicationIds: Set<String>,
+    publicationComments: List<PublicationComment>,
+    onToggleLike: (String, (Result<Boolean>) -> Unit) -> Unit,
+    onOpenComments: (String?) -> Unit,
+    onSubmitComment: (String, String, String, (Result<Unit>) -> Unit) -> Unit,
+    onRecordShare: (String, (Result<Unit>) -> Unit) -> Unit,
     onNavigateToCatalogo: (String) -> Unit,
     onNavigateToProduct: (Product) -> Unit,
     onNavigateToMenu: () -> Unit,
@@ -193,10 +202,7 @@ fun InicioScreen(
     }
 
     val context = LocalContext.current
-    var likedProductIds by remember { mutableStateOf(setOf<String>()) }
     var localSavedProductIds by remember { mutableStateOf(setOf<String>()) }
-    var productLikeCounts by remember { mutableStateOf(mapOf<String, Int>()) }
-    var productComments by remember { mutableStateOf(mapOf<String, List<Pair<String, String>>>()) }
     var activeCommentProduct by remember { mutableStateOf<Product?>(null) }
 
     val currentUser = Firebase.auth.currentUser
@@ -537,14 +543,13 @@ fun InicioScreen(
             key = { _, prod -> prod.id },
             contentType = { _, _ -> "product_post" }
         ) { index, prod ->
-            val isLiked = likedProductIds.contains(prod.id)
+            val isLiked = prod.id in likedPublicationIds
             val isSaved = if (onToggleSaveProduct != null) savedProductIds.contains(prod.id) else localSavedProductIds.contains(prod.id)
-            val defaultLikes = (prod.reviewCount.toInt().coerceAtLeast(18))
-            val currentLikes = productLikeCounts[prod.id] ?: defaultLikes
-            val currentComments = productComments[prod.id] ?: listOf(
-                "Carlos S." to "Excelente confección y acabados impecables.",
-                "Marcos R." to "La tela y el estilo superaron mis expectativas."
-            )
+            val stats = publicationStats[prod.id]
+            val currentLikes = stats?.likesCount?.toInt() ?: 0
+            val currentCommentCount = stats?.commentsCount?.toInt() ?: 0
+            val currentShareCount = stats?.sharesCount?.toInt() ?: 0
+            val currentSaveCount = stats?.savesCount?.toInt() ?: 0
             val isPostFocused = (focusedProductId == prod.id)
 
             ProductPublicationPost(
@@ -553,39 +558,71 @@ fun InicioScreen(
                 isLiked = isLiked,
                 isSaved = isSaved,
                 likeCount = currentLikes,
-                commentCount = currentComments.size,
+                commentCount = currentCommentCount,
+                shareCount = currentShareCount,
+                saveCount = currentSaveCount,
                 isFocused = isPostFocused,
                 onLikeClick = {
-                    val willLike = !isLiked
-                    likedProductIds = if (willLike) likedProductIds + prod.id else likedProductIds - prod.id
-                    val newCount = if (willLike) currentLikes + 1 else (currentLikes - 1).coerceAtLeast(0)
-                    productLikeCounts = productLikeCounts + (prod.id to newCount)
+                    onToggleLike(prod.id) { result ->
+                        Toast.makeText(
+                            context,
+                            if (result.isSuccess) {
+                                if (result.getOrNull() == true) "Te gusta esta publicación"
+                                else "Quitaste tu like"
+                            } else {
+                                "No se pudo actualizar el like"
+                            },
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 },
                 onCommentClick = {
                     activeCommentProduct = prod
+                    onOpenComments(prod.id)
                 },
                 onSaveClick = {
                     val willSave = !isSaved
                     if (onToggleSaveProduct != null) {
-                        onToggleSaveProduct(prod.id)
+                        onToggleSaveProduct(prod.id) { result ->
+                            Toast.makeText(
+                                context,
+                                if (result.isSuccess) {
+                                    if (willSave) "Publicación guardada en tu perfil"
+                                    else "Publicación eliminada de guardados"
+                                } else {
+                                    "No se pudo actualizar la publicación guardada"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     } else {
                         localSavedProductIds = if (willSave) localSavedProductIds + prod.id else localSavedProductIds - prod.id
+                        Toast.makeText(
+                            context,
+                            if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
-                    Toast.makeText(
-                        context,
-                        if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados",
-                        Toast.LENGTH_SHORT
-                    ).show()
                 },
                 onShareClick = {
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(
-                            Intent.EXTRA_TEXT,
-                            "ELEGAN: Descubre ${prod.name} por $${String.format("%.2f", prod.price)} USD. Pieza exclusiva de la boutique."
-                        )
+                    onRecordShare(prod.id) { result ->
+                        if (result.isSuccess) {
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(
+                                    Intent.EXTRA_TEXT,
+                                    "ELEGAN: Descubre ${prod.name} por $${String.format("%.2f", prod.price)} USD. Pieza exclusiva de la boutique."
+                                )
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Compartir publicación"))
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "No se pudo registrar el compartido",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
-                    context.startActivity(Intent.createChooser(sendIntent, "Compartir publicación"))
                 },
                 onProductClick = { onNavigateToProduct(prod) }
             )
@@ -678,13 +715,12 @@ fun InicioScreen(
     if (activeCommentProduct != null) {
         val prod = activeCommentProduct!!
         var newCommentText by remember { mutableStateOf("") }
-        val commentsList = productComments[prod.id] ?: listOf(
-            "Carlos S." to "Excelente confección y acabados impecables.",
-            "Marcos R." to "La tela y el estilo superaron mis expectativas."
-        )
 
         ModalBottomSheet(
-            onDismissRequest = { activeCommentProduct = null },
+            onDismissRequest = {
+                activeCommentProduct = null
+                onOpenComments(null)
+            },
             sheetState = rememberModalBottomSheetState(),
             containerColor = Color.White
         ) {
@@ -706,7 +742,10 @@ fun InicioScreen(
                             fontFamily = FontFamily.Serif
                         )
                     )
-                    IconButton(onClick = { activeCommentProduct = null }) {
+                    IconButton(onClick = {
+                        activeCommentProduct = null
+                        onOpenComments(null)
+                    }) {
                         Icon(imageVector = Icons.Default.Close, contentDescription = "Cerrar")
                     }
                 }
@@ -729,7 +768,7 @@ fun InicioScreen(
                         .weight(1f, fill = false)
                         .height(200.dp)
                 ) {
-                    items(commentsList) { (author, text) ->
+                    items(publicationComments, key = { it.id }) { comment ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -743,7 +782,7 @@ fun InicioScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = author.take(1).uppercase(),
+                                    text = comment.displayName.take(1).uppercase(),
                                     fontWeight = FontWeight.Bold,
                                     color = EleganBurgundy,
                                     fontSize = 13.sp
@@ -752,19 +791,31 @@ fun InicioScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = author,
+                                    text = comment.displayName,
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = EleganCharcoal
                                     )
                                 )
                                 Text(
-                                    text = text,
+                                    text = comment.text,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Color(0xFF333333)
                                     )
                                 )
                             }
+                        }
+                    }
+                    if (publicationComments.isEmpty()) {
+                        item {
+                            Text(
+                                text = "Aún no hay comentarios. Sé el primero en comentar.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
@@ -795,9 +846,17 @@ fun InicioScreen(
                     IconButton(
                         onClick = {
                             if (newCommentText.isNotBlank()) {
-                                val updated = commentsList + (displayName to newCommentText.trim())
-                                productComments = productComments + (prod.id to updated)
-                                newCommentText = ""
+                                onSubmitComment(prod.id, displayName, newCommentText) { result ->
+                                    if (result.isSuccess) {
+                                        newCommentText = ""
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "No se pudo publicar el comentario",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
                             }
                         },
                         modifier = Modifier
@@ -985,6 +1044,8 @@ fun ProductPublicationPost(
     isSaved: Boolean,
     likeCount: Int,
     commentCount: Int,
+    shareCount: Int = 0,
+    saveCount: Int = 0,
     isFocused: Boolean = false,
     onLikeClick: () -> Unit,
     onCommentClick: () -> Unit,
@@ -1167,6 +1228,24 @@ fun ProductPublicationPost(
                     }
                 }
             }
+
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White.copy(alpha = 0.84f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 12.dp)
+                    .testTag("post_price_${product.id}")
+            ) {
+                Text(
+                    text = "$${String.format("%.2f", product.price)} USD",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF137A3A)
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                )
+            }
         }
 
         // 3. BARRA HORIZONTAL DE INTERACCIÓN:
@@ -1175,72 +1254,117 @@ fun ProductPublicationPost(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Botón Me Gusta
-            IconButton(
-                onClick = onLikeClick,
-                modifier = Modifier.testTag("post_like_${product.id}")
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Me gusta",
-                    tint = if (isLiked) EleganBurgundy else EleganCharcoal,
-                    modifier = Modifier.size(25.dp)
+                IconButton(
+                    onClick = onLikeClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .testTag("post_like_${product.id}")
+                ) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Me gusta",
+                        tint = if (isLiked) EleganBurgundy else EleganCharcoal,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Text(
+                    text = likeCount.toString(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = EleganCharcoal,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
 
-            // Botón Comentario
-            IconButton(
-                onClick = onCommentClick,
-                modifier = Modifier.testTag("post_comment_${product.id}")
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = "Comentario",
-                    tint = EleganCharcoal,
-                    modifier = Modifier.size(23.dp)
+                IconButton(
+                    onClick = onCommentClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .testTag("post_comment_${product.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChatBubbleOutline,
+                        contentDescription = "Comentario",
+                        tint = EleganCharcoal,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+                Text(
+                    text = commentCount.toString(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = EleganCharcoal,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
 
-            // Botón Guardar
-            IconButton(
-                onClick = onSaveClick,
-                modifier = Modifier.testTag("post_save_${product.id}")
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = "Guardar",
-                    tint = if (isSaved) EleganGold else EleganCharcoal,
-                    modifier = Modifier.size(24.dp)
+                IconButton(
+                    onClick = onSaveClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .testTag("post_save_${product.id}")
+                ) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = "Guardar",
+                        tint = if (isSaved) EleganGold else EleganCharcoal,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Text(
+                    text = saveCount.toString(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = EleganCharcoal,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
 
-            // Botón Compartir
-            IconButton(
-                onClick = onShareClick,
-                modifier = Modifier.testTag("post_share_${product.id}")
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Share,
-                    contentDescription = "Compartir",
-                    tint = EleganCharcoal,
-                    modifier = Modifier.size(23.dp)
+                IconButton(
+                    onClick = onShareClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .testTag("post_share_${product.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Share,
+                        contentDescription = "Compartir",
+                        tint = EleganCharcoal,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+                Text(
+                    text = shareCount.toString(),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = EleganCharcoal,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Precio destacado al final de la barra
-            Text(
-                text = "$${String.format("%.2f", product.price)} USD",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF16A34A)
-                ),
-                modifier = Modifier.padding(end = 12.dp)
-            )
         }
 
         // 4. DETALLES Y ACCIÓN DE COMPRA
@@ -1249,16 +1373,6 @@ fun ProductPublicationPost(
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 4.dp)
         ) {
-            if (likeCount > 0) {
-                Text(
-                    text = "$likeCount personas les gusta esto",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = EleganCharcoal
-                    )
-                )
-            }
-
             if (product.description.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -1273,7 +1387,7 @@ fun ProductPublicationPost(
 
             if (commentCount > 0) {
                 Text(
-                    text = "Ver los $commentCount comentarios",
+                    text = "Ver comentarios",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color.Gray,
                         fontWeight = FontWeight.Medium

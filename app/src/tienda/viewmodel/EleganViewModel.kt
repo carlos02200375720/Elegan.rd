@@ -8,6 +8,8 @@ import com.example.data.model.Announcement
 import com.example.data.model.CartItem
 import com.example.data.model.Order
 import com.example.data.model.Product
+import com.example.data.model.PublicationComment
+import com.example.data.model.PublicationStats
 import com.example.data.model.StoreCategory
 import com.example.data.model.SupportMessage
 import com.example.data.model.UserProfile
@@ -20,8 +22,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 
 class EleganViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,20 +59,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = repository.getInitialSampleProducts()
     )
 
-    private val _savedProductIds = MutableStateFlow<Set<String>>(setOf("prod_gorra_1", "prod_gorra_2"))
-    val savedProductIds: StateFlow<Set<String>> = _savedProductIds.asStateFlow()
-
-    val savedProducts: StateFlow<List<Product>> = combine(
-        products,
-        _savedProductIds
-    ) { allProducts, savedIds ->
-        allProducts.filter { it.id in savedIds }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000L),
-        initialValue = emptyList()
-    )
-
     val announcements: StateFlow<List<Announcement>> = combine(
         repository.observeAnnouncements(),
         _deletedAnnouncementIds
@@ -87,8 +78,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
-<<<<<<< HEAD:app/src/main/java/com/example/ui/viewmodel/EleganViewModel.kt
-    // Saved publications
     val savedProductIds: StateFlow<Set<String>> = repository.observeSavedProductIds()
         .catch { error ->
             Log.e("EleganViewModel", "No se pudieron cargar las publicaciones guardadas.", error)
@@ -100,9 +89,59 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptySet()
         )
 
-    // Orders
-=======
->>>>>>> 1ee769ce27eca73008f9037b1904e7be8cb5848a:app/src/tienda/viewmodel/EleganViewModel.kt
+    val savedProducts: StateFlow<List<Product>> = combine(
+        products,
+        savedProductIds
+    ) { allProducts, savedIds ->
+        allProducts.filter { it.id in savedIds }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000L),
+        initialValue = emptyList()
+    )
+
+    val publicationStats: StateFlow<Map<String, PublicationStats>> =
+        repository.observePublicationStats()
+            .catch { error ->
+                Log.e("EleganViewModel", "No se pudieron cargar las estadísticas de publicaciones.", error)
+                emit(emptyMap())
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000L),
+                initialValue = emptyMap()
+            )
+
+    val likedPublicationIds: StateFlow<Set<String>> =
+        repository.observeLikedPublicationIds()
+            .catch { error ->
+                Log.e("EleganViewModel", "No se pudieron cargar los likes de publicaciones.", error)
+                emit(emptySet())
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000L),
+                initialValue = emptySet()
+            )
+
+    private val _commentsProductId = MutableStateFlow<String?>(null)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val publicationComments: StateFlow<List<PublicationComment>> =
+        _commentsProductId
+            .flatMapLatest { productId ->
+                if (productId == null) flowOf(emptyList())
+                else repository.observePublicationComments(productId)
+            }
+            .catch { error ->
+                Log.e("EleganViewModel", "No se pudieron cargar los comentarios de la publicación.", error)
+                emit(emptyList())
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000L),
+                initialValue = emptyList()
+            )
+
     val orders: StateFlow<List<Order>> = repository.observeOrders()
         .catch { emit(emptyList()) }
         .stateIn(
@@ -148,17 +187,78 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         _selectedProduct.value = product
     }
 
-    fun toggleSaveProduct(productId: String) {
-        val current = _savedProductIds.value
-        _savedProductIds.value = if (productId in current) {
-            current - productId
-        } else {
-            current + productId
+    fun toggleSaveProduct(
+        productId: String,
+        onResult: (Result<Boolean>) -> Unit = {}
+    ) {
+        val shouldSave = productId !in savedProductIds.value
+        viewModelScope.launch {
+            try {
+                repository.setProductSaved(productId, shouldSave)
+                onResult(Result.success(shouldSave))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "No se pudo actualizar la publicación guardada.", e)
+                onResult(Result.failure(e))
+            }
         }
     }
 
-    fun isProductSaved(productId: String): Boolean {
-        return productId in _savedProductIds.value
+    fun togglePublicationLike(
+        productId: String,
+        onResult: (Result<Boolean>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                onResult(Result.success(repository.togglePublicationLike(productId)))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "No se pudo actualizar el like de la publicación.", e)
+                onResult(Result.failure(e))
+            }
+        }
+    }
+
+    fun openPublicationComments(productId: String?) {
+        _commentsProductId.value = productId
+    }
+
+    fun addPublicationComment(
+        productId: String,
+        displayName: String,
+        text: String,
+        onResult: (Result<Unit>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                repository.addPublicationComment(productId, displayName, text)
+                onResult(Result.success(Unit))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "No se pudo publicar el comentario.", e)
+                onResult(Result.failure(e))
+            }
+        }
+    }
+
+    fun recordPublicationShare(
+        productId: String,
+        onResult: (Result<Unit>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                repository.recordPublicationShare(productId)
+                onResult(Result.success(Unit))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "No se pudo registrar el compartido de la publicación.", e)
+                onResult(Result.failure(e))
+            }
+        }
     }
 
     fun addToCart(product: Product, size: String, quantity: Long = 1L) {

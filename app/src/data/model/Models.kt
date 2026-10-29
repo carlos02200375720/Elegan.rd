@@ -40,6 +40,26 @@ val Product.aspectRatioValue: Float
 
 
 @IgnoreExtraProperties
+data class PublicationStats(
+    @DocumentId val id: String = "",
+    val likesCount: Long = 0L,
+    val commentsCount: Long = 0L,
+    val sharesCount: Long = 0L,
+    val savesCount: Long = 0L,
+    val lastCommentId: String = ""
+)
+
+@IgnoreExtraProperties
+data class PublicationComment(
+    @DocumentId val id: String = "",
+    val productId: String = "",
+    val userId: String = "",
+    val displayName: String = "",
+    val text: String = "",
+    @ServerTimestamp val createdAt: Timestamp? = null
+)
+
+@IgnoreExtraProperties
 data class CartItem(
     @DocumentId val id: String = "",
     val userId: String = "",

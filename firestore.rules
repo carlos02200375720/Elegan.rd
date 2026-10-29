@@ -33,6 +33,186 @@ service cloud.firestore {
              data.productId is string && data.productId.size() > 0;
     }
 
+    function isValidLikedPublication(data, userId, productId) {
+      return data.userId == userId &&
+             data.productId == productId &&
+             data.productId is string && data.productId.size() > 0;
+    }
+
+    function likedPublicationPath(userId, productId) {
+      return /databases/$(database)/documents/users/$(userId)/likedPublications/$(productId);
+    }
+
+    function savedPublicationPath(userId, productId) {
+      return /databases/$(database)/documents/users/$(userId)/savedPublications/$(productId);
+    }
+
+    function publicationStatsPath(productId) {
+      return /databases/$(database)/documents/publicationStats/$(productId);
+    }
+
+    function publicationCommentPath(productId, commentId) {
+      return /databases/$(database)/documents/products/$(productId)/comments/$(commentId);
+    }
+
+    function isValidPublicationStats(data) {
+      return data.keys().hasOnly([
+               'likesCount', 'commentsCount', 'sharesCount', 'savesCount', 'lastCommentId'
+             ]) &&
+             data.likesCount is int && data.likesCount >= 0 &&
+             data.commentsCount is int && data.commentsCount >= 0 &&
+             data.sharesCount is int && data.sharesCount >= 0 &&
+             data.savesCount is int && data.savesCount >= 0 &&
+             (!('lastCommentId' in data) || data.lastCommentId is string);
+    }
+
+    function isValidPublicationComment(data, productId) {
+      return data.productId == productId &&
+             data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() > 0 &&
+             data.displayName.size() <= 80 &&
+             data.text is string && data.text.size() > 0 &&
+             data.text.size() <= 1000;
+    }
+
+    function isNewLikeStats(productId) {
+      let likePath = likedPublicationPath(request.auth.uid, productId);
+      return request.resource.data.likesCount == 1 &&
+             request.resource.data.commentsCount == 0 &&
+             request.resource.data.sharesCount == 0 &&
+             request.resource.data.savesCount == 0 &&
+             !exists(likePath) && existsAfter(likePath) &&
+             getAfter(likePath).data.userId == request.auth.uid &&
+             getAfter(likePath).data.productId == productId;
+    }
+
+    function isNewCommentStats(productId) {
+      return request.resource.data.likesCount == 0 &&
+             request.resource.data.commentsCount == 1 &&
+             request.resource.data.sharesCount == 0 &&
+             request.resource.data.savesCount == 0 &&
+             request.resource.data.lastCommentId is string &&
+             !exists(publicationCommentPath(productId, request.resource.data.lastCommentId)) &&
+             existsAfter(publicationCommentPath(productId, request.resource.data.lastCommentId)) &&
+             isValidPublicationComment(
+               getAfter(publicationCommentPath(productId, request.resource.data.lastCommentId)).data,
+               productId
+             );
+    }
+
+    function isLikeStatsUpdate(productId) {
+      let likePath = likedPublicationPath(request.auth.uid, productId);
+      return exists(likePath) != existsAfter(likePath) &&
+             request.resource.data.likesCount ==
+               resource.data.likesCount + (existsAfter(likePath) ? 1 : -1) &&
+             request.resource.data.commentsCount == resource.data.commentsCount &&
+             request.resource.data.sharesCount == resource.data.get('sharesCount', 0) &&
+             request.resource.data.savesCount == resource.data.get('savesCount', 0) &&
+             request.resource.data.get('lastCommentId', '') ==
+               resource.data.get('lastCommentId', '');
+    }
+
+    function isCommentStatsUpdate(productId) {
+      return request.resource.data.lastCommentId is string &&
+             !exists(publicationCommentPath(productId, request.resource.data.lastCommentId)) &&
+             existsAfter(publicationCommentPath(productId, request.resource.data.lastCommentId)) &&
+             isValidPublicationComment(
+               getAfter(publicationCommentPath(productId, request.resource.data.lastCommentId)).data,
+               productId
+             ) &&
+             request.resource.data.likesCount == resource.data.likesCount &&
+             request.resource.data.commentsCount == resource.data.commentsCount + 1 &&
+             request.resource.data.sharesCount == resource.data.get('sharesCount', 0) &&
+             request.resource.data.savesCount == resource.data.get('savesCount', 0);
+    }
+
+    function isNewSaveStats(productId) {
+      let savePath = savedPublicationPath(request.auth.uid, productId);
+      return request.resource.data.likesCount == 0 &&
+             request.resource.data.commentsCount == 0 &&
+             request.resource.data.sharesCount == 0 &&
+             request.resource.data.savesCount == 1 &&
+             !exists(savePath) && existsAfter(savePath) &&
+             getAfter(savePath).data.userId == request.auth.uid &&
+             getAfter(savePath).data.productId == productId;
+    }
+
+    function isNewShareStats() {
+      return request.resource.data.likesCount == 0 &&
+             request.resource.data.commentsCount == 0 &&
+             request.resource.data.sharesCount == 1 &&
+             request.resource.data.savesCount == 0;
+    }
+
+    function isSaveStatsUpdate(productId) {
+      let savePath = savedPublicationPath(request.auth.uid, productId);
+      return exists(savePath) != existsAfter(savePath) &&
+             request.resource.data.likesCount == resource.data.likesCount &&
+             request.resource.data.commentsCount == resource.data.commentsCount &&
+             request.resource.data.sharesCount == resource.data.get('sharesCount', 0) &&
+             request.resource.data.savesCount ==
+               resource.data.get('savesCount', 0) +
+                 (existsAfter(savePath)
+                   ? 1
+                   : (resource.data.get('savesCount', 0) > 0 ? -1 : 0)) &&
+             request.resource.data.get('lastCommentId', '') ==
+               resource.data.get('lastCommentId', '');
+    }
+
+    function isShareStatsUpdate() {
+      return request.resource.data.likesCount == resource.data.likesCount &&
+             request.resource.data.commentsCount == resource.data.commentsCount &&
+             request.resource.data.sharesCount == resource.data.get('sharesCount', 0) + 1 &&
+             request.resource.data.savesCount == resource.data.get('savesCount', 0) &&
+             request.resource.data.get('lastCommentId', '') ==
+               resource.data.get('lastCommentId', '');
+    }
+
+    function canCreateLike(userId, productId) {
+      let statsPath = publicationStatsPath(productId);
+      return isOwner(userId) &&
+             isValidLikedPublication(request.resource.data, userId, productId) &&
+             existsAfter(statsPath) &&
+             getAfter(statsPath).data.likesCount == (exists(statsPath) ? get(statsPath).data.likesCount + 1 : 1);
+    }
+
+    function canDeleteLike(userId, productId) {
+      let statsPath = publicationStatsPath(productId);
+      return isOwner(userId) &&
+             exists(statsPath) &&
+             existsAfter(statsPath) &&
+             getAfter(statsPath).data.likesCount == get(statsPath).data.likesCount - 1;
+    }
+
+    function canCreateSave(userId, productId) {
+      let statsPath = publicationStatsPath(productId);
+      return isOwner(userId) &&
+             isValidSavedPublication(request.resource.data, userId, productId) &&
+             existsAfter(statsPath) &&
+             getAfter(statsPath).data.savesCount ==
+               (exists(statsPath) ? get(statsPath).data.get('savesCount', 0) + 1 : 1);
+    }
+
+    function canDeleteSave(userId, productId) {
+      let statsPath = publicationStatsPath(productId);
+      return isOwner(userId) &&
+             exists(statsPath) &&
+             existsAfter(statsPath) &&
+             getAfter(statsPath).data.savesCount ==
+               (get(statsPath).data.get('savesCount', 0) > 0
+                 ? get(statsPath).data.get('savesCount', 0) - 1
+                 : 0);
+    }
+
+    function canCreateComment(productId, commentId) {
+      let statsPath = publicationStatsPath(productId);
+      return isAuthenticated() &&
+             isValidPublicationComment(request.resource.data, productId) &&
+             existsAfter(statsPath) &&
+             getAfter(statsPath).data.commentsCount == (exists(statsPath) ? get(statsPath).data.commentsCount + 1 : 1) &&
+             getAfter(statsPath).data.lastCommentId == commentId;
+    }
+
     function isValidOrder(data, userId) {
       return data.userId == userId &&
              data.customerName is string && data.customerName.size() > 0 &&
@@ -75,6 +255,29 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    match /publicationStats/{productId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        isValidPublicationStats(request.resource.data) &&
+        (isNewLikeStats(productId) ||
+         isNewCommentStats(productId) ||
+         isNewSaveStats(productId) ||
+         isNewShareStats());
+      allow update: if isAuthenticated() &&
+        isValidPublicationStats(request.resource.data) &&
+        (isLikeStatsUpdate(productId) ||
+         isCommentStatsUpdate(productId) ||
+         isSaveStatsUpdate(productId) ||
+         isShareStatsUpdate());
+      allow delete: if false;
+    }
+
+    match /products/{productId}/comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if canCreateComment(productId, commentId);
+      allow update, delete: if false;
+    }
+
     // Users and subcollections
     match /users/{userId} {
       allow read, update, create: if isOwner(userId) && isValidUserProfile(request.resource.data, userId);
@@ -88,9 +291,16 @@ service cloud.firestore {
 
       match /savedPublications/{productId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) &&
-          isValidSavedPublication(request.resource.data, userId, productId);
-        allow delete: if isOwner(userId);
+        allow create: if canCreateSave(userId, productId);
+        allow update: if false;
+        allow delete: if canDeleteSave(userId, productId);
+      }
+
+      match /likedPublications/{productId} {
+        allow read: if isOwner(userId);
+        allow create: if canCreateLike(userId, productId);
+        allow update: if false;
+        allow delete: if canDeleteLike(userId, productId);
       }
 
       match /orders/{orderId} {

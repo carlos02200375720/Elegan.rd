@@ -104,7 +104,7 @@ fun ProductoScreen(
     product: Product,
     cartItemCount: Long,
     isSaved: Boolean = false,
-    onToggleSave: () -> Unit = {},
+    onToggleSave: ((Result<Boolean>) -> Unit) -> Unit = {},
     onAddToCart: (Product, String, Long) -> Unit,
     onBuyNow: (Product, String, Long) -> Unit,
     onNavigateToCart: () -> Unit,
@@ -563,13 +563,19 @@ fun ProductoScreen(
                     ) {
                         IconButton(
                             onClick = {
-                                onToggleSave()
                                 val willSave = !isSaved
-                                Toast.makeText(
-                                    context,
-                                    if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                onToggleSave { result ->
+                                    Toast.makeText(
+                                        context,
+                                        if (result.isSuccess) {
+                                            if (willSave) "Publicación guardada en tu perfil"
+                                            else "Publicación eliminada de guardados"
+                                        } else {
+                                            "No se pudo actualizar la publicación guardada"
+                                        },
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             },
                             modifier = Modifier
                                 .fillMaxSize()

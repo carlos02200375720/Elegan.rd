@@ -9,6 +9,8 @@ import com.example.data.model.Announcement
 import com.example.data.model.CartItem
 import com.example.data.model.Order
 import com.example.data.model.Product
+import com.example.data.model.PublicationComment
+import com.example.data.model.PublicationStats
 import com.example.data.model.SupportMessage
 import com.example.data.model.UserProfile
 import com.example.data.util.OperationType
@@ -18,6 +20,7 @@ import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.snapshots
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
@@ -832,19 +835,46 @@ class EleganRepository(
         val uid = requireUserId()
         val savedRef = db.collection("users").document(uid)
             .collection("savedPublications").document(productId)
+        val statsRef = db.collection("publicationStats").document(productId)
 
         try {
-            if (isSaved) {
-                savedRef.set(
-                    mapOf(
-                        "userId" to uid,
-                        "productId" to productId,
-                        "createdAt" to FieldValue.serverTimestamp()
+            db.runTransaction { transaction ->
+                val savedSnapshot = transaction.get(savedRef)
+                val statsSnapshot = transaction.get(statsRef)
+                val likesCount = statsSnapshot.getLong("likesCount") ?: 0L
+                val commentsCount = statsSnapshot.getLong("commentsCount") ?: 0L
+                val sharesCount = statsSnapshot.getLong("sharesCount") ?: 0L
+                val savesCount = statsSnapshot.getLong("savesCount") ?: 0L
+                val shouldSave = isSaved && !savedSnapshot.exists()
+                val shouldUnsave = !isSaved && savedSnapshot.exists()
+
+                if (shouldSave) {
+                    transaction.set(
+                        savedRef,
+                        mapOf(
+                            "productId" to productId,
+                            "userId" to uid,
+                            "createdAt" to FieldValue.serverTimestamp()
+                        )
                     )
-                ).await()
-            } else {
-                savedRef.delete().await()
-            }
+                } else if (shouldUnsave) {
+                    transaction.delete(savedRef)
+                }
+
+                if (shouldSave || shouldUnsave) {
+                    transaction.set(
+                        statsRef,
+                        mapOf(
+                            "likesCount" to likesCount,
+                            "commentsCount" to commentsCount,
+                            "sharesCount" to sharesCount,
+                            "savesCount" to (savesCount + if (shouldSave) 1L else -1L).coerceAtLeast(0L),
+                            "lastCommentId" to (statsSnapshot.getString("lastCommentId") ?: "")
+                        ),
+                        SetOptions.merge()
+                    )
+                }
+            }.await()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -853,6 +883,178 @@ class EleganRepository(
                 if (isSaved) OperationType.WRITE else OperationType.DELETE,
                 savedRef.path
             )
+            throw e
+        }
+    }
+
+    fun observePublicationStats(): Flow<Map<String, PublicationStats>> = flow {
+        requireUserId()
+        db.collection("publicationStats")
+            .snapshots()
+            .map { snapshot ->
+                snapshot.documents.mapNotNull { document ->
+                    document.toObject(PublicationStats::class.java)?.let { stats ->
+                        document.id to stats
+                    }
+                }.toMap()
+            }
+            .catch { error ->
+                if (error is Exception) {
+                    handleFirestoreError(error, OperationType.LIST, "publicationStats")
+                }
+                throw error
+            }
+            .collect { emit(it) }
+    }
+
+    fun observeLikedPublicationIds(): Flow<Set<String>> = flow {
+        val uid = requireUserId()
+        val path = "users/$uid/likedPublications"
+        db.collection("users").document(uid).collection("likedPublications")
+            .snapshots()
+            .map { snapshot -> snapshot.documents.map { it.id }.toSet() }
+            .catch { error ->
+                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
+                throw error
+            }
+            .collect { emit(it) }
+    }
+
+    suspend fun togglePublicationLike(productId: String): Boolean {
+        require(productId.isNotBlank()) { "Product ID cannot be blank." }
+        val uid = requireUserId()
+        val likedRef = db.collection("users").document(uid)
+            .collection("likedPublications").document(productId)
+        val statsRef = db.collection("publicationStats").document(productId)
+
+        try {
+            return db.runTransaction { transaction ->
+                val likedSnapshot = transaction.get(likedRef)
+                val statsSnapshot = transaction.get(statsRef)
+                val likesCount = statsSnapshot.getLong("likesCount") ?: 0L
+                val commentsCount = statsSnapshot.getLong("commentsCount") ?: 0L
+                val isLiked = !likedSnapshot.exists()
+
+                if (isLiked) {
+                    transaction.set(
+                        likedRef,
+                        mapOf("userId" to uid, "productId" to productId)
+                    )
+                } else {
+                    transaction.delete(likedRef)
+                }
+
+                transaction.set(
+                    statsRef,
+                    mapOf(
+                        "likesCount" to (likesCount + if (isLiked) 1L else -1L).coerceAtLeast(0L),
+                        "commentsCount" to commentsCount,
+                        "sharesCount" to (statsSnapshot.getLong("sharesCount") ?: 0L),
+                        "savesCount" to (statsSnapshot.getLong("savesCount") ?: 0L),
+                        "lastCommentId" to (statsSnapshot.getString("lastCommentId") ?: "")
+                    ),
+                    SetOptions.merge()
+                )
+                isLiked
+            }.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, statsRef.path)
+            throw e
+        }
+    }
+
+    fun observePublicationComments(productId: String): Flow<List<PublicationComment>> = flow {
+        requireUserId()
+        require(productId.isNotBlank()) { "Product ID cannot be blank." }
+        val path = "products/$productId/comments"
+        db.collection("products").document(productId).collection("comments")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(100)
+            .snapshots()
+            .map { snapshot -> snapshot.toObjects(PublicationComment::class.java) }
+            .catch { error ->
+                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
+                throw error
+            }
+            .collect { emit(it) }
+    }
+
+    suspend fun addPublicationComment(
+        productId: String,
+        displayName: String,
+        text: String
+    ) {
+        require(productId.isNotBlank()) { "Product ID cannot be blank." }
+        val cleanText = text.trim()
+        require(cleanText.isNotEmpty()) { "Comment cannot be blank." }
+        require(cleanText.length <= 1000) { "Comment cannot exceed 1000 characters." }
+        val uid = requireUserId()
+        val safeDisplayName = displayName.trim().ifBlank { "Cliente" }.take(80)
+        val commentRef = db.collection("products").document(productId)
+            .collection("comments").document()
+        val statsRef = db.collection("publicationStats").document(productId)
+
+        try {
+            db.runTransaction { transaction ->
+                val statsSnapshot = transaction.get(statsRef)
+                val likesCount = statsSnapshot.getLong("likesCount") ?: 0L
+                val commentsCount = statsSnapshot.getLong("commentsCount") ?: 0L
+                transaction.set(
+                    commentRef,
+                    mapOf(
+                        "productId" to productId,
+                        "userId" to uid,
+                        "displayName" to safeDisplayName,
+                        "text" to cleanText,
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )
+                )
+                transaction.set(
+                    statsRef,
+                    mapOf(
+                        "likesCount" to likesCount,
+                        "commentsCount" to commentsCount + 1L,
+                        "sharesCount" to (statsSnapshot.getLong("sharesCount") ?: 0L),
+                        "savesCount" to (statsSnapshot.getLong("savesCount") ?: 0L),
+                        "lastCommentId" to commentRef.id
+                    ),
+                    SetOptions.merge()
+                )
+            }.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, commentRef.path)
+            throw e
+        }
+    }
+
+    suspend fun recordPublicationShare(productId: String) {
+        require(productId.isNotBlank()) { "Product ID cannot be blank." }
+        requireUserId()
+        val statsRef = db.collection("publicationStats").document(productId)
+
+        try {
+            db.runTransaction { transaction ->
+                val statsSnapshot = transaction.get(statsRef)
+                transaction.set(
+                    statsRef,
+                    mapOf(
+                        "likesCount" to (statsSnapshot.getLong("likesCount") ?: 0L),
+                        "commentsCount" to (statsSnapshot.getLong("commentsCount") ?: 0L),
+                        "sharesCount" to ((statsSnapshot.getLong("sharesCount") ?: 0L) + 1L),
+                        "savesCount" to (statsSnapshot.getLong("savesCount") ?: 0L),
+                        "lastCommentId" to (statsSnapshot.getString("lastCommentId") ?: "")
+                    ),
+                    SetOptions.merge()
+                )
+            }.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, statsRef.path)
             throw e
         }
     }
