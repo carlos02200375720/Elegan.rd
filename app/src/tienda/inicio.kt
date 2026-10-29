@@ -152,11 +152,10 @@ fun InicioScreen(
     onNavigateToCart: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
+    val productIds = remember(featuredProducts) { featuredProducts.map { it.id }.toSet() }
 
-    // Cálculo optimizado del producto actualmente enfocado en la pantalla del usuario.
-    // Utiliza derivedStateOf para no provocar recomposiciones innecesarias durante el scroll,
-    // garantizando un desplazamiento vertical 100% fluido, continuo y suave a 60/120 FPS.
-    val focusedProductId by remember(listState, featuredProducts) {
+    // Reutiliza el conjunto de IDs para no reconstruirlo en cada actualización del scroll.
+    val focusedProductId by remember(listState, productIds) {
         derivedStateOf {
             val layoutInfo = listState.layoutInfo
             val visibleItems = layoutInfo.visibleItemsInfo
@@ -165,8 +164,7 @@ fun InicioScreen(
             val vpStart = layoutInfo.viewportStartOffset
             val vpEnd = layoutInfo.viewportEndOffset
             val vpCenter = (vpStart + vpEnd) / 2
-            val productKeys = featuredProducts.map { it.id }.toSet()
-            val visibleProducts = visibleItems.filter { it.key in productKeys }
+            val visibleProducts = visibleItems.filter { it.key in productIds }
             if (visibleProducts.isEmpty()) return@derivedStateOf null
 
             // Prioridad 1: el producto que cruza el centro de visión del usuario en la pantalla

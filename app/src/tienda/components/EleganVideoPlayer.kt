@@ -133,6 +133,7 @@ fun EleganVideoPlayer(
     var hasError by remember { mutableStateOf(false) }
     var showOverlayControls by remember { mutableStateOf(true) }
     var isFirstFrameRendered by remember { mutableStateOf(false) }
+    var shouldLoadPlayer by remember(videoUrl) { mutableStateOf(false) }
 
     var videoWidth by remember { mutableIntStateOf(0) }
     var videoHeight by remember { mutableIntStateOf(0) }
@@ -146,6 +147,7 @@ fun EleganVideoPlayer(
     // Se reproduce automáticamente al entrar en foco, y se pausa de inmediato al salir del foco.
     LaunchedEffect(isFocused) {
         if (isFocused) {
+            shouldLoadPlayer = true
             isPlaying = true
             showOverlayControls = false
             mediaPlayerRef?.let { mp ->
@@ -174,9 +176,9 @@ fun EleganVideoPlayer(
     }
 
     // Generar la portada a partir del video si posterUrl no viene provisto
-    LaunchedEffect(videoUrl, posterUrl) {
+    LaunchedEffect(videoUrl, posterUrl, shouldLoadPlayer) {
         isFirstFrameRendered = false
-        if (posterUrl.isNullOrBlank() && videoUrl.isNotBlank()) {
+        if (shouldLoadPlayer && posterUrl.isNullOrBlank() && videoUrl.isNotBlank()) {
             withContext(Dispatchers.IO) {
                 val thumb = extractVideoPosterLocally(context, videoUrl)
                 if (thumb != null) {
@@ -226,87 +228,91 @@ fun EleganVideoPlayer(
         }
     }
 
-    DisposableEffect(videoUrl) {
-        isPrepared = false
-        isCompleted = false
-        hasError = false
-        isFirstFrameRendered = false
-        videoWidth = 0
-        videoHeight = 0
+    DisposableEffect(videoUrl, shouldLoadPlayer) {
+        if (!shouldLoadPlayer) {
+            onDispose {}
+        } else {
+            isPrepared = false
+            isCompleted = false
+            hasError = false
+            isFirstFrameRendered = false
+            videoWidth = 0
+            videoHeight = 0
 
-        val mp = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .build()
-            )
-            isLooping = true
-            setOnPreparedListener { player ->
-                isPrepared = true
-                hasError = false
-                val w = player.videoWidth
-                val h = player.videoHeight
-                if (w > 0 && h > 0) {
-                    videoWidth = w
-                    videoHeight = h
-                    adjustVideoTransform(textureViewRef, w, h)
+            val mp = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+                isLooping = true
+                setOnPreparedListener { player ->
+                    isPrepared = true
+                    hasError = false
+                    val w = player.videoWidth
+                    val h = player.videoHeight
+                    if (w > 0 && h > 0) {
+                        videoWidth = w
+                        videoHeight = h
+                        adjustVideoTransform(textureViewRef, w, h)
+                    }
+                    if (isMuted) {
+                        player.setVolume(0f, 0f)
+                    } else {
+                        player.setVolume(1f, 1f)
+                    }
+                    if (isPlaying || isFocused) {
+                        isPlaying = true
+                        player.start()
+                    }
                 }
-                if (isMuted) {
-                    player.setVolume(0f, 0f)
-                } else {
-                    player.setVolume(1f, 1f)
+                setOnVideoSizeChangedListener { _, w, h ->
+                    if (w > 0 && h > 0) {
+                        videoWidth = w
+                        videoHeight = h
+                        adjustVideoTransform(textureViewRef, w, h)
+                    }
                 }
-                if (isPlaying || isFocused) {
-                    isPlaying = true
-                    player.start()
+                setOnCompletionListener {
+                    isCompleted = true
+                    isPlaying = false
+                    showOverlayControls = true
+                }
+                setOnErrorListener { _, _, _ ->
+                    hasError = true
+                    isPlaying = false
+                    true
                 }
             }
-            setOnVideoSizeChangedListener { _, w, h ->
-                if (w > 0 && h > 0) {
-                    videoWidth = w
-                    videoHeight = h
-                    adjustVideoTransform(textureViewRef, w, h)
-                }
-            }
-            setOnCompletionListener {
-                isCompleted = true
-                isPlaying = false
-                showOverlayControls = true
-            }
-            setOnErrorListener { _, _, _ ->
-                hasError = true
-                isPlaying = false
-                true
-            }
-        }
-        mediaPlayerRef = mp
+            mediaPlayerRef = mp
 
-        if (videoUrl.isNotBlank()) {
-            try {
-                mp.setDataSource(context, Uri.parse(videoUrl))
-                mp.prepareAsync()
-            } catch (_: Exception) {
-                hasError = true
+            if (videoUrl.isNotBlank()) {
+                try {
+                    mp.setDataSource(context, Uri.parse(videoUrl))
+                    mp.prepareAsync()
+                } catch (_: Exception) {
+                    hasError = true
+                }
             }
-        }
 
-        surfaceRef?.let { surf ->
-            try {
-                mp.setSurface(surf)
-            } catch (_: Exception) {}
-        }
+            surfaceRef?.let { surf ->
+                try {
+                    mp.setSurface(surf)
+                } catch (_: Exception) {}
+            }
 
-        onDispose {
-            try {
-                mp.stop()
-            } catch (_: Exception) {}
-            try {
-                mp.reset()
-                mp.release()
-            } catch (_: Exception) {}
-            if (mediaPlayerRef == mp) {
-                mediaPlayerRef = null
+            onDispose {
+                try {
+                    mp.stop()
+                } catch (_: Exception) {}
+                try {
+                    mp.reset()
+                    mp.release()
+                } catch (_: Exception) {}
+                if (mediaPlayerRef == mp) {
+                    mediaPlayerRef = null
+                }
             }
         }
     }
@@ -331,6 +337,7 @@ fun EleganVideoPlayer(
                         mediaPlayerRef?.start()
                     } catch (_: Exception) {}
                 } else {
+                    shouldLoadPlayer = true
                     isPlaying = true
                     showOverlayControls = false
                     try {
@@ -341,7 +348,7 @@ fun EleganVideoPlayer(
             .testTag("${testTagPrefix}_container"),
         contentAlignment = Alignment.Center
     ) {
-        if (videoUrl.isNotBlank() && !hasError) {
+        if (shouldLoadPlayer && videoUrl.isNotBlank() && !hasError) {
             AndroidView(
                 factory = { ctx ->
                     TextureView(ctx).apply {
@@ -451,6 +458,7 @@ fun EleganVideoPlayer(
                 Surface(
                     onClick = {
                         isCompleted = false
+                        shouldLoadPlayer = true
                         isPlaying = true
                         showOverlayControls = false
                         try {
@@ -477,6 +485,7 @@ fun EleganVideoPlayer(
             } else if (!isPlaying) {
                 Surface(
                     onClick = {
+                        shouldLoadPlayer = true
                         isPlaying = true
                         showOverlayControls = false
                         try {
