@@ -97,7 +97,7 @@ jobs:
           name: elegan-apk-pruebas
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
       - name: Compilar AAB firmado para Play Store
         if: steps.signing.outputs.available == 'true'
@@ -114,7 +114,7 @@ jobs:
           name: elegan-aab-play-store
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
 
       - name: Resumen de compilación
         if: always()
