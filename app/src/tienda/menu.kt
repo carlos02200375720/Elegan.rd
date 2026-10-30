@@ -143,7 +143,7 @@ fun MenuScreen(
                         Image(
                             painter = painterResource(id = R.drawable.icono),
                             contentDescription = null,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
