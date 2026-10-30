@@ -30,6 +30,7 @@ import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -920,6 +921,7 @@ class EleganRepository(
             .collect { emit(it) }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun observeLikedPublicationIds(): Flow<Set<String>> = callbackFlow {
         val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { firebaseAuth ->
             trySend(firebaseAuth.currentUser?.uid)
