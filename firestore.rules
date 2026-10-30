@@ -106,8 +106,8 @@ service cloud.firestore {
       let likePath = likedPublicationPath(request.auth.uid, productId);
       return exists(likePath) != existsAfter(likePath) &&
              request.resource.data.likesCount ==
-               resource.data.likesCount + (existsAfter(likePath) ? 1 : -1) &&
-             request.resource.data.commentsCount == resource.data.commentsCount &&
+               resource.data.get('likesCount', 0) + (existsAfter(likePath) ? 1 : -1) &&
+             request.resource.data.commentsCount == resource.data.get('commentsCount', 0) &&
              request.resource.data.sharesCount == resource.data.get('sharesCount', 0) &&
              request.resource.data.savesCount == resource.data.get('savesCount', 0) &&
              request.resource.data.get('lastCommentId', '') ==
@@ -175,7 +175,8 @@ service cloud.firestore {
       return isOwner(userId) &&
              isValidLikedPublication(request.resource.data, userId, productId) &&
              existsAfter(statsPath) &&
-             getAfter(statsPath).data.likesCount == (exists(statsPath) ? get(statsPath).data.likesCount + 1 : 1);
+             getAfter(statsPath).data.likesCount ==
+               (exists(statsPath) ? get(statsPath).data.get('likesCount', 0) + 1 : 1);
     }
 
     function canDeleteLike(userId, productId) {
@@ -183,7 +184,10 @@ service cloud.firestore {
       return isOwner(userId) &&
              exists(statsPath) &&
              existsAfter(statsPath) &&
-             getAfter(statsPath).data.likesCount == get(statsPath).data.likesCount - 1;
+             getAfter(statsPath).data.likesCount ==
+               (get(statsPath).data.get('likesCount', 0) > 0
+                 ? get(statsPath).data.get('likesCount', 0) - 1
+                 : 0);
     }
 
     function canCreateSave(userId, productId) {
