@@ -187,7 +187,7 @@ fun PerfilScreen(
                                     Image(
                                         painter = painterResource(id = R.drawable.icono),
                                         contentDescription = null,
-                                        modifier = Modifier.size(56.dp)
+                                        modifier = Modifier.size(44.dp)
                                     )
                                 }
                             }
