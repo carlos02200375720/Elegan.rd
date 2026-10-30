@@ -163,7 +163,7 @@ fun AuthScreen(
                     Image(
                         painter = painterResource(id = R.drawable.icono),
                         contentDescription = "Logo Elegan",
-                        modifier = Modifier.size(80.dp)
+                        modifier = Modifier.size(64.dp)
                     )
                 }
 
