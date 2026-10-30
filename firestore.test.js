@@ -135,6 +135,35 @@ test("Likes are unique per user and their counters change atomically", async () 
   await assertFails(stats.update({ likesCount: 50 }));
 });
 
+test("Likes update legacy publication stats with missing optional counters", async () => {
+  const userDb = testEnv.authenticatedContext("legacyUser").firestore();
+  const like = userDb.collection("users").doc("legacyUser")
+    .collection("likedPublications").doc("legacyProduct");
+  const stats = userDb.collection("publicationStats").doc("legacyProduct");
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection("publicationStats").doc("legacyProduct").set({
+      likesCount: 0
+    });
+  });
+
+  const likeBatch = userDb.batch();
+  likeBatch.set(like, { userId: "legacyUser", productId: "legacyProduct" });
+  likeBatch.set(stats, {
+    likesCount: 1,
+    commentsCount: 0,
+    sharesCount: 0,
+    savesCount: 0,
+    lastCommentId: ""
+  }, { merge: true });
+  await assertSucceeds(likeBatch.commit());
+
+  const unlikeBatch = userDb.batch();
+  unlikeBatch.delete(like);
+  unlikeBatch.update(stats, { likesCount: 0 });
+  await assertSucceeds(unlikeBatch.commit());
+});
+
 test("Authenticated users can add immutable comments with matching counters", async () => {
   const user1Db = testEnv.authenticatedContext("user1").firestore();
   const user2Db = testEnv.authenticatedContext("user2").firestore();
