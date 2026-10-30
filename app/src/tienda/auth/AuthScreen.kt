@@ -314,6 +314,20 @@ fun AuthScreen(
 }
 }
 
+fun getGoogleWebClientId(context: Context): String? {
+    return try {
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        if (resId != 0) {
+            val str = context.getString(resId)
+            if (str.isNotBlank()) str else null
+        } else {
+            "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+        }
+    } catch (e: Exception) {
+        "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+    }
+}
+
 fun onGoogleSignInClicked(
     context: Context,
     credentialManager: CredentialManager,
@@ -322,9 +336,8 @@ fun onGoogleSignInClicked(
     scope: CoroutineScope,
     onAuthCancelled: () -> Unit = {}
 ) {
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (e: Exception) {
+    val clientId = getGoogleWebClientId(context)
+    if (clientId.isNullOrBlank()) {
         onAuthError("Configuración de Google Sign-In faltante: default_web_client_id")
         return
     }
@@ -365,9 +378,8 @@ fun attemptAutoSignIn(
         onAuthSuccess()
         return
     }
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (e: Exception) {
+    val clientId = getGoogleWebClientId(context)
+    if (clientId.isNullOrBlank()) {
         onUnauthenticated()
         return
     }
