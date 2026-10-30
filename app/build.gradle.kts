@@ -19,7 +19,6 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
-    resValue("string", "default_web_client_id", System.getenv("GOOGLE_WEB_CLIENT_ID") ?: "")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
