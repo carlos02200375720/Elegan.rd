@@ -52,10 +52,19 @@ class EleganRepository(
     private val context: Context? = null
 ) {
 
+    companion object {
+        private fun resolveFirestore(context: Context): FirebaseFirestore {
+            val dbId = context.applicationContext.getString(R.string.firestore_database_id).trim()
+            return if (dbId.isEmpty() || dbId == "(default)") {
+                FirebaseFirestore.getInstance()
+            } else {
+                FirebaseFirestore.getInstance(dbId)
+            }
+        }
+    }
+
     constructor(context: Context) : this(
-        FirebaseFirestore.getInstance(
-            context.applicationContext.getString(R.string.firestore_database_id)
-        ),
+        resolveFirestore(context),
         context.applicationContext
     )
 

@@ -1180,7 +1180,7 @@ fun PublicarScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
 
                                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    availableSizeOptions.forEach { sz ->
+                                    items(availableSizeOptions) { sz ->
                                         val isSelected = selectedSizes.contains(sz)
                                         FilterChip(
                                             selected = isSelected,
