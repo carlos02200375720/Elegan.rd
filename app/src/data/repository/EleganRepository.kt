@@ -37,7 +37,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -917,18 +920,31 @@ class EleganRepository(
             .collect { emit(it) }
     }
 
-    fun observeLikedPublicationIds(): Flow<Set<String>> = flow {
-        val uid = requireUserId()
-        val path = "users/$uid/likedPublications"
-        db.collection("users").document(uid).collection("likedPublications")
-            .snapshots()
-            .map { snapshot -> snapshot.documents.map { it.id }.toSet() }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                throw error
-            }
-            .collect { emit(it) }
+    fun observeLikedPublicationIds(): Flow<Set<String>> = callbackFlow {
+        val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { firebaseAuth ->
+            trySend(firebaseAuth.currentUser?.uid)
+        }
+        auth.addAuthStateListener(listener)
+        trySend(auth.currentUser?.uid)
+        awaitClose { auth.removeAuthStateListener(listener) }
     }
+        .distinctUntilChanged()
+        .flatMapLatest { uid ->
+            if (uid.isNullOrBlank()) {
+                flowOf(emptySet())
+            } else {
+                val path = "users/$uid/likedPublications"
+                db.collection("users").document(uid).collection("likedPublications")
+                    .snapshots()
+                    .map { snapshot -> snapshot.documents.map { it.id }.toSet() }
+                    .catch { error ->
+                        if (error is Exception) {
+                            handleFirestoreError(error, OperationType.LIST, path)
+                        }
+                        throw error
+                    }
+            }
+        }
 
     suspend fun togglePublicationLike(productId: String): Boolean {
         require(productId.isNotBlank()) { "Product ID cannot be blank." }
