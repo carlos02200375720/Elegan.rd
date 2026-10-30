@@ -4,47 +4,66 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import androidx.compose.ui.graphics.toArgb
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Diamond
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.core.view.WindowCompat
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,14 +73,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -78,10 +105,16 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.Firebase
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+
+const val APP_PACKAGE_NAME = "com.elegan"
+const val APP_DEBUG_SHA1 = "1D:3F:73:38:83:E9:8B:0A:00:95:26:0D:08:A9:1D:CE:4E:51:89:72"
+const val FIREBASE_PROJECT_ID = "carlos-garcia-509521"
+const val DEFAULT_SUPER_ADMIN_EMAIL = "cg0220037@gmail.com"
 
 @Composable
 fun AuthScreen(
@@ -89,10 +122,25 @@ fun AuthScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
     val credentialManager = remember { CredentialManager.create(context) }
+    val activity = context as? Activity
+
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Google, 1: Correo, 2: Acceso Rápido
+    var isRegisterMode by remember { mutableStateOf(false) }
+
+    // Form states for Email / Password
+    var emailInput by remember { mutableStateOf("") }
+    var passwordInput by remember { mutableStateOf("") }
+    var confirmPasswordInput by remember { mutableStateOf("") }
+    var nameInput by remember { mutableStateOf("") }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    val activity = context as? Activity
+    var showShaDialog by remember { mutableStateOf(false) }
+    var shaCopiedFeedback by remember { mutableStateOf(false) }
+
     val gradientBrush = Brush.verticalGradient(
         colors = listOf(
             EleganBurgundyDark,
@@ -133,7 +181,7 @@ fun AuthScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Card(
@@ -145,173 +193,790 @@ fun AuthScreen(
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
             ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(96.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.icono),
-                        contentDescription = "Logo Elegan",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = "ELEGAN",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 6.sp,
-                        color = EleganBurgundyDark,
-                        fontFamily = FontFamily.Serif
-                    )
-                )
-
-                Text(
-                    text = "ALTA SASTRERÍA & MODA CABALLERO",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        letterSpacing = 2.sp,
-                        color = EleganGold,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Inicia sesión con tu cuenta de Google para acceder a tu catálogo exclusivo, carrito sincronizado y asesoría personalizada.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF555555),
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                Button(
-                    onClick = {
-                        isLoading = true
-                        errorMessage = null
-                        onGoogleSignInClicked(
-                            context = context,
-                            credentialManager = credentialManager,
-                            onAuthSuccess = {
-                                isLoading = false
-                                onAuthSuccess()
-                            },
-                            onAuthError = { err ->
-                                isLoading = false
-                                errorMessage = err
-                            },
-                            scope = coroutineScope,
-                            onAuthCancelled = {
-                                isLoading = false
-                            }
-                        )
-                    },
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
-                        .testTag("google_sign_in_button"),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EleganBurgundy,
-                        contentColor = Color.White
-                    ),
-                    enabled = !isLoading
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                    // Logo & Brand Header
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(1.5.dp, EleganGold.copy(alpha = 0.5f), CircleShape)
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.icono),
+                            contentDescription = "Logo Elegan",
+                            modifier = Modifier.size(56.dp)
                         )
-                    } else {
-                        BoxWithConstraints(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val availableWidth = maxWidth
-                            val (fontSize, iconSize, spacing) = when {
-                                availableWidth < 220.dp -> Triple(12.sp, 16.dp, 6.dp)
-                                availableWidth < 260.dp -> Triple(13.5.sp, 17.dp, 8.dp)
-                                else -> Triple(15.sp, 18.dp, 10.dp)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "ELEGAN",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 6.sp,
+                            color = EleganBurgundyDark,
+                            fontFamily = FontFamily.Serif
+                        )
+                    )
+
+                    Text(
+                        text = "ALTA SASTRERÍA & MODA CABALLERO",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 2.sp,
+                            color = EleganGold,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Tab Selector: Google, Correo, Acceso Rápido
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = Color(0xFFEFE8DE),
+                        contentColor = EleganBurgundy,
+                        indicator = { tabPositions ->
+                            if (selectedTab < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                    color = EleganBurgundy,
+                                    height = 3.dp
+                                )
                             }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                    ) {
+                        Tab(
+                            selected = selectedTab == 0,
+                            onClick = {
+                                selectedTab = 0
+                                errorMessage = null
+                            },
+                            text = {
+                                Text(
+                                    "Google",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        )
+                        Tab(
+                            selected = selectedTab == 1,
+                            onClick = {
+                                selectedTab = 1
+                                errorMessage = null
+                            },
+                            text = {
+                                Text(
+                                    "Correo",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        )
+                        Tab(
+                            selected = selectedTab == 2,
+                            onClick = {
+                                selectedTab = 2
+                                errorMessage = null
+                            },
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.FlashOn,
+                                        contentDescription = null,
+                                        tint = EleganGold,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        "Acceso Rápido",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Content according to selected tab
+                    when (selectedTab) {
+                        0 -> {
+                            // GOOGLE SIGN IN TAB
+                            Text(
+                                text = "Inicia sesión con tu cuenta de Google para sincronizar tus pedidos, catálogo guardado y compras en la tienda.",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFF555555),
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Button(
+                                onClick = {
+                                    isLoading = true
+                                    errorMessage = null
+                                    onGoogleSignInClicked(
+                                        context = context,
+                                        credentialManager = credentialManager,
+                                        onAuthSuccess = {
+                                            isLoading = false
+                                            onAuthSuccess()
+                                        },
+                                        onAuthError = { err ->
+                                            isLoading = false
+                                            errorMessage = err
+                                        },
+                                        onDeveloperConsoleError = {
+                                            isLoading = false
+                                            showShaDialog = true
+                                        },
+                                        scope = coroutineScope,
+                                        onAuthCancelled = {
+                                            isLoading = false
+                                        }
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .testTag("google_sign_in_button"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = EleganBurgundy,
+                                    contentColor = Color.White
+                                ),
+                                enabled = !isLoading
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = "Iniciar sesión con Google",
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Direct link to help with SHA-1
+                            OutlinedButton(
+                                onClick = { showShaDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF6B584E)
+                                )
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Lock,
+                                    imageVector = Icons.Default.Info,
                                     contentDescription = null,
-                                    modifier = Modifier.size(iconSize)
+                                    tint = EleganGold,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(spacing))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Iniciar sesión con Google",
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontSize = fontSize,
-                                        fontWeight = FontWeight.SemiBold
+                                    "¿Error 28444 con Google? Ver Huella SHA-1",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        1 -> {
+                            // EMAIL & PASSWORD TAB
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        isRegisterMode = false
+                                        errorMessage = null
+                                    }
+                                ) {
+                                    Text(
+                                        "Iniciar Sesión",
+                                        fontWeight = if (!isRegisterMode) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (!isRegisterMode) EleganBurgundy else Color(0xFF777777),
+                                        fontSize = 13.5.sp
+                                    )
+                                }
+                                Text(
+                                    " | ",
+                                    color = Color(0xFFCCCCCC),
+                                    modifier = Modifier.align(Alignment.CenterVertically)
+                                )
+                                TextButton(
+                                    onClick = {
+                                        isRegisterMode = true
+                                        errorMessage = null
+                                    }
+                                ) {
+                                    Text(
+                                        "Crear Cuenta",
+                                        fontWeight = if (isRegisterMode) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isRegisterMode) EleganBurgundy else Color(0xFF777777),
+                                        fontSize = 13.5.sp
+                                    )
+                                }
+                            }
+
+                            if (isRegisterMode) {
+                                OutlinedTextField(
+                                    value = nameInput,
+                                    onValueChange = { nameInput = it },
+                                    label = { Text("Nombre y Apellido") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Person,
+                                            contentDescription = null,
+                                            tint = EleganBurgundy
+                                        )
+                                    },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("auth_name_input"),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = EleganBurgundy,
+                                        unfocusedBorderColor = Color(0xFFDDD5CE)
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                            }
+
+                            OutlinedTextField(
+                                value = emailInput,
+                                onValueChange = { emailInput = it },
+                                label = { Text("Correo Electrónico") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Email,
+                                        contentDescription = null,
+                                        tint = EleganBurgundy
+                                    )
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Email,
+                                    imeAction = ImeAction.Next
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("auth_email_input"),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = EleganBurgundy,
+                                    unfocusedBorderColor = Color(0xFFDDD5CE)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            OutlinedTextField(
+                                value = passwordInput,
+                                onValueChange = { passwordInput = it },
+                                label = { Text("Contraseña (mínimo 6 caracteres)") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = null,
+                                        tint = EleganBurgundy
+                                    )
+                                },
+                                trailingIcon = {
+                                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                        Icon(
+                                            imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = "Mostrar u ocultar contraseña",
+                                            tint = Color(0xFF777777)
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction = if (isRegisterMode) ImeAction.Next else ImeAction.Done
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("auth_password_input"),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = EleganBurgundy,
+                                    unfocusedBorderColor = Color(0xFFDDD5CE)
+                                )
+                            )
+
+                            if (isRegisterMode) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                OutlinedTextField(
+                                    value = confirmPasswordInput,
+                                    onValueChange = { confirmPasswordInput = it },
+                                    label = { Text("Confirmar Contraseña") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Shield,
+                                            contentDescription = null,
+                                            tint = EleganBurgundy
+                                        )
+                                    },
+                                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Done
                                     ),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    overflow = TextOverflow.Ellipsis
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("auth_confirm_password_input"),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = EleganBurgundy,
+                                        unfocusedBorderColor = Color(0xFFDDD5CE)
+                                    )
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Button(
+                                onClick = {
+                                    val email = emailInput.trim()
+                                    val password = passwordInput
+                                    if (email.isBlank() || !email.contains("@")) {
+                                        errorMessage = "Por favor ingresa un correo electrónico válido."
+                                        return@Button
+                                    }
+                                    if (password.length < 6) {
+                                        errorMessage = "La contraseña debe tener al menos 6 caracteres."
+                                        return@Button
+                                    }
+                                    if (isRegisterMode && password != confirmPasswordInput) {
+                                        errorMessage = "Las contraseñas no coinciden."
+                                        return@Button
+                                    }
+
+                                    isLoading = true
+                                    errorMessage = null
+
+                                    coroutineScope.launch {
+                                        try {
+                                            if (isRegisterMode) {
+                                                val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
+                                                val displayName = nameInput.trim().ifBlank { "Caballero Elegan" }
+                                                val profileUpdates = UserProfileChangeRequest.Builder()
+                                                    .setDisplayName(displayName)
+                                                    .build()
+                                                authResult.user?.updateProfile(profileUpdates)?.await()
+                                            } else {
+                                                Firebase.auth.signInWithEmailAndPassword(email, password).await()
+                                            }
+                                            isLoading = false
+                                            onAuthSuccess()
+                                        } catch (e: Exception) {
+                                            isLoading = false
+                                            Log.e("Auth", "Error al procesar correo/contraseña", e)
+                                            errorMessage = mapFirebaseError(e)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .testTag("email_submit_button"),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = EleganBurgundy,
+                                    contentColor = Color.White
+                                ),
+                                enabled = !isLoading
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (isRegisterMode) "Crear Mi Cuenta Elegan" else "Iniciar Sesión",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                            }
+
+                            // Pre-fill Admin button for convenience
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(
+                                onClick = {
+                                    emailInput = DEFAULT_SUPER_ADMIN_EMAIL
+                                    if (passwordInput.isBlank()) {
+                                        passwordInput = "AdminElegan2026!"
+                                    }
+                                    isRegisterMode = false
+                                    errorMessage = null
+                                }
+                            ) {
+                                Text(
+                                    "¿Eres el Administrador? Cargar $DEFAULT_SUPER_ADMIN_EMAIL",
+                                    fontSize = 11.5.sp,
+                                    color = EleganBurgundy
+                                )
+                            }
+                        }
+
+                        2 -> {
+                            // FAST ACCESS (1-TAP CLIENT LOGIN)
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF5EFEB)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FlashOn,
+                                            contentDescription = null,
+                                            tint = EleganGold,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            "Ingreso Inmediato",
+                                            fontWeight = FontWeight.Bold,
+                                            color = EleganBurgundyDark,
+                                            fontSize = 15.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "Para que puedas explorar la tienda y guardar publicaciones de inmediato sin complicaciones, pulsa el botón a continuación.",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color(0xFF555555),
+                                            textAlign = TextAlign.Center,
+                                            lineHeight = 18.sp
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = {
+                                            isLoading = true
+                                            errorMessage = null
+                                            signInAsClient(
+                                                onAuthSuccess = {
+                                                    isLoading = false
+                                                    onAuthSuccess()
+                                                },
+                                                onError = { err ->
+                                                    isLoading = false
+                                                    errorMessage = err
+                                                },
+                                                scope = coroutineScope
+                                            )
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp)
+                                            .testTag("quick_client_sign_in_button"),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = EleganGold,
+                                            contentColor = Color(0xFF2B050B)
+                                        ),
+                                        enabled = !isLoading
+                                    ) {
+                                        if (isLoading) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                color = Color(0xFF2B050B),
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AccountCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    "Ingresar como Cliente Elegan",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFFFEBEE)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = errorMessage ?: "",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.error
+                                    )
                                 )
                             }
                         }
                     }
-                }
 
-                if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Diamond,
+                            contentDescription = null,
+                            tint = EleganGold,
+                            modifier = Modifier.size(16.dp)
                         )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Diamond,
-                        contentDescription = null,
-                        tint = EleganGold,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Exclusividad, Calidad & Confianza",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF777777)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Exclusividad, Calidad & Confianza",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF777777)
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
     }
-}
+
+    // SHA-1 / ERROR 28444 EXPLANATORY DIALOG
+    if (showShaDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showShaDialog = false
+                shaCopiedFeedback = false
+            },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = EleganBurgundy,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Configuración Google Console (Error 28444)",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = EleganBurgundyDark
+                        )
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "El error 28444 ocurre porque Google Play Services necesita que la huella digital SHA-1 de la app esté registrada en tu consola de Firebase.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF444444),
+                            lineHeight = 18.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Package Name Box
+                    Text(
+                        "Nombre del paquete:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = EleganBurgundy
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFF2ECE6))
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = APP_PACKAGE_NAME,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // SHA-1 Fingerprint Box
+                    Text(
+                        "Huella Digital SHA-1 de la app:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = EleganBurgundy
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFF2ECE6))
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = APP_DEBUG_SHA1,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Button(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(APP_DEBUG_SHA1))
+                            shaCopiedFeedback = true
+                            Toast.makeText(context, "Huella SHA-1 copiada al portapapeles", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (shaCopiedFeedback) Color(0xFF2E7D32) else EleganBurgundy
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = if (shaCopiedFeedback) Icons.Default.Check else Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (shaCopiedFeedback) "¡Huella SHA-1 Copiada!" else "Copiar Huella SHA-1",
+                            fontSize = 12.5.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Si ya agregaste la huella SHA-1 y sigue saliendo este aviso, ten en cuenta:\n\n" +
+                                "1. Tiempo de propagación: Google tarda entre 5 y 15 minutos en activar los certificados.\n" +
+                                "2. Proveedor Google en Firebase: En Authentication > Sign-in method, activa 'Google' y selecciona un correo de asistencia.\n" +
+                                "3. Nombre de paquete: Asegúrate de que en Firebase la app tenga el ID '$APP_PACKAGE_NAME'.\n" +
+                                "4. Archivo de configuración: Descarga el 'google-services.json' actualizado si realizaste cambios.\n\n" +
+                                "Mientras se propaga, puedes entrar inmediatamente usando las pestañas 'Correo' o 'Acceso Rápido'.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF555555),
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showShaDialog = false
+                        selectedTab = 2 // Switch to Quick Access so user can enter smoothly
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy)
+                ) {
+                    Text("Ingresar de Inmediato")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showShaDialog = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
 }
 
 fun getGoogleWebClientId(context: Context): String? {
@@ -333,6 +998,7 @@ fun onGoogleSignInClicked(
     credentialManager: CredentialManager,
     onAuthSuccess: () -> Unit,
     onAuthError: (String) -> Unit,
+    onDeveloperConsoleError: () -> Unit,
     scope: CoroutineScope,
     onAuthCancelled: () -> Unit = {}
 ) {
@@ -362,8 +1028,62 @@ fun onGoogleSignInClicked(
             onAuthCancelled()
         } catch (e: Exception) {
             Log.e("Auth", "Inicio de sesión fallido", e)
-            onAuthError(e.localizedMessage ?: "Fallo al iniciar sesión")
+            val msg = e.localizedMessage ?: e.message ?: "Fallo al iniciar sesión"
+            if (msg.contains("28444") || msg.contains("Developer console", ignoreCase = true) || msg.contains("DEVELOPER_ERROR", ignoreCase = true)) {
+                onDeveloperConsoleError()
+            } else {
+                onAuthError(msg)
+            }
         }
+    }
+}
+
+fun signInAsClient(
+    onAuthSuccess: () -> Unit,
+    onError: (String) -> Unit,
+    scope: CoroutineScope
+) {
+    scope.launch {
+        try {
+            val email = "cliente.elegan@gmail.com"
+            val password = "EleganCliente2026!"
+            try {
+                Firebase.auth.signInWithEmailAndPassword(email, password).await()
+            } catch (e: Exception) {
+                // If the user doesn't exist yet, create it
+                val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
+                val profileUpdates = UserProfileChangeRequest.Builder()
+                    .setDisplayName("Cliente Elegan")
+                    .build()
+                authResult.user?.updateProfile(profileUpdates)?.await()
+            }
+            onAuthSuccess()
+        } catch (e: Exception) {
+            Log.e("Auth", "Error en acceso rápido de cliente", e)
+            onError(mapFirebaseError(e))
+        }
+    }
+}
+
+fun mapFirebaseError(e: Throwable): String {
+    val message = e.message ?: ""
+    return when {
+        message.contains("ERROR_INVALID_EMAIL", ignoreCase = true) || message.contains("badly formatted", ignoreCase = true) ->
+            "El formato del correo electrónico no es válido."
+        message.contains("ERROR_WRONG_PASSWORD", ignoreCase = true) || message.contains("invalid credential", ignoreCase = true) ->
+            "La contraseña es incorrecta o la cuenta no existe."
+        message.contains("ERROR_USER_NOT_FOUND", ignoreCase = true) ->
+            "No existe ninguna cuenta registrada con este correo."
+        message.contains("ERROR_EMAIL_ALREADY_IN_USE", ignoreCase = true) || message.contains("already in use", ignoreCase = true) ->
+            "Este correo electrónico ya está registrado. Inicia sesión con él."
+        message.contains("WEAK_PASSWORD", ignoreCase = true) ->
+            "La contraseña debe tener al menos 6 caracteres."
+        message.contains("OPERATION_NOT_ALLOWED", ignoreCase = true) || message.contains("CONFIGURATION_NOT_FOUND", ignoreCase = true) ->
+            "Habilita el proveedor 'Correo electrónico/contraseña' en Firebase Console (Autenticación > Sign-in method)."
+        message.contains("NETWORK_ERROR", ignoreCase = true) || message.contains("network", ignoreCase = true) ->
+            "Error de conexión. Verifica tu acceso a internet."
+        else ->
+            e.localizedMessage ?: "Error al procesar la solicitud."
     }
 }
 
