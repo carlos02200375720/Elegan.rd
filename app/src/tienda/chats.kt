@@ -141,7 +141,7 @@ fun ChatsScreen(
                         Image(
                             painter = painterResource(id = R.drawable.icono),
                             contentDescription = null,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
