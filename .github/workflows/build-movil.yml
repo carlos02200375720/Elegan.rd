@@ -74,7 +74,21 @@ jobs:
             echo "::warning::No se configuró la firma Android. Se generará el APK de prueba; el AAB firmado se omitirá."
           fi
 
+      - name: Preparar firma debug
+        run: |
+          keytool -genkeypair -v \\
+            -keystore debug.keystore \\
+            -storepass android \\
+            -alias androiddebugkey \\
+            -keypass android \\
+            -keyalg RSA \\
+            -keysize 2048 \\
+            -validity 10000 \\
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Compilar APK de prueba
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Publicar APK de prueba
