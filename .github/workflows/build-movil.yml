@@ -1,0 +1,105 @@
+name: Build Android (APK y AAB)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/build-movil.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Compilar APK y AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar plataforma Android 36.1
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36.1" "build-tools;36.0.0"
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Preparar firma de publicación
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_STORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-key.jks"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No se configuró la firma Android. Se generará el APK de prueba; el AAB firmado se omitirá."
+          fi
+
+      - name: Compilar APK de prueba
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Publicar APK de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: elegan-apk-pruebas
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Compilar AAB firmado para Play Store
+        if: steps.signing.outputs.available == 'true'
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/upload-key.jks
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon :app:bundleRelease
+
+      - name: Publicar AAB para Play Store
+        if: steps.signing.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: elegan-aab-play-store
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Resumen de compilación
+        if: always()
+        run: |
+          {
+            echo "## Compilación Android"
+            echo "- APK de prueba: se genera en cada ejecución."
+            if [ "${{ steps.signing.outputs.available }}" = "true" ]; then
+              echo "- AAB firmado: compilado para Google Play."
+            else
+              echo "- AAB firmado: omitido; faltan los secretos de firma."
+            fi
+            echo "- IPA: este repositorio no contiene un proyecto iOS/Xcode; no se puede generar un IPA desde el proyecto Android actual."
+          } >> "$GITHUB_STEP_SUMMARY"
