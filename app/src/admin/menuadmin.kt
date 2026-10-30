@@ -281,7 +281,7 @@ fun MenuAdminScreen(
                                 Image(
                                     painter = painterResource(id = R.drawable.icono),
                                     contentDescription = "Logo Elegan",
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
 
