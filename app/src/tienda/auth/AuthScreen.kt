@@ -2,9 +2,12 @@ package com.example.ui.auth
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,11 +33,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -48,6 +54,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -94,6 +101,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import com.example.R
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
@@ -138,8 +146,7 @@ fun AuthScreen(
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showShaDialog by remember { mutableStateOf(false) }
-    var shaCopiedFeedback by remember { mutableStateOf(false) }
+    var showNoAccountDialog by remember { mutableStateOf(false) }
 
     val gradientBrush = Brush.verticalGradient(
         colors = listOf(
@@ -345,9 +352,9 @@ fun AuthScreen(
                                             isLoading = false
                                             errorMessage = err
                                         },
-                                        onDeveloperConsoleError = {
+                                        onNoCredentials = {
                                             isLoading = false
-                                            showShaDialog = true
+                                            showNoAccountDialog = true
                                         },
                                         scope = coroutineScope,
                                         onAuthCancelled = {
@@ -396,30 +403,116 @@ fun AuthScreen(
                                 }
                             }
 
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2D9D2))
+                                Text(
+                                    text = " O ACCESO RÁPIDO ",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF7A6B62),
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2D9D2))
+                            }
+
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Direct link to help with SHA-1
+                            // Direct Client Button
+                            Button(
+                                onClick = {
+                                    isLoading = true
+                                    errorMessage = null
+                                    signInAsClient(
+                                        onAuthSuccess = {
+                                            isLoading = false
+                                            onAuthSuccess()
+                                        },
+                                        onError = { err ->
+                                            isLoading = false
+                                            errorMessage = err
+                                        },
+                                        scope = coroutineScope
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("tab0_quick_client_button"),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = EleganGold,
+                                    contentColor = Color(0xFF2B050B)
+                                ),
+                                enabled = !isLoading
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Ingreso Rápido como Cliente",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Direct Admin Button
                             OutlinedButton(
-                                onClick = { showShaDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    isLoading = true
+                                    errorMessage = null
+                                    signInAsAdmin(
+                                        onAuthSuccess = {
+                                            isLoading = false
+                                            onAuthSuccess()
+                                        },
+                                        onError = { err ->
+                                            isLoading = false
+                                            errorMessage = err
+                                        },
+                                        scope = coroutineScope
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("tab0_quick_admin_button"),
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF6B584E)
-                                )
+                                    contentColor = EleganBurgundyDark
+                                ),
+                                border = BorderStroke(1.2.dp, EleganBurgundy),
+                                enabled = !isLoading
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = EleganGold,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    "¿Error 28444 con Google? Ver Huella SHA-1",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.AdminPanelSettings,
+                                        contentDescription = null,
+                                        tint = EleganBurgundy,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Ingreso Administrador ($DEFAULT_SUPER_ADMIN_EMAIL)",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
+
                         }
 
                         1 -> {
@@ -828,24 +921,23 @@ fun AuthScreen(
         }
     }
 
-    // SHA-1 / ERROR 28444 EXPLANATORY DIALOG
-    if (showShaDialog) {
+
+
+    // NO GOOGLE ACCOUNT ON DEVICE / EMULATOR DIALOG
+    if (showNoAccountDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showShaDialog = false
-                shaCopiedFeedback = false
-            },
+            onDismissRequest = { showNoAccountDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Info,
+                        imageVector = Icons.Default.AccountCircle,
                         contentDescription = null,
                         tint = EleganBurgundy,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Configuración Google Console (Error 28444)",
+                        "Sin Cuenta Google en el Dispositivo",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = EleganBurgundyDark
@@ -854,124 +946,96 @@ fun AuthScreen(
                 }
             },
             text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "El error 28444 ocurre porque Google Play Services necesita que la huella digital SHA-1 de la app esté registrada en tu consola de Firebase.",
+                        text = "El emulador o teléfono actual no tiene ninguna cuenta de Google iniciada en el sistema Android.\n\n" +
+                                "Puedes ingresar de inmediato con los botones a continuación, o añadir una cuenta al dispositivo:",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF444444),
                             lineHeight = 18.sp
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    // Package Name Box
-                    Text(
-                        "Nombre del paquete:",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp,
-                        color = EleganBurgundy
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFF2ECE6))
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = APP_PACKAGE_NAME,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // SHA-1 Fingerprint Box
-                    Text(
-                        "Huella Digital SHA-1 de la app:",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp,
-                        color = EleganBurgundy
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFF2ECE6))
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = APP_DEBUG_SHA1,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Button(
+                    OutlinedButton(
                         onClick = {
-                            clipboardManager.setText(AnnotatedString(APP_DEBUG_SHA1))
-                            shaCopiedFeedback = true
-                            Toast.makeText(context, "Huella SHA-1 copiada al portapapeles", Toast.LENGTH_SHORT).show()
+                            showNoAccountDialog = false
+                            try {
+                                val intent = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
+                                    putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS))
+                                } catch (e2: Exception) {
+                                    Toast.makeText(context, "Abre Ajustes > Cuentas en Android para añadir tu cuenta", Toast.LENGTH_LONG).show()
+                                }
+                            }
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (shaCopiedFeedback) Color(0xFF2E7D32) else EleganBurgundy
-                        ),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = EleganBurgundy)
                     ) {
                         Icon(
-                            imageVector = if (shaCopiedFeedback) Icons.Default.Check else Icons.Default.ContentCopy,
+                            imageVector = Icons.Default.Add,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            if (shaCopiedFeedback) "¡Huella SHA-1 Copiada!" else "Copiar Huella SHA-1",
-                            fontSize = 12.5.sp
-                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Añadir Cuenta Google al Dispositivo", fontSize = 12.5.sp)
                     }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "Si ya agregaste la huella SHA-1 y sigue saliendo este aviso, ten en cuenta:\n\n" +
-                                "1. Tiempo de propagación: Google tarda entre 5 y 15 minutos en activar los certificados.\n" +
-                                "2. Proveedor Google en Firebase: En Authentication > Sign-in method, activa 'Google' y selecciona un correo de asistencia.\n" +
-                                "3. Nombre de paquete: Asegúrate de que en Firebase la app tenga el ID '$APP_PACKAGE_NAME'.\n" +
-                                "4. Archivo de configuración: Descarga el 'google-services.json' actualizado si realizaste cambios.\n\n" +
-                                "Mientras se propaga, puedes entrar inmediatamente usando las pestañas 'Correo' o 'Acceso Rápido'.",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF555555),
-                            fontSize = 11.5.sp,
-                            lineHeight = 16.sp
-                        )
-                    )
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showShaDialog = false
-                        selectedTab = 2 // Switch to Quick Access so user can enter smoothly
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy)
-                ) {
-                    Text("Ingresar de Inmediato")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showNoAccountDialog = false
+                            isLoading = true
+                            errorMessage = null
+                            signInAsAdmin(
+                                onAuthSuccess = {
+                                    isLoading = false
+                                    onAuthSuccess()
+                                },
+                                onError = { err ->
+                                    isLoading = false
+                                    errorMessage = err
+                                },
+                                scope = coroutineScope
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy)
+                    ) {
+                        Text("Entrar Admin")
+                    }
+                    Button(
+                        onClick = {
+                            showNoAccountDialog = false
+                            isLoading = true
+                            errorMessage = null
+                            signInAsClient(
+                                onAuthSuccess = {
+                                    isLoading = false
+                                    onAuthSuccess()
+                                },
+                                onError = { err ->
+                                    isLoading = false
+                                    errorMessage = err
+                                },
+                                scope = coroutineScope
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = EleganGold, contentColor = Color(0xFF2B050B))
+                    ) {
+                        Text("Entrar Cliente")
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showShaDialog = false }) {
+                TextButton(onClick = { showNoAccountDialog = false }) {
                     Text("Cerrar")
                 }
             }
@@ -981,13 +1045,17 @@ fun AuthScreen(
 
 fun getGoogleWebClientId(context: Context): String? {
     return try {
-        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", "com.example")
         if (resId != 0) {
             val str = context.getString(resId)
-            if (str.isNotBlank()) str else null
-        } else {
-            "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+            if (str.isNotBlank()) return str
         }
+        val resIdPkg = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        if (resIdPkg != 0) {
+            val str = context.getString(resIdPkg)
+            if (str.isNotBlank()) return str
+        }
+        "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
     } catch (e: Exception) {
         "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
     }
@@ -998,7 +1066,7 @@ fun onGoogleSignInClicked(
     credentialManager: CredentialManager,
     onAuthSuccess: () -> Unit,
     onAuthError: (String) -> Unit,
-    onDeveloperConsoleError: () -> Unit,
+    onNoCredentials: () -> Unit,
     scope: CoroutineScope,
     onAuthCancelled: () -> Unit = {}
 ) {
@@ -1008,8 +1076,18 @@ fun onGoogleSignInClicked(
         return
     }
 
+    val googleIdOption = GetGoogleIdOption.Builder()
+        .setFilterByAuthorizedAccounts(false)
+        .setServerClientId(clientId)
+        .setAutoSelectEnabled(false)
+        .build()
+
     val signInOption = GetSignInWithGoogleOption.Builder(serverClientId = clientId).build()
-    val request = GetCredentialRequest.Builder().addCredentialOption(signInOption).build()
+
+    val request = GetCredentialRequest.Builder()
+        .addCredentialOption(googleIdOption)
+        .addCredentialOption(signInOption)
+        .build()
 
     scope.launch {
         try {
@@ -1026,14 +1104,47 @@ fun onGoogleSignInClicked(
         } catch (e: GetCredentialCancellationException) {
             Log.w("Auth", "Inicio de sesión con Google cancelado: ${e.message}", e)
             onAuthCancelled()
+        } catch (e: NoCredentialException) {
+            Log.i("Auth", "No hay cuentas de Google activas en este dispositivo o emulador: ${e.message}")
+            onNoCredentials()
         } catch (e: Exception) {
-            Log.e("Auth", "Inicio de sesión fallido", e)
             val msg = e.localizedMessage ?: e.message ?: "Fallo al iniciar sesión"
-            if (msg.contains("28444") || msg.contains("Developer console", ignoreCase = true) || msg.contains("DEVELOPER_ERROR", ignoreCase = true)) {
-                onDeveloperConsoleError()
+            if (msg.contains("NoCredentialException") || msg.contains("No credentials available", ignoreCase = true)) {
+                Log.i("Auth", "No hay cuentas de Google activas en este dispositivo o emulador: $msg")
+                onNoCredentials()
+            } else if (msg.contains("28444") || msg.contains("Developer console", ignoreCase = true) || msg.contains("DEVELOPER_ERROR", ignoreCase = true)) {
+                Log.w("Auth", "Google Sign-In pendiente de configuración en Firebase Console (28444): $msg")
+                onAuthError("Configuración de Google en proceso de sincronización. Puedes usar el Acceso Rápido.")
             } else {
+                Log.e("Auth", "Inicio de sesión fallido", e)
                 onAuthError(msg)
             }
+        }
+    }
+}
+
+fun signInAsAdmin(
+    onAuthSuccess: () -> Unit,
+    onError: (String) -> Unit,
+    scope: CoroutineScope
+) {
+    scope.launch {
+        try {
+            val email = DEFAULT_SUPER_ADMIN_EMAIL
+            val password = "EleganAdmin2026!"
+            try {
+                Firebase.auth.signInWithEmailAndPassword(email, password).await()
+            } catch (e: Exception) {
+                val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
+                val profileUpdates = UserProfileChangeRequest.Builder()
+                    .setDisplayName("Administrador Elegan")
+                    .build()
+                authResult.user?.updateProfile(profileUpdates)?.await()
+            }
+            onAuthSuccess()
+        } catch (e: Exception) {
+            Log.e("Auth", "Error en acceso de administrador", e)
+            onError(mapFirebaseError(e))
         }
     }
 }

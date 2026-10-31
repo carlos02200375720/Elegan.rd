@@ -3,8 +3,6 @@ package com.example
 import android.app.Activity
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -100,25 +98,9 @@ enum class Screen {
 }
 
 class MainActivity : ComponentActivity() {
-    private var isAppReady by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Keep native Android splash screen on screen until app has initialized
-        val content: View = findViewById(android.R.id.content)
-        content.viewTreeObserver.addOnPreDrawListener(
-            object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    return if (isAppReady) {
-                        content.viewTreeObserver.removeOnPreDrawListener(this)
-                        true
-                    } else {
-                        false
-                    }
-                }
-            }
-        )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
@@ -141,14 +123,14 @@ class MainActivity : ComponentActivity() {
         insetsController.isAppearanceLightNavigationBars = true
         setContent {
             EleganTheme {
-                MainApp(onAppReady = { isAppReady = true })
+                MainApp()
             }
         }
     }
 }
 
 @Composable
-fun MainApp(onAppReady: () -> Unit) {
+fun MainApp() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
@@ -171,15 +153,12 @@ fun MainApp(onAppReady: () -> Unit) {
                 credentialManager = credentialManager,
                 onAuthSuccess = {
                     currentUser = Firebase.auth.currentUser
-                    onAppReady()
                 },
                 onUnauthenticated = {
-                    onAppReady()
+                    // Stay on AuthScreen
                 },
                 scope = coroutineScope
             )
-        } else {
-            onAppReady()
         }
     }
 
