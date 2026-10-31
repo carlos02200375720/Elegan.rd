@@ -105,6 +105,8 @@ jobs:
           KEYSTORE_PATH: ${{ runner.temp }}/upload-key.jks
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: gradle --no-daemon :app:bundleRelease
 
       - name: Publicar AAB para Play Store
