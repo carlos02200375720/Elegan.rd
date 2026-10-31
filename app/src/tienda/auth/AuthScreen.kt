@@ -102,6 +102,7 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
+import com.example.BuildConfig
 import com.example.R
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
@@ -1044,21 +1045,25 @@ fun AuthScreen(
 }
 
 fun getGoogleWebClientId(context: Context): String? {
+    val configuredClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
+    if (configuredClientId.isNotEmpty()) return configuredClientId
+
     return try {
-        val resId = context.resources.getIdentifier("default_web_client_id", "string", "com.example")
-        if (resId != 0) {
-            val str = context.getString(resId)
-            if (str.isNotBlank()) return str
-        }
-        val resIdPkg = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-        if (resIdPkg != 0) {
-            val str = context.getString(resIdPkg)
-            if (str.isNotBlank()) return str
-        }
-        "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        if (resId != 0) context.getString(resId).takeIf { it.isNotBlank() } else null
     } catch (e: Exception) {
-        "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+        Log.e("Auth", "No se pudo leer default_web_client_id", e)
+        null
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current: Context = this
+    while (current is android.content.ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
 }
 
 fun onGoogleSignInClicked(
@@ -1091,7 +1096,9 @@ fun onGoogleSignInClicked(
 
     scope.launch {
         try {
-            val result = credentialManager.getCredential(context as Activity, request)
+            val hostActivity = context.findActivity()
+                ?: throw IllegalStateException("No se pudo obtener la Activity para iniciar Google Sign-In")
+            val result = credentialManager.getCredential(hostActivity, request)
             val credential = result.credential
             if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
@@ -1113,8 +1120,8 @@ fun onGoogleSignInClicked(
                 Log.i("Auth", "No hay cuentas de Google activas en este dispositivo o emulador: $msg")
                 onNoCredentials()
             } else if (msg.contains("28444") || msg.contains("Developer console", ignoreCase = true) || msg.contains("DEVELOPER_ERROR", ignoreCase = true)) {
-                Log.w("Auth", "Google Sign-In pendiente de configuración en Firebase Console (28444): $msg")
-                onAuthError("Configuración de Google en proceso de sincronización. Puedes usar el Acceso Rápido.")
+                Log.e("Auth", "Google Sign-In rechazado por la configuración OAuth. Comprueba el ID de cliente Web, el paquete com.elegan y el SHA-1 del certificado que firma este APK.", e)
+                onAuthError("Google rechazó la configuración OAuth (DEVELOPER_ERROR). Verifica el ID de cliente Web y el SHA-1 del certificado de esta versión.")
             } else {
                 Log.e("Auth", "Inicio de sesión fallido", e)
                 onAuthError(msg)
