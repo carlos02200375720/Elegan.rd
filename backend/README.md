@@ -7,7 +7,7 @@ Backend Node.js/Express para conectar la app Android con MongoDB Atlas. La API e
 Configura en el servicio backend (no en Android):
 
 - `MONGODB_URI`: URI privada de MongoDB Atlas.
-- `MONGODB_USERNAME` y `MONGODB_PASSWORD`: secretos de GitHub ya existentes. Si la URI no contiene credenciales, incorpora estas credenciales en el URI del entorno del servicio; no las pases al cliente Android.
+- `MONGODB_USERNAME` y `MONGODB_PASSWORD`: secretos de GitHub ya existentes; el backend los usa como autenticación de MongoDB cuando ambos están definidos y la URI no contiene credenciales. Nunca los pases al cliente Android.
 - `MONGODB_DATABASE`: nombre de la base, por defecto `elegan`.
 - `JWT_SECRET`: secreto aleatorio de al menos 32 caracteres.
 - `GOOGLE_WEB_CLIENT_ID`: OAuth Web Client ID usado para verificar los ID tokens de Google.
