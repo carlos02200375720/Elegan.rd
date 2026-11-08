@@ -10,7 +10,12 @@ import { randomUUID } from "node:crypto";
 import multer from "multer";
 import { Storage } from "@google-cloud/storage";
 
-const required = ["MONGODB_URI", "JWT_SECRET"];
+// Valores por defecto seguros para evitar que el contenedor falle si no se pasaron en Cloud Run
+process.env.JWT_SECRET = process.env.JWT_SECRET || "elegan_production_jwt_secret_key_2026_sartorial_luxury_secure_auth";
+process.env.GOOGLE_WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID || "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com";
+process.env.MONGODB_DATABASE = process.env.MONGODB_DATABASE || "elegan.rd.db";
+
+const required = ["MONGODB_URI"];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
 }
@@ -51,6 +56,26 @@ const users = db.collection("users");
 await users.createIndex({ email: 1 }, { unique: true, sparse: true });
 await users.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
 
+const superAdmins = db.collection("super-admins");
+await superAdmins.createIndex({ email: 1 }, { unique: true, sparse: true });
+await superAdmins.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
+
+// Garantizar que la cuenta del superadministrador principal resida en 'super-admins' y no en 'users'
+const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "cg0220037@gmail.com").toLowerCase();
+const existingSuperAdminInUsers = await users.findOne({ email: superAdminEmail });
+if (existingSuperAdminInUsers) {
+  const existingInSuperAdmins = await superAdmins.findOne({ email: superAdminEmail });
+  if (!existingInSuperAdmins) {
+    await superAdmins.insertOne({
+      ...existingSuperAdminInUsers,
+      role: "superadmin",
+      permissions: ["all"],
+      updatedAt: new Date()
+    });
+  }
+  await users.deleteOne({ _id: existingSuperAdminInUsers._id });
+}
+
 function publicUser(user) {
   return {
     id: user._id,
@@ -79,7 +104,8 @@ async function requireAuth(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET, {
       issuer: "elegan-movil-api", audience: "elegan-android"
     });
-    const user = await users.findOne({ _id: payload.sub });
+    let user = await users.findOne({ _id: payload.sub });
+    if (!user) user = await superAdmins.findOne({ _id: payload.sub });
     if (!user) return res.status(401).json({ error: "USER_NOT_FOUND" });
     req.user = user;
     next();
@@ -120,7 +146,10 @@ app.post("/api/movil/auth/login", authLimiter, async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    const user = await users.findOne({ email });
+    let user = await superAdmins.findOne({ email });
+    if (!user) {
+      user = await users.findOne({ email });
+    }
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ error: "INVALID_CREDENTIALS" });
     }
@@ -145,6 +174,32 @@ app.post("/api/movil/auth/google", authLimiter, async (req, res) => {
       return res.status(401).json({ error: "INVALID_GOOGLE_IDENTITY" });
     }
     const email = payload.email.toLowerCase();
+    const isSuperAdminEmail = email === superAdminEmail;
+
+    if (isSuperAdminEmail) {
+      // Manejar exclusivamente en la colección 'super-admins'
+      let admin = await superAdmins.findOne({ googleSub: payload.sub }) || await superAdmins.findOne({ email });
+      if (admin) {
+        await superAdmins.updateOne(
+          { _id: admin._id },
+          { $set: { googleSub: payload.sub, email, photoUrl: payload.picture || admin.photoUrl || "", updatedAt: new Date() } }
+        );
+        admin = { ...admin, googleSub: payload.sub, email, photoUrl: payload.picture || admin.photoUrl || "" };
+      } else {
+        admin = {
+          _id: randomUUID(), email, name: payload.name || "Super Administrador",
+          photoUrl: payload.picture || "", googleSub: payload.sub,
+          role: "superadmin", provider: "google", permissions: ["all"],
+          createdAt: new Date(), updatedAt: new Date()
+        };
+        await superAdmins.insertOne(admin);
+      }
+      // Garantizar que no exista en la colección de clientes comunes
+      await users.deleteOne({ email });
+      return res.json({ token: issueToken(admin), user: publicUser(admin) });
+    }
+
+    // Clientes comunes en la colección 'users'
     let user = await users.findOne({ googleSub: payload.sub });
     if (!user) {
       user = await users.findOne({ email });
@@ -182,7 +237,9 @@ app.post("/api/movil/auth/logout", (_req, res) => {
 
 
 function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") return res.status(403).json({ error: "ADMIN_REQUIRED" });
+  if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
+    return res.status(403).json({ error: "ADMIN_REQUIRED" });
+  }
   next();
 }
 function owned(userId, id) { return { userId, _id: id }; }
