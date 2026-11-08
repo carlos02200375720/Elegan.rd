@@ -5,76 +5,38 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import com.example.R
-import com.example.data.model.Announcement
-import com.example.data.model.CartItem
-import com.example.data.model.Order
-import com.example.data.model.Product
-import com.example.data.model.PublicationComment
-import com.example.data.model.PublicationStats
-import com.example.data.model.SupportMessage
-import com.example.data.model.UserProfile
-import com.example.data.util.OperationType
-import com.example.data.util.handleFirestoreError
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.snapshots
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageMetadata
+import com.example.data.model.*
+import com.example.data.remote.*
 import java.io.File
 import java.io.FileOutputStream
-import java.util.UUID
-import org.json.JSONArray
-import org.json.JSONObject
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import kotlinx.coroutines.launch
 
-class EleganRepository(
-    private val db: FirebaseFirestore,
-    private val context: Context? = null
-) {
+class EleganRepository(private val context: Context) {
+    private val appContext = context.applicationContext
+    private val api get() = EleganApiClient.store
 
-    companion object {
-        private fun resolveFirestore(context: Context): FirebaseFirestore {
-            val dbId = context.applicationContext.getString(R.string.firestore_database_id).trim()
-            return if (dbId.isEmpty() || dbId == "(default)") {
-                FirebaseFirestore.getInstance()
-            } else {
-                FirebaseFirestore.getInstance(dbId)
-            }
-        }
-    }
+    private fun requireUserId(): String =
+        MobileSession.userId(appContext) ?: throw IllegalStateException("Debes iniciar sesión para realizar esta operación.")
 
-    constructor(context: Context) : this(
-        resolveFirestore(context),
-        context.applicationContext
-    )
+    private fun requireToken(): String =
+        MobileSession.bearerToken(appContext) ?: throw IllegalStateException("Tu sesión no está activa. Inicia sesión nuevamente.")
 
-    private val auth get() = Firebase.auth
+    private fun optionalToken(): String? = MobileSession.bearerToken(appContext)
 
-    private fun requireUserId(): String {
-        return auth.currentUser?.uid
-            ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
-    }
-
+    private fun getDeletedAnnouncementIds()
     private fun getDeletedAnnouncementIds(): Set<String> {
         val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
         return prefs?.getStringSet("deleted_announcements", emptySet()) ?: emptySet()
@@ -104,120 +66,38 @@ class EleganRepository(
     // -------------------------------------------------------------
 
     fun observeProducts(): Flow<List<Product>> = flow {
-        val path = "products"
-        val deletedIds = getDeletedProductIds()
-        val localCustom = getCustomProductsLocally().filter { it.id !in deletedIds }
-        val initialSamples = getInitialSampleProducts().filter { it.id !in deletedIds }
-        emit((localCustom + initialSamples).distinctBy { it.id })
-
-        db.collection(path)
-            .snapshots()
-            .map { snapshot ->
-                val currentDeleted = getDeletedProductIds()
-                val firestoreList = snapshot.toObjects(Product::class.java).filter { it.id !in currentDeleted }
-                val currentLocal = getCustomProductsLocally().filter { it.id !in currentDeleted }
-                val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-                val isSeeded = prefs?.getBoolean("products_seeded", false) ?: false
-
-                val combined = (currentLocal + firestoreList).distinctBy { it.id }
-                if (combined.isEmpty()) {
-                    if (isSeeded) emptyList() else (currentLocal + getInitialSampleProducts()).filter { it.id !in currentDeleted }.distinctBy { it.id }
-                } else {
-                    combined
-                }
-            }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                val currentDeleted = getDeletedProductIds()
-                val currentLocal = getCustomProductsLocally().filter { it.id !in currentDeleted }
-                emit((currentLocal + getInitialSampleProducts()).filter { it.id !in currentDeleted }.distinctBy { it.id })
-            }
-            .collect { emit(it) }
+        val deleted = getDeletedProductIds()
+        val local = getCustomProductsLocally().filterNot { it.id in deleted }
+        val samples = getInitialSampleProducts().filterNot { it.id in deleted }
+        emit((local + samples).distinctBy { it.id })
+        while (true) {
+            try {
+                val remote = api.products().items.filterNot { it.id in getDeletedProductIds() }
+                val currentLocal = getCustomProductsLocally().filterNot { it.id in getDeletedProductIds() }
+                val combined = (currentLocal + remote).distinctBy { it.id }
+                emit(if (combined.isEmpty()) samples else combined)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudo actualizar el catálogo: ${e.message}") }
+            delay(15000)
+        }
     }
 
     suspend fun seedProductsIfEmpty() {
-        val path = "products"
-        try {
-            val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-            val alreadySeeded = prefs?.getBoolean("products_seeded", false) ?: false
-            if (alreadySeeded) return
-
-            val snapshot = db.collection(path).limit(1).get().await()
-            if (snapshot.isEmpty) {
-                val samples = getInitialSampleProducts()
-                val deleted = getDeletedProductIds()
-                for (item in samples) {
-                    if (item.id in deleted) continue
-                    val docRef = db.collection(path).document(item.id)
-                    val data = mapOf(
-                        "name" to item.name,
-                        "description" to item.description,
-                        "category" to item.category,
-                        "price" to item.price,
-                        "imageUrl" to item.imageUrl,
-                        "rating" to item.rating,
-                        "reviewCount" to item.reviewCount,
-                        "sizes" to item.sizes,
-                        "inStock" to item.inStock,
-                        "isFeatured" to item.isFeatured,
-                        "mediaFormat" to item.mediaFormat,
-                        "createdAt" to FieldValue.serverTimestamp()
-                    )
-                    docRef.set(data).await()
-                }
-            }
-            prefs?.edit()?.putBoolean("products_seeded", true)?.apply()
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, path)
-        }
+        // Los productos de muestra son un respaldo local; no se insertan automáticamente en MongoDB.
     }
 
     suspend fun seedAnnouncementsIfEmpty() {
-        val path = "announcements"
-        try {
-            val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-            val alreadySeeded = prefs?.getBoolean("announcements_seeded", false) ?: false
-            if (alreadySeeded) return
-
-            val snapshot = db.collection(path).limit(1).get().await()
-            if (snapshot.isEmpty) {
-                val samples = getInitialSampleAnnouncements()
-                val deleted = getDeletedAnnouncementIds()
-                for (item in samples) {
-                    if (item.id in deleted) continue
-                    val docRef = db.collection(path).document(item.id)
-                    val data = mapOf(
-                        "title" to item.title,
-                        "message" to item.message,
-                        "type" to item.type,
-                        "imageUrl" to item.imageUrl,
-                        "discountCode" to item.discountCode,
-                        "discountPercent" to item.discountPercent,
-                        "ctaText" to item.ctaText,
-                        "targetCategory" to item.targetCategory,
-                        "isActive" to item.isActive,
-                        "createdAt" to FieldValue.serverTimestamp()
-                    )
-                    docRef.set(data).await()
-                }
-            }
-            prefs?.edit()?.putBoolean("announcements_seeded", true)?.apply()
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, path)
-        }
+        // Los anuncios de muestra son un respaldo local; no se insertan automáticamente en MongoDB.
     }
 
-    suspend fun getProductById(productId: String): Product? {
-        val path = "products/$productId"
-        return try {
-            val doc = db.collection("products").document(productId).get().await()
-            doc.toObject(Product::class.java) ?: getInitialSampleProducts().find { it.id == productId }
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.GET, path)
-            getInitialSampleProducts().find { it.id == productId }
-        }
+    suspend fun getProductById(productId: String): Product? = try {
+        api.product(productId).item ?: getInitialSampleProducts().find { it.id == productId }
+    } catch (e: Exception) {
+        getCustomProductsLocally().find { it.id == productId }
+            ?: getInitialSampleProducts().find { it.id == productId }
     }
 
+    private fun getFallbackCoverForCategory
     private fun getFallbackCoverForCategory(category: String): String {
         return when (category.lowercase().trim()) {
             "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
@@ -427,160 +307,74 @@ class EleganRepository(
     }
 
     suspend fun addProduct(product: Product): String {
-        val docRef = if (product.id.isNotBlank()) {
-            db.collection("products").document(product.id)
-        } else {
-            db.collection("products").document()
-        }
-        val safeCategory = product.category.ifBlank { "camisa" }
-        val productWithUploadedMedia = uploadProductMedia(product.copy(id = docRef.id, category = safeCategory), docRef.id)
-        val safeImageUrl = productWithUploadedMedia.imageUrl.ifBlank {
-            getFallbackCoverForCategory(productWithUploadedMedia.category)
-        }
-        val safeVideoUrl = productWithUploadedMedia.videoUrl.ifBlank {
-            if (product.hasVideo) product.videoUrl else ""
-        }
-        val isVideoFlag = productWithUploadedMedia.hasVideo || safeVideoUrl.isNotBlank()
-
-        val finalProduct = productWithUploadedMedia.copy(
-            id = docRef.id,
-            imageUrl = safeImageUrl,
-            category = safeCategory,
-            videoUrl = safeVideoUrl,
-            isVideo = isVideoFlag
+        val productId = product.id.ifBlank { "prod_${java.util.UUID.randomUUID()}" }
+        val category = product.category.ifBlank { "camisa" }
+        val uploaded = uploadProductMedia(product.copy(id = productId, category = category), productId)
+        val finalProduct = uploaded.copy(
+            id = productId,
+            imageUrl = uploaded.imageUrl.ifBlank { getFallbackCoverForCategory(category) },
+            category = category,
+            isVideo = uploaded.hasVideo
         )
-
-        // Guardar de inmediato en almacenamiento local para que siempre aparezca en la app
+        val response = api.createProduct(requireToken(), finalProduct)
         saveCustomProductLocally(finalProduct)
-
-        try {
-            val data = mapOf(
-                "name" to finalProduct.name,
-                "description" to finalProduct.description,
-                "category" to finalProduct.category,
-                "price" to finalProduct.price,
-                "imageUrl" to safeImageUrl,
-                "images" to finalProduct.images,
-                "colors" to finalProduct.colors,
-                "rating" to finalProduct.rating,
-                "reviewCount" to finalProduct.reviewCount,
-                "sizes" to finalProduct.sizes,
-                "inStock" to finalProduct.inStock,
-                "isFeatured" to finalProduct.isFeatured,
-                "mediaFormat" to finalProduct.mediaFormat,
-                "videoUrl" to safeVideoUrl,
-                "isVideo" to isVideoFlag,
-                "createdAt" to FieldValue.serverTimestamp()
-            )
-            docRef.set(data).await()
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Firestore write error (product preserved locally): ${e.message}")
-        }
-        return docRef.id
+        return response.id.ifBlank { productId }
     }
 
     private suspend fun uploadProductMedia(product: Product, productId: String): Product {
-        val appContext = context
-            ?: throw IllegalStateException("No hay contexto disponible para publicar el producto.")
         val sourceVideo = product.videoUrl.takeIf { product.isVideo }.orEmpty()
         var generatedThumbnail: File? = null
-
         try {
             val coverSource = if (product.isVideo) {
-                if (product.imageUrl.isNotBlank() && product.imageUrl != sourceVideo) {
-                    product.imageUrl
-                } else {
-                    val thumbnail = withContext(Dispatchers.IO) {
-                        createVideoThumbnail(appContext, sourceVideo)
-                    }
+                if (product.imageUrl.isNotBlank() && product.imageUrl != sourceVideo) product.imageUrl
+                else {
+                    val thumbnail = withContext(Dispatchers.IO) { createVideoThumbnail(appContext, sourceVideo) }
                     if (thumbnail != null && thumbnail.exists() && thumbnail.length() > 0) {
                         generatedThumbnail = thumbnail
                         Uri.fromFile(thumbnail).toString()
-                    } else {
-                        getFallbackCoverForCategory(product.category)
-                    }
+                    } else getFallbackCoverForCategory(product.category)
                 }
-            } else {
-                product.imageUrl.ifBlank {
-                    product.images.firstOrNull() ?: getFallbackCoverForCategory(product.category)
-                }
-            }
+            } else product.imageUrl.ifBlank { product.images.firstOrNull() ?: getFallbackCoverForCategory(product.category) }
 
-            val uploadedVideoUrl = if (product.isVideo && sourceVideo.isNotBlank()) {
-                uploadProductFile(sourceVideo, productId, "video")
-            } else {
-                ""
-            }
-
-            val uploadedCoverUrl = if (coverSource.isNotBlank()) {
-                uploadProductFile(coverSource, productId, "cover").ifBlank {
-                    getFallbackCoverForCategory(product.category)
-                }
-            } else {
-                getFallbackCoverForCategory(product.category)
-            }
-
-            val uploadedGallery = (product.images + listOfNotNull(product.imageUrl.takeIf { it.isNotBlank() }))
-                .distinct()
-                .filterNot { it == coverSource || it == sourceVideo }
-                .mapIndexed { index, image -> uploadProductFile(image, productId, "gallery_$index") }
-
-            val normalizedImages = (listOf(uploadedCoverUrl) + uploadedGallery)
-                .filter { it.isNotBlank() && !it.endsWith(".mp4", ignoreCase = true) }
-                .distinct()
-
+            val videoUrl = if (product.isVideo && sourceVideo.isNotBlank()) uploadProductFile(sourceVideo, productId, "video") else ""
+            val coverUrl = uploadProductFile(coverSource, productId, "cover").ifBlank { getFallbackCoverForCategory(product.category) }
+            val gallery = (product.images + listOfNotNull(product.imageUrl.takeIf { it.isNotBlank() }))
+                .distinct().filterNot { it == coverSource || it == sourceVideo }
+                .map { uploadProductFile(it, productId, "gallery") }.filter { it.isNotBlank() }
+            val images = (listOf(coverUrl) + gallery).distinct()
             return product.copy(
-                imageUrl = uploadedCoverUrl.ifBlank { getFallbackCoverForCategory(product.category) },
-                images = if (normalizedImages.isNotEmpty()) normalizedImages else listOf(uploadedCoverUrl.ifBlank { getFallbackCoverForCategory(product.category) }),
-                videoUrl = uploadedVideoUrl.ifBlank { sourceVideo },
-                isVideo = (uploadedVideoUrl.isNotBlank() || product.isVideo)
+                imageUrl = coverUrl,
+                images = images,
+                videoUrl = videoUrl.ifBlank { if (sourceVideo.startsWith("http")) sourceVideo else "" },
+                isVideo = product.isVideo
             )
-        } finally {
-            try {
-                generatedThumbnail?.delete()
-            } catch (_: Exception) {
-            }
-        }
+        } finally { generatedThumbnail?.delete() }
     }
 
     private suspend fun uploadProductFile(source: String, productId: String, label: String): String {
         if (source.isBlank()) return ""
-
+        if (source.startsWith("https://") || source.startsWith("http://")) return source
         val uri = Uri.parse(source)
-        if (uri.scheme == "https" || uri.scheme == "http") return source
-
-        val appContext = context ?: return source
-        val isVideo = (label == "video" || label == "announcement_video" || source.endsWith(".mp4", ignoreCase = true))
-        val localPersistedUriStr = persistMediaLocally(
-            appContext = appContext,
-            sourceUri = uri,
-            productId = productId,
-            label = label,
-            isVideo = isVideo
-        )
-
-        return try {
-            val extension = if (isVideo) "mp4" else "jpg"
-            val mimeType = if (isVideo) "video/mp4" else "image/jpeg"
-            val safeProductId = productId.ifBlank { "general" }
-            val objectName = "media/${safeProductId}/${label}_${System.currentTimeMillis()}.${extension}"
-
-            val gcsUrl = com.example.data.storage.GcsStorageManager.getInstance(appContext)
-                .uploadFile(localPersistedUriStr, objectName, mimeType)
-
-            if (!gcsUrl.isNullOrBlank()) {
-                Log.i("EleganRepository", "Contenido subido exitosamente a bucket-elegan-android: $gcsUrl")
-                gcsUrl
-            } else {
-                Log.w("EleganRepository", "GCS devolvió nulo, manteniendo respaldo local: $localPersistedUriStr")
-                localPersistedUriStr
-            }
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Error subiendo a bucket-elegan-android, usando respaldo local: ${e.message}")
-            localPersistedUriStr
+        val temp = withContext(Dispatchers.IO) {
+            val file = File.createTempFile("elegan_upload_", if (label.contains("video") || source.endsWith(".mp4", true)) ".mp4" else ".jpg", appContext.cacheDir)
+            val input = when (uri.scheme) {
+                "content" -> appContext.contentResolver.openInputStream(uri)
+                "file" -> File(uri.path ?: "").inputStream()
+                else -> File(source).takeIf { it.exists() }?.inputStream()
+            } ?: throw IllegalArgumentException("No se pudo leer el archivo multimedia seleccionado.")
+            input.use { inputStream -> file.outputStream().use { output -> inputStream.copyTo(output) } }
+            file
         }
+        try {
+            val isVideo = label.contains("video") || source.endsWith(".mp4", true)
+            val mime = if (isVideo) "video/mp4" else "image/jpeg"
+            val part = MultipartBody.Part.createFormData("file", temp.name, temp.asRequestBody(mime.toMediaTypeOrNull()))
+            val name = "${productId}_${label}".toRequestBody("text/plain".toMediaTypeOrNull())
+            return api.uploadMedia(requireToken(), part, name).url
+        } finally { temp.delete() }
     }
 
+    private fun createVideoThumbnail
     private fun createVideoThumbnail(context: Context, videoSource: String): File? {
         if (videoSource.isBlank()) return null
         val uri = Uri.parse(videoSource)
@@ -623,167 +417,55 @@ class EleganRepository(
     }
 
     suspend fun addAnnouncement(announcement: Announcement): String {
-        val docRef = if (announcement.id.isNotBlank()) {
-            db.collection("announcements").document(announcement.id)
-        } else {
-            db.collection("announcements").document()
-        }
-        val safeImageUrl = if (announcement.imageUrl.isNotBlank() && (announcement.imageUrl.startsWith("content://") || announcement.imageUrl.startsWith("file://"))) {
-            uploadProductFile(announcement.imageUrl, docRef.id, "announcement_img")
-        } else {
-            announcement.imageUrl.ifBlank { getFallbackCoverForCategory(announcement.targetCategory) }
-        }
-        val safeVideoUrl = if (announcement.videoUrl.isNotBlank() && (announcement.videoUrl.startsWith("content://") || announcement.videoUrl.startsWith("file://"))) {
-            uploadProductFile(announcement.videoUrl, docRef.id, "announcement_video")
-        } else {
-            announcement.videoUrl
-        }
-        val isVideoFlag = announcement.hasVideo || safeVideoUrl.isNotBlank()
-
-        val finalAnnouncement = announcement.copy(
-            id = docRef.id,
-            imageUrl = safeImageUrl,
-            videoUrl = safeVideoUrl,
-            isVideo = isVideoFlag
-        )
-        saveCustomAnnouncementLocally(finalAnnouncement)
-
-        try {
-            val data = mapOf(
-                "title" to finalAnnouncement.title,
-                "message" to finalAnnouncement.message,
-                "type" to finalAnnouncement.type,
-                "imageUrl" to safeImageUrl,
-                "videoUrl" to safeVideoUrl,
-                "isVideo" to isVideoFlag,
-                "discountCode" to finalAnnouncement.discountCode,
-                "discountPercent" to finalAnnouncement.discountPercent,
-                "ctaText" to finalAnnouncement.ctaText,
-                "targetCategory" to finalAnnouncement.targetCategory,
-                "isActive" to finalAnnouncement.isActive,
-                "createdAt" to FieldValue.serverTimestamp()
-            )
-            docRef.set(data).await()
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Firestore announcement write error (preserved locally): ${e.message}")
-        }
-        return docRef.id
+        val id = announcement.id.ifBlank { "ann_${java.util.UUID.randomUUID()}" }
+        val image = if (announcement.imageUrl.startsWith("content://") || announcement.imageUrl.startsWith("file://"))
+            uploadProductFile(announcement.imageUrl, id, "announcement_img")
+        else announcement.imageUrl.ifBlank { getFallbackCoverForCategory(announcement.targetCategory) }
+        val video = if (announcement.videoUrl.startsWith("content://") || announcement.videoUrl.startsWith("file://"))
+            uploadProductFile(announcement.videoUrl, id, "announcement_video")
+        else announcement.videoUrl
+        val final = announcement.copy(id=id, imageUrl=image, videoUrl=video, isVideo=announcement.hasVideo || video.isNotBlank())
+        api.createAnnouncement(requireToken(), final)
+        saveCustomAnnouncementLocally(final)
+        return id
     }
 
     fun observeAnnouncements(): Flow<List<Announcement>> = flow {
-        val path = "announcements"
-        val deletedIds = getDeletedAnnouncementIds()
-        val localCustom = getCustomAnnouncementsLocally().filter { it.id !in deletedIds }
-        val initialSamples = getInitialSampleAnnouncements().filter { it.id !in deletedIds }
-        emit((localCustom + initialSamples).distinctBy { it.id })
-
-        db.collection(path)
-            .snapshots()
-            .map { snapshot ->
-                val currentDeleted = getDeletedAnnouncementIds()
-                val firestoreList = snapshot.toObjects(Announcement::class.java).filter { it.id !in currentDeleted }
-                val currentLocal = getCustomAnnouncementsLocally().filter { it.id !in currentDeleted }
-                val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-                val isSeeded = prefs?.getBoolean("announcements_seeded", false) ?: false
-
-                val combined = (currentLocal + firestoreList).distinctBy { it.id }
-                if (combined.isEmpty()) {
-                    if (isSeeded) emptyList() else (currentLocal + getInitialSampleAnnouncements()).filter { it.id !in currentDeleted }.distinctBy { it.id }
-                } else {
-                    combined
-                }
-            }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                val currentDeleted = getDeletedAnnouncementIds()
-                val currentLocal = getCustomAnnouncementsLocally().filter { it.id !in currentDeleted }
-                emit((currentLocal + getInitialSampleAnnouncements()).filter { it.id !in currentDeleted }.distinctBy { it.id })
-            }
-            .collect { emit(it) }
+        val deleted = getDeletedAnnouncementIds()
+        val local = getCustomAnnouncementsLocally().filterNot { it.id in deleted }
+        val samples = getInitialSampleAnnouncements().filterNot { it.id in deleted }
+        emit((local + samples).distinctBy { it.id })
+        while (true) {
+            try {
+                val remote = api.announcements().items.filterNot { it.id in getDeletedAnnouncementIds() }
+                val currentLocal = getCustomAnnouncementsLocally().filterNot { it.id in getDeletedAnnouncementIds() }
+                val combined = (currentLocal + remote).distinctBy { it.id }
+                emit(if (combined.isEmpty()) samples else combined)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron actualizar los anuncios: ${e.message}") }
+            delay(15000)
+        }
     }
 
     suspend fun deleteProduct(productId: String) {
-        val path = "products/$productId"
         markProductDeleted(productId)
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-        prefs?.let { p ->
-            try {
-                val currentJson = p.getString("local_custom_products_json", "[]") ?: "[]"
-                val array = JSONArray(currentJson)
-                val newArray = JSONArray()
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    if (obj.optString("id") != productId) {
-                        newArray.put(obj)
-                    }
-                }
-                p.edit().putString("local_custom_products_json", newArray.toString()).apply()
-            } catch (_: Exception) {}
-        }
-        try {
-            db.collection("products").document(productId).delete().await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, path)
-        }
+        api.deleteProduct(requireToken(), productId)
     }
 
     suspend fun toggleProductStock(productId: String, inStock: Boolean) {
-        val path = "products/$productId"
-        try {
-            db.collection("products").document(productId)
-                .update("inStock", inStock)
-                .await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, path)
-            throw e
-        }
+        api.updateProduct(requireToken(), productId, mapOf("inStock" to inStock))
     }
 
     suspend fun deleteAnnouncement(announcementId: String) {
-        val path = "announcements/$announcementId"
         markAnnouncementDeleted(announcementId)
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-        prefs?.let { p ->
-            try {
-                val currentJson = p.getString("local_custom_announcements_json", "[]") ?: "[]"
-                val array = JSONArray(currentJson)
-                val newArray = JSONArray()
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    if (obj.optString("id") != announcementId) {
-                        newArray.put(obj)
-                    }
-                }
-                p.edit().putString("local_custom_announcements_json", newArray.toString()).apply()
-            } catch (_: Exception) {}
-        }
-        try {
-            db.collection("announcements").document(announcementId).delete().await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, path)
-        }
+        api.deleteAnnouncement(requireToken(), announcementId)
     }
 
     suspend fun toggleAnnouncementActive(announcementId: String, isActive: Boolean) {
-        val path = "announcements/$announcementId"
-        try {
-            db.collection("announcements").document(announcementId)
-                .update("isActive", isActive)
-                .await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, path)
-            throw e
-        }
+        api.updateAnnouncement(requireToken(), announcementId, mapOf("isActive" to isActive))
     }
 
+    fun getInitialSampleAnnouncements
     fun getInitialSampleAnnouncements(): List<Announcement> = listOf(
         Announcement(
             id = "ann_1",
@@ -828,562 +510,166 @@ class EleganRepository(
     // -------------------------------------------------------------
 
     fun observeCart(): Flow<List<CartItem>> = flow {
-        val uid = requireUserId()
-        val path = "users/$uid/cart"
-        db.collection("users").document(uid).collection("cart")
-            .snapshots()
-            .map { it.toObjects(CartItem::class.java) }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                throw error
-            }
-            .collect { emit(it) }
+        if (optionalToken() == null) { emit(emptyList()); return@flow }
+        while (true) {
+            try { emit(api.cart(requireToken()).items) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudo actualizar el carrito: ${e.message}") }
+            delay(10000)
+        }
     }
 
     fun observeSavedProductIds(): Flow<Set<String>> = flow {
-        val uid = requireUserId()
-        val path = "users/$uid/savedPublications"
-        db.collection("users").document(uid).collection("savedPublications")
-            .snapshots()
-            .map { snapshot -> snapshot.documents.map { it.id }.toSet() }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                throw error
-            }
-            .collect { emit(it) }
+        if (optionalToken() == null) { emit(emptySet()); return@flow }
+        while (true) {
+            try { emit(api.saved(requireToken()).ids.toSet()) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar los guardados: ${e.message}") }
+            delay(15000)
+        }
     }
 
     suspend fun setProductSaved(productId: String, isSaved: Boolean) {
-        require(productId.isNotBlank()) { "Product ID cannot be blank." }
-        val uid = requireUserId()
-        val savedRef = db.collection("users").document(uid)
-            .collection("savedPublications").document(productId)
-        val statsRef = db.collection("publicationStats").document(productId)
-
-        try {
-            db.runTransaction { transaction ->
-                val savedSnapshot = transaction.get(savedRef)
-                val statsSnapshot = transaction.get(statsRef)
-                val likesCount = statsSnapshot.getLong("likesCount") ?: 0L
-                val commentsCount = statsSnapshot.getLong("commentsCount") ?: 0L
-                val sharesCount = statsSnapshot.getLong("sharesCount") ?: 0L
-                val savesCount = statsSnapshot.getLong("savesCount") ?: 0L
-                val shouldSave = isSaved && !savedSnapshot.exists()
-                val shouldUnsave = !isSaved && savedSnapshot.exists()
-
-                if (shouldSave) {
-                    transaction.set(
-                        savedRef,
-                        mapOf(
-                            "productId" to productId,
-                            "userId" to uid,
-                            "createdAt" to FieldValue.serverTimestamp()
-                        )
-                    )
-                } else if (shouldUnsave) {
-                    transaction.delete(savedRef)
-                }
-
-                if (shouldSave || shouldUnsave) {
-                    transaction.set(
-                        statsRef,
-                        mapOf(
-                            "likesCount" to likesCount,
-                            "commentsCount" to commentsCount,
-                            "sharesCount" to sharesCount,
-                            "savesCount" to (savesCount + if (shouldSave) 1L else -1L).coerceAtLeast(0L),
-                            "lastCommentId" to (statsSnapshot.getString("lastCommentId") ?: "")
-                        ),
-                        SetOptions.merge()
-                    )
-                }
-            }.await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(
-                e,
-                if (isSaved) OperationType.WRITE else OperationType.DELETE,
-                savedRef.path
-            )
-            throw e
-        }
+        require(productId.isNotBlank())
+        api.setSaved(requireToken(), productId, SavedRequest(isSaved))
     }
 
     fun observePublicationStats(): Flow<Map<String, PublicationStats>> = flow {
-        requireUserId()
-        db.collection("publicationStats")
-            .snapshots()
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { document ->
-                    document.toObject(PublicationStats::class.java)?.let { stats ->
-                        document.id to stats
-                    }
-                }.toMap()
-            }
-            .catch { error ->
-                if (error is Exception) {
-                    handleFirestoreError(error, OperationType.LIST, "publicationStats")
-                }
-                throw error
-            }
-            .collect { emit(it) }
+        while (true) {
+            try {
+                val stats = api.publicationStats().stats.mapValues { (id, value) -> value.copy(id = id) }
+                emit(stats)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar estadísticas: ${e.message}") }
+            delay(15000)
+        }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun observeLikedPublicationIds(): Flow<Set<String>> = callbackFlow {
-        val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { firebaseAuth ->
-            trySend(firebaseAuth.currentUser?.uid)
+    fun observeLikedPublicationIds(): Flow<Set<String>> = flow {
+        if (optionalToken() == null) { emit(emptySet()); return@flow }
+        while (true) {
+            try { emit(api.liked(requireToken()).ids.toSet()) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar likes: ${e.message}") }
+            delay(15000)
         }
-        auth.addAuthStateListener(listener)
-        trySend(auth.currentUser?.uid)
-        awaitClose { auth.removeAuthStateListener(listener) }
     }
-        .distinctUntilChanged()
-        .flatMapLatest { uid ->
-            if (uid.isNullOrBlank()) {
-                flowOf(emptySet())
-            } else {
-                val path = "users/$uid/likedPublications"
-                db.collection("users").document(uid).collection("likedPublications")
-                    .snapshots()
-                    .map { snapshot -> snapshot.documents.map { it.id }.toSet() }
-                    .catch { error ->
-                        if (error is Exception) {
-                            handleFirestoreError(error, OperationType.LIST, path)
-                        }
-                        throw error
-                    }
-            }
-        }
 
     suspend fun togglePublicationLike(productId: String): Boolean {
-        require(productId.isNotBlank()) { "Product ID cannot be blank." }
-        val uid = requireUserId()
-        val likedRef = db.collection("users").document(uid)
-            .collection("likedPublications").document(productId)
-        val statsRef = db.collection("publicationStats").document(productId)
-
-        try {
-            return db.runTransaction { transaction ->
-                val likedSnapshot = transaction.get(likedRef)
-                val statsSnapshot = transaction.get(statsRef)
-                val likesCount = statsSnapshot.getLong("likesCount") ?: 0L
-                val commentsCount = statsSnapshot.getLong("commentsCount") ?: 0L
-                val isLiked = !likedSnapshot.exists()
-
-                if (isLiked) {
-                    transaction.set(
-                        likedRef,
-                        mapOf("userId" to uid, "productId" to productId)
-                    )
-                } else {
-                    transaction.delete(likedRef)
-                }
-
-                transaction.set(
-                    statsRef,
-                    mapOf(
-                        "likesCount" to (likesCount + if (isLiked) 1L else -1L).coerceAtLeast(0L),
-                        "commentsCount" to commentsCount,
-                        "sharesCount" to (statsSnapshot.getLong("sharesCount") ?: 0L),
-                        "savesCount" to (statsSnapshot.getLong("savesCount") ?: 0L),
-                        "lastCommentId" to (statsSnapshot.getString("lastCommentId") ?: "")
-                    ),
-                    SetOptions.merge()
-                )
-                isLiked
-            }.await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, statsRef.path)
-            throw e
-        }
+        require(productId.isNotBlank())
+        return api.toggleLike(requireToken(), productId).liked
     }
 
     fun observePublicationComments(productId: String): Flow<List<PublicationComment>> = flow {
-        requireUserId()
-        require(productId.isNotBlank()) { "Product ID cannot be blank." }
-        val path = "products/$productId/comments"
-        db.collection("products").document(productId).collection("comments")
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(100)
-            .snapshots()
-            .map { snapshot -> snapshot.toObjects(PublicationComment::class.java) }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                throw error
-            }
-            .collect { emit(it) }
+        require(productId.isNotBlank())
+        while (true) {
+            try { emit(api.comments(productId).items) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar comentarios: ${e.message}") }
+            delay(12000)
+        }
     }
 
-    suspend fun addPublicationComment(
-        productId: String,
-        displayName: String,
-        text: String
-    ) {
-        require(productId.isNotBlank()) { "Product ID cannot be blank." }
-        val cleanText = text.trim()
-        require(cleanText.isNotEmpty()) { "Comment cannot be blank." }
-        require(cleanText.length <= 1000) { "Comment cannot exceed 1000 characters." }
-        val uid = requireUserId()
-        val safeDisplayName = displayName.trim().ifBlank { "Cliente" }.take(80)
-        val commentRef = db.collection("products").document(productId)
-            .collection("comments").document()
-        val statsRef = db.collection("publicationStats").document(productId)
-
-        try {
-            db.runTransaction { transaction ->
-                val statsSnapshot = transaction.get(statsRef)
-                val likesCount = statsSnapshot.getLong("likesCount") ?: 0L
-                val commentsCount = statsSnapshot.getLong("commentsCount") ?: 0L
-                transaction.set(
-                    commentRef,
-                    mapOf(
-                        "productId" to productId,
-                        "userId" to uid,
-                        "displayName" to safeDisplayName,
-                        "text" to cleanText,
-                        "createdAt" to FieldValue.serverTimestamp()
-                    )
-                )
-                transaction.set(
-                    statsRef,
-                    mapOf(
-                        "likesCount" to likesCount,
-                        "commentsCount" to commentsCount + 1L,
-                        "sharesCount" to (statsSnapshot.getLong("sharesCount") ?: 0L),
-                        "savesCount" to (statsSnapshot.getLong("savesCount") ?: 0L),
-                        "lastCommentId" to commentRef.id
-                    ),
-                    SetOptions.merge()
-                )
-            }.await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, commentRef.path)
-            throw e
-        }
+    suspend fun addPublicationComment(productId: String, displayName: String, text: String) {
+        val clean = text.trim()
+        require(productId.isNotBlank() && clean.isNotEmpty() && clean.length <= 1000)
+        api.addComment(requireToken(), productId, CommentRequest(displayName.trim().ifBlank { "Cliente" }.take(80), clean))
     }
 
     suspend fun recordPublicationShare(productId: String) {
-        require(productId.isNotBlank()) { "Product ID cannot be blank." }
-        requireUserId()
-        val statsRef = db.collection("publicationStats").document(productId)
-
-        try {
-            db.runTransaction { transaction ->
-                val statsSnapshot = transaction.get(statsRef)
-                transaction.set(
-                    statsRef,
-                    mapOf(
-                        "likesCount" to (statsSnapshot.getLong("likesCount") ?: 0L),
-                        "commentsCount" to (statsSnapshot.getLong("commentsCount") ?: 0L),
-                        "sharesCount" to ((statsSnapshot.getLong("sharesCount") ?: 0L) + 1L),
-                        "savesCount" to (statsSnapshot.getLong("savesCount") ?: 0L),
-                        "lastCommentId" to (statsSnapshot.getString("lastCommentId") ?: "")
-                    ),
-                    SetOptions.merge()
-                )
-            }.await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, statsRef.path)
-            throw e
-        }
+        require(productId.isNotBlank())
+        api.share(requireToken(), productId)
     }
 
-    suspend fun addToCart(
-        product: Product,
-        selectedSize: String,
-        quantity: Long = 1L,
-        selectedColor: String = ""
-    ) {
-        val uid = requireUserId()
-        val cartRef = db.collection("users").document(uid).collection("cart")
-        val cartItemId = "${product.id}_${selectedSize}_${selectedColor}".replace("/", "-")
-        val docRef = cartRef.document(cartItemId)
-
-        try {
-            val existing = docRef.get().await()
-            if (existing.exists()) {
-                val currentQty = existing.getLong("quantity") ?: 1L
-                docRef.update(
-                    mapOf(
-                        "quantity" to currentQty + quantity,
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).await()
-            } else {
-                val payload = mapOf(
-                    "userId" to uid,
-                    "productId" to product.id,
-                    "name" to product.name,
-                    "price" to product.price,
-                    "imageUrl" to product.imageUrl,
-                    "selectedSize" to selectedSize,
-                    "selectedColor" to selectedColor,
-                    "quantity" to quantity,
-                    "createdAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-                docRef.set(payload).await()
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, docRef.path)
-            throw e
-        }
+    suspend fun addToCart(product: Product, selectedSize: String, quantity: Long = 1L, selectedColor: String = "") {
+        require(product.id.isNotBlank() && quantity > 0)
+        api.addCartItem(requireToken(), CartItem(
+            productId = product.id, name = product.name, price = product.price,
+            imageUrl = product.imageUrl, selectedSize = selectedSize,
+            selectedColor = selectedColor, quantity = quantity
+        ))
     }
 
     suspend fun updateCartQuantity(cartItemId: String, newQuantity: Long) {
-        val uid = requireUserId()
-        val docRef = db.collection("users").document(uid).collection("cart").document(cartItemId)
-        try {
-            if (newQuantity <= 0) {
-                docRef.delete().await()
-            } else {
-                docRef.update(
-                    mapOf(
-                        "quantity" to newQuantity,
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).await()
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
-            throw e
-        }
+        if (newQuantity <= 0) removeFromCart(cartItemId)
+        else api.updateCartItem(requireToken(), cartItemId, QuantityRequest(newQuantity))
     }
 
     suspend fun removeFromCart(cartItemId: String) {
-        val uid = requireUserId()
-        val docRef = db.collection("users").document(uid).collection("cart").document(cartItemId)
-        try {
-            docRef.delete().await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, docRef.path)
-            throw e
-        }
+        api.removeCartItem(requireToken(), cartItemId)
     }
 
     suspend fun clearCart() {
-        val uid = requireUserId()
-        val cartRef = db.collection("users").document(uid).collection("cart")
-        try {
-            val items = cartRef.get().await()
-            for (doc in items.documents) {
-                doc.reference.delete().await()
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, cartRef.path)
-            throw e
-        }
+        api.clearCart(requireToken())
     }
 
-    // -------------------------------------------------------------
-    // ORDERS
-    // -------------------------------------------------------------
-
     fun observeOrders(): Flow<List<Order>> = flow {
-        val uid = requireUserId()
-        val path = "users/$uid/orders"
-        db.collection("users").document(uid).collection("orders")
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .snapshots()
-            .map { it.toObjects(Order::class.java) }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                emit(emptyList())
-            }
-            .collect { emit(it) }
+        if (optionalToken() == null) { emit(emptyList()); return@flow }
+        while (true) {
+            try { emit(api.orders(requireToken()).items) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar órdenes: ${e.message}") }
+            delay(15000)
+        }
     }
 
     suspend fun createOrder(
-        customerName: String,
-        email: String,
-        phone: String,
-        address: String,
-        city: String,
-        paymentMethod: String,
-        total: Double,
-        itemCount: Long,
-        itemsSummary: String
+        customerName: String, email: String, phone: String, address: String,
+        city: String, paymentMethod: String, total: Double, itemCount: Long, itemsSummary: String
     ): String {
-        val uid = requireUserId()
-        val ordersRef = db.collection("users").document(uid).collection("orders")
-        val orderDoc = ordersRef.document()
-        val payload = mapOf(
-            "userId" to uid,
-            "customerName" to customerName,
-            "email" to email,
-            "phone" to phone,
-            "address" to address,
-            "city" to city,
-            "paymentMethod" to paymentMethod,
-            "total" to total,
-            "itemCount" to itemCount,
-            "status" to "confirmado",
-            "itemsSummary" to itemsSummary,
-            "createdAt" to FieldValue.serverTimestamp()
+        val order = Order(
+            customerName = customerName, email = email, phone = phone, address = address,
+            city = city, paymentMethod = paymentMethod, total = total,
+            itemCount = itemCount, itemsSummary = itemsSummary
         )
-        try {
-            orderDoc.set(payload).await()
-            clearCart()
-            return orderDoc.id
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.CREATE, orderDoc.path)
-            throw e
-        }
+        return api.createOrder(requireToken(), order).id
     }
 
-    // -------------------------------------------------------------
-    // SUPPORT CHAT
-    // -------------------------------------------------------------
-
     fun observeMessages(): Flow<List<SupportMessage>> = flow {
-        val uid = requireUserId()
-        val path = "users/$uid/messages"
-        db.collection("users").document(uid).collection("messages")
-            .orderBy("createdAt", Query.Direction.ASCENDING)
-            .snapshots()
-            .map { snapshot ->
-                val list = snapshot.toObjects(SupportMessage::class.java)
-                if (list.isEmpty()) {
-                    listOf(
-                        SupportMessage(
-                            id = "welcome",
-                            userId = uid,
-                            sender = "support",
-                            senderName = "Concierge Elegan",
-                            text = "¡Bienvenido a Elegan! Soy tu asesor personal de estilo y compras. ¿En qué podemos ayudarte hoy?"
-                        )
-                    )
-                } else {
-                    list
-                }
-            }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.LIST, path)
-                emit(emptyList())
-            }
-            .collect { emit(it) }
+        if (optionalToken() == null) { emit(emptyList()); return@flow }
+        val welcome = SupportMessage(
+            id = "welcome", userId = requireUserId(), sender = "support",
+            senderName = "Concierge Elegan",
+            text = "¡Bienvenido a Elegan! Soy tu asesor personal de estilo y compras. ¿En qué podemos ayudarte hoy?"
+        )
+        while (true) {
+            try {
+                val items = api.messages(requireToken()).items
+                emit(if (items.isEmpty()) listOf(welcome) else items)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar mensajes: ${e.message}") }
+            delay(10000)
+        }
     }
 
     suspend fun sendSupportMessage(text: String, scope: CoroutineScope) {
-        val uid = requireUserId()
-        val messagesRef = db.collection("users").document(uid).collection("messages")
-        val userDoc = messagesRef.document()
-        val userPayload = mapOf(
-            "userId" to uid,
-            "sender" to "user",
-            "senderName" to (auth.currentUser?.displayName ?: "Cliente"),
-            "text" to text,
-            "createdAt" to FieldValue.serverTimestamp()
-        )
-        try {
-            userDoc.set(userPayload).await()
-
-            // Automated Concierge reply after 1.5s
-            scope.launch(Dispatchers.IO) {
-                delay(1500)
-                try {
-                    val botDoc = messagesRef.document()
-                    val botReply = when {
-                        text.contains("envio", ignoreCase = true) || text.contains("entrega", ignoreCase = true) ->
-                            "Nuestros envíos express tardan de 24 a 48 horas en llegar a tu puerta con embalaje de lujo protegido."
-                        text.contains("talla", ignoreCase = true) || text.contains("medida", ignoreCase = true) ->
-                            "Nuestras prendas tienen corte europeo estilizado (Slim Fit). Si prefieres un ajuste más holgado, te sugerimos pedir una talla superior."
-                        text.contains("devolucion", ignoreCase = true) || text.contains("cambio", ignoreCase = true) ->
-                            "Dispones de 30 días para cambios gratuitos con recogida a domicilio sin coste adicional."
-                        text.contains("descuento", ignoreCase = true) || text.contains("promocion", ignoreCase = true) ->
-                            "Puedes utilizar el cupón 'ELEGAN10' en tu carrito para obtener un 10% de descuento de bienvenida."
-                        else ->
-                            "Gracias por comunicarte con Elegan Concierge. Hemos recibido tu consulta y un asesor especializado está revisando tu solicitud."
-                    }
-                    val botPayload = mapOf(
-                        "userId" to uid,
-                        "sender" to "support",
-                        "senderName" to "Elegan Concierge",
-                        "text" to botReply,
-                        "createdAt" to FieldValue.serverTimestamp()
-                    )
-                    botDoc.set(botPayload).await()
-                } catch (e: Exception) {
-                    handleFirestoreError(e, OperationType.CREATE, messagesRef.path)
-                }
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.CREATE, userDoc.path)
-            throw e
-        }
+        val clean = text.trim()
+        require(clean.isNotEmpty() && clean.length <= 4000)
+        api.sendMessage(requireToken(), MessageRequest(clean))
     }
 
-    // -------------------------------------------------------------
-    // USER PROFILE
-    // -------------------------------------------------------------
-
     fun observeUserProfile(): Flow<UserProfile?> = flow {
-        val uid = requireUserId()
-        val path = "users/$uid"
-        db.collection("users").document(uid)
-            .snapshots()
-            .map { snapshot ->
-                snapshot.toObject(UserProfile::class.java) ?: UserProfile(
-                    userId = uid,
-                    displayName = auth.currentUser?.displayName ?: "Caballero Elegan",
-                    email = auth.currentUser?.email ?: "",
-                    photoUrl = auth.currentUser?.photoUrl?.toString() ?: ""
-                )
-            }
-            .catch { error ->
-                if (error is Exception) handleFirestoreError(error, OperationType.GET, path)
-                emit(null)
-            }
-            .collect { emit(it) }
+        if (optionalToken() == null) { emit(null); return@flow }
+        while (true) {
+            try { emit(api.profile(requireToken()).item) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { Log.w("EleganRepository", "No se pudo cargar perfil: ${e.message}") }
+            delay(15000)
+        }
     }
 
     suspend fun saveUserProfile(phone: String, address: String, city: String) {
-        val uid = requireUserId()
-        val docRef = db.collection("users").document(uid)
-        val payload = mapOf(
-            "userId" to uid,
-            "displayName" to (auth.currentUser?.displayName ?: "Caballero"),
-            "email" to (auth.currentUser?.email ?: ""),
-            "photoUrl" to (auth.currentUser?.photoUrl?.toString() ?: ""),
-            "phone" to phone,
-            "address" to address,
-            "city" to city,
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
-        try {
-            docRef.set(payload).await()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, docRef.path)
-            throw e
-        }
+        val user = MobileSession.user(appContext)
+        api.saveProfile(requireToken(), UserProfile(
+            userId = requireUserId(),
+            displayName = user?.name.orEmpty(),
+            email = user?.email.orEmpty(),
+            photoUrl = user?.photoUrl.orEmpty(),
+            phone = phone, address = address, city = city
+        ))
     }
 
-    // -------------------------------------------------------------
-    // CURATED SAMPLE DATA
-    // -------------------------------------------------------------
-
+    fun getInitialSampleProducts
     fun getInitialSampleProducts(): List<Product> = listOf(
         Product(
             id = "prod_gorra_1",
