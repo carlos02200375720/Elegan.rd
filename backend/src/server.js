@@ -352,7 +352,18 @@ app.get("/api/movil/cart", requireAuth, async (req, res) => {
 app.post("/api/movil/cart", requireAuth, async (req, res) => {
   try {
     const data = cleanObject(req.body);
-    const item = { ...data, _id: randomUUID(), userId: String(req.user._id), quantity: Math.max(1, Number(data.quantity) || 1), createdAt: new Date(), updatedAt: new Date() };
+    const productId = String(data.productId || "");
+    const product = await db.collection("products").findOne({ _id: productId });
+    if (!product) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
+    const quantity = Number(data.quantity) || 1;
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return res.status(400).json({ error: "INVALID_QUANTITY" });
+    const item = {
+      _id: randomUUID(), userId: String(req.user._id), productId,
+      name: product.name || "", price: Number(product.price) || 0,
+      imageUrl: product.imageUrl || "", selectedSize: String(data.selectedSize || ""),
+      selectedColor: String(data.selectedColor || ""), quantity,
+      createdAt: new Date(), updatedAt: new Date()
+    };
     await db.collection("cart").insertOne(item);
     res.status(201).json({ id: item._id });
   } catch (error) { sendError(res, error, "cart add failed"); }
@@ -386,9 +397,19 @@ app.get("/api/movil/orders", requireAuth, async (req, res) => {
 app.post("/api/movil/orders", requireAuth, async (req, res) => {
   try {
     const data = cleanObject(req.body);
-    if (!String(data.customerName || "").trim() || !Number.isFinite(Number(data.total)) || Number(data.total) < 0) return res.status(400).json({ error: "INVALID_ORDER" });
-    const item = { ...data, _id: randomUUID(), userId: String(req.user._id), status: "confirmado", createdAt: new Date() };
+    if (!String(data.customerName || "").trim()) return res.status(400).json({ error: "INVALID_ORDER" });
+    const userId = String(req.user._id);
+    const cartItems = await db.collection("cart").find({ userId }).toArray();
+    if (!cartItems.length) return res.status(400).json({ error: "CART_EMPTY" });
+    const total = cartItems.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
+    const itemCount = cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const itemsSummary = cartItems.map(item => `${item.name} x${item.quantity}`).join(", ");
+    const item = {
+      ...data, total, itemCount, itemsSummary, _id: randomUUID(), userId,
+      status: "confirmado", createdAt: new Date()
+    };
     await db.collection("orders").insertOne(item);
+    await db.collection("cart").deleteMany({ userId });
     res.status(201).json({ id: item._id });
   } catch (error) { sendError(res, error, "order create failed"); }
 });
