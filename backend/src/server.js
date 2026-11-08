@@ -39,7 +39,10 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
-const mongoOptions = process.env.MONGODB_USERNAME && process.env.MONGODB_PASSWORD\n  ? { auth: { username: process.env.MONGODB_USERNAME, password: process.env.MONGODB_PASSWORD } }\n  : {};\nconst mongo = new MongoClient(process.env.MONGODB_URI, mongoOptions);
+const mongoOptions = process.env.MONGODB_USERNAME && process.env.MONGODB_PASSWORD
+  ? { auth: { username: process.env.MONGODB_USERNAME, password: process.env.MONGODB_PASSWORD } }
+  : {};
+const mongo = new MongoClient(process.env.MONGODB_URI, mongoOptions);
 await mongo.connect();
 const db = mongo.db(process.env.MONGODB_DATABASE || undefined);
 const users = db.collection("users");
