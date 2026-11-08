@@ -39,7 +39,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
-const mongo = new MongoClient(process.env.MONGODB_URI);
+const mongoOptions = process.env.MONGODB_USERNAME && process.env.MONGODB_PASSWORD\n  ? { auth: { username: process.env.MONGODB_USERNAME, password: process.env.MONGODB_PASSWORD } }\n  : {};\nconst mongo = new MongoClient(process.env.MONGODB_URI, mongoOptions);
 await mongo.connect();
 const db = mongo.db(process.env.MONGODB_DATABASE || undefined);
 const users = db.collection("users");
@@ -74,7 +74,7 @@ async function requireAuth(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET, {
       issuer: "elegan-movil-api", audience: "elegan-android"
     });
-    const user = await users.findOne({ _id: new (await import("mongodb")).ObjectId(payload.sub) });
+    const user = await users.findOne({ _id: payload.sub });
     if (!user) return res.status(401).json({ error: "USER_NOT_FOUND" });
     req.user = user;
     next();
