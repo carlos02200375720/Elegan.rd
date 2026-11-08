@@ -30,6 +30,6 @@ Configura en el servicio backend (no en Android):
 
 Los registros nuevos reciben el rol `customer`; el cliente no puede asignarse privilegios administrativos.
 
-## Estado de la migración
+## Persistencia y archivos multimedia
 
-Esta API implementa la primera base de autenticación MongoDB. Aún no reemplaza las colecciones/operaciones de catálogo, carrito, pedidos, publicaciones, favoritos, comentarios, mensajería ni archivos multimedia que hoy usa `EleganRepository`. No elimines Firebase ni migres datos hasta implementar y probar esos contratos. La API debe desplegarse en Cloud Run antes de configurar Android para usarla.
+La aplicación Android se conecta exclusivamente a través de los endpoints `/api/movil/...`. El backend administra MongoDB Atlas y las cargas de archivos a Google Cloud Storage. Las credenciales de MongoDB y Google Cloud permanecen en el servidor; nunca se incluyen en el APK.
