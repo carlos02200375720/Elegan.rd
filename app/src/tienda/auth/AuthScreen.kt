@@ -483,6 +483,7 @@ fun AuthScreen(
                                             errorMessage = err
                                         },
                                         scope = coroutineScope
+                                            context = context
                                     )
                                 },
                                 modifier = Modifier
@@ -823,6 +824,7 @@ fun AuthScreen(
                                                     errorMessage = err
                                                 },
                                                 scope = coroutineScope
+                                                    context = context
                                             )
                                         },
                                         modifier = Modifier
@@ -1004,6 +1006,7 @@ fun AuthScreen(
                                     errorMessage = err
                                 },
                                 scope = coroutineScope
+                                    context = context
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy)
@@ -1025,6 +1028,7 @@ fun AuthScreen(
                                     errorMessage = err
                                 },
                                 scope = coroutineScope
+                                    context = context
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = EleganGold, contentColor = Color(0xFF2B050B))
@@ -1144,7 +1148,7 @@ fun signInAsAdmin(
             onAuthSuccess()
         } catch (e: Exception) {
             Log.e("Auth", "Error en acceso de administrador", e)
-            onError(mapFirebaseError(e))
+            onError(mapAuthApiError(e))
         }
     }
 }
@@ -1164,12 +1168,12 @@ fun signInAsClient(
             onAuthSuccess()
         } catch (e: Exception) {
             Log.e("Auth", "Error en acceso rápido de cliente", e)
-            onError(mapFirebaseError(e))
+            onError(mapAuthApiError(e))
         }
     }
 }
 
-fun mapFirebaseError(e: Throwable): String {
+fun mapAuthApiError(e: Throwable): String {
     val message = e.message ?: ""
     return when {
         message.contains("ERROR_INVALID_EMAIL", ignoreCase = true) || message.contains("badly formatted", ignoreCase = true) ->
@@ -1181,7 +1185,7 @@ fun mapFirebaseError(e: Throwable): String {
         message.contains("ERROR_EMAIL_ALREADY_IN_USE", ignoreCase = true) || message.contains("already in use", ignoreCase = true) ->
             "Este correo electrónico ya está registrado. Inicia sesión con él."
         message.contains("WEAK_PASSWORD", ignoreCase = true) ->
-            "La contraseña debe tener al menos 6 caracteres."
+            "La contraseña debe tener al menos 8 caracteres."
         message.contains("OPERATION_NOT_ALLOWED", ignoreCase = true) || message.contains("CONFIGURATION_NOT_FOUND", ignoreCase = true) ->
             "Verifica que el servicio de autenticación de Elegan esté configurado correctamente."
         message.contains("NETWORK_ERROR", ignoreCase = true) || message.contains("network", ignoreCase = true) ->
