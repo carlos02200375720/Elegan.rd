@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,17 +64,23 @@ fun PublicationCommentsBottomSheet(
 ) {
     val context = LocalContext.current
     var newCommentText by remember { mutableStateOf("") }
+    // skipPartiallyExpanded = true garantiza que abra completamente y no a medias
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(),
+        sheetState = sheetState,
         containerColor = Color.White
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.85f)
                 .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding()
+                .imePadding()
         ) {
+            // Barra superior del panel
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -102,21 +111,21 @@ fun PublicationCommentsBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Lista de comentarios con scroll completo
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .height(200.dp)
+                    .weight(1f)
             ) {
                 items(comments, key = { it.id }) { comment ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 6.dp)
+                            .padding(vertical = 8.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
                                 .background(EleganBurgundy.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
@@ -129,7 +138,7 @@ fun PublicationCommentsBottomSheet(
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = comment.displayName,
                                 style = MaterialTheme.typography.labelMedium.copy(
@@ -137,10 +146,12 @@ fun PublicationCommentsBottomSheet(
                                     color = EleganCharcoal
                                 )
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = comment.text,
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF333333)
+                                    color = Color(0xFF333333),
+                                    lineHeight = 18.sp
                                 )
                             )
                         }
@@ -148,24 +159,37 @@ fun PublicationCommentsBottomSheet(
                 }
                 if (comments.isEmpty()) {
                     item {
-                        Text(
-                            text = "Aún no hay comentarios. Sé el primero en comentar.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 24.dp),
-                            textAlign = TextAlign.Center
-                        )
+                                .padding(vertical = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Aún no hay comentarios.",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.DarkGray
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Sé el primero en compartir tu opinión sobre esta prenda.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // Barra inferior de envío adaptada al teclado
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
+                    .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
@@ -186,9 +210,11 @@ fun PublicationCommentsBottomSheet(
                 IconButton(
                     onClick = {
                         if (newCommentText.isNotBlank()) {
-                            onSubmitComment(product.id, displayName, newCommentText) { result ->
+                            val textToSubmit = newCommentText.trim()
+                            newCommentText = ""
+                            onSubmitComment(product.id, displayName, textToSubmit) { result ->
                                 if (result.isSuccess) {
-                                    newCommentText = ""
+                                    Toast.makeText(context, "Comentario publicado", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(
                                         context,

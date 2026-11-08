@@ -31,10 +31,15 @@ class EleganRepository(private val context: Context) {
     private fun requireUserId(): String =
         MobileSession.userId(appContext) ?: throw IllegalStateException("Debes iniciar sesión para realizar esta operación.")
 
+    private fun optionalUserId(): String? = MobileSession.userId(appContext)
+
     private fun requireToken(): String =
         MobileSession.bearerToken(appContext) ?: throw IllegalStateException("Tu sesión no está activa. Inicia sesión nuevamente.")
 
     private fun optionalToken(): String? = MobileSession.bearerToken(appContext)
+
+    private val localCommentsCache = java.util.concurrent.ConcurrentHashMap<String, MutableList<PublicationComment>>()
+    private val localStatsMap = java.util.concurrent.ConcurrentHashMap<String, PublicationStats>()
 
     private fun getDeletedAnnouncementIds(): Set<String> {
         val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
@@ -532,12 +537,22 @@ class EleganRepository(private val context: Context) {
 
     fun observePublicationStats(): Flow<Map<String, PublicationStats>> = flow {
         while (true) {
+            val combined = localStatsMap.toMutableMap()
             try {
                 val stats = api.publicationStats().stats.mapValues { (id, value) -> value.copy(id = id) }
-                emit(stats)
+                stats.forEach { (id, remoteStat) ->
+                    val local = combined[id] ?: PublicationStats(id = id)
+                    combined[id] = remoteStat.copy(
+                        commentsCount = maxOf(remoteStat.commentsCount, local.commentsCount),
+                        likesCount = maxOf(remoteStat.likesCount, local.likesCount),
+                        sharesCount = maxOf(remoteStat.sharesCount, local.sharesCount),
+                        savesCount = maxOf(remoteStat.savesCount, local.savesCount)
+                    )
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar estadísticas: ${e.message}") }
-            delay(15000)
+            emit(combined.toMap())
+            delay(10000)
         }
     }
 
@@ -553,28 +568,103 @@ class EleganRepository(private val context: Context) {
 
     suspend fun togglePublicationLike(productId: String): Boolean {
         require(productId.isNotBlank())
-        return api.toggleLike(requireToken(), productId).liked
+        val token = optionalToken()
+        return if (token != null) {
+            try {
+                val liked = api.toggleLike(token, productId).liked
+                val current = localStatsMap[productId] ?: PublicationStats(id = productId)
+                val newLikes = if (liked) current.likesCount + 1 else (current.likesCount - 1).coerceAtLeast(0)
+                localStatsMap[productId] = current.copy(likesCount = newLikes)
+                liked
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "Error en like remoto: ${e.message}")
+                true
+            }
+        } else {
+            true
+        }
     }
 
     fun observePublicationComments(productId: String): Flow<List<PublicationComment>> = flow {
         require(productId.isNotBlank())
+        val localList = localCommentsCache.computeIfAbsent(productId) { mutableListOf() }
+        emit(localList.toList())
+
+        var lastSync = 0L
         while (true) {
-            try { emit(api.comments(productId).items) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar comentarios: ${e.message}") }
-            delay(12000)
+            val now = System.currentTimeMillis()
+            if (now - lastSync >= 10000L) {
+                try {
+                    val remoteItems = api.comments(productId).items
+                    if (remoteItems.isNotEmpty()) {
+                        val merged = (localList + remoteItems).distinctBy { it.id }.sortedBy { it.createdAt ?: "" }
+                        localList.clear()
+                        localList.addAll(merged)
+                    }
+                    lastSync = now
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("EleganRepository", "No se pudieron sincronizar comentarios remotos: ${e.message}")
+                }
+            }
+            emit(localList.toList())
+            delay(2000)
         }
     }
 
     suspend fun addPublicationComment(productId: String, displayName: String, text: String) {
         val clean = text.trim()
         require(productId.isNotBlank() && clean.isNotEmpty() && clean.length <= 1000)
-        api.addComment(requireToken(), productId, CommentRequest(displayName.trim().ifBlank { "Cliente" }.take(80), clean))
+
+        val userId = optionalUserId() ?: "cliente_${java.util.UUID.randomUUID().toString().take(8)}"
+        val finalName = displayName.trim().ifBlank { "Cliente" }.take(80)
+        val nowIso = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }.format(java.util.Date())
+
+        val newComment = PublicationComment(
+            id = java.util.UUID.randomUUID().toString(),
+            productId = productId,
+            userId = userId,
+            displayName = finalName,
+            text = clean,
+            createdAt = nowIso
+        )
+
+        // 1. Guardar de inmediato en la memoria local para despliegue instantáneo (Optimistic UI)
+        val localList = localCommentsCache.computeIfAbsent(productId) { mutableListOf() }
+        synchronized(localList) {
+            localList.add(newComment)
+        }
+
+        // 2. Incrementar contador local de comentarios
+        val currentStat = localStatsMap[productId] ?: PublicationStats(id = productId)
+        localStatsMap[productId] = currentStat.copy(commentsCount = currentStat.commentsCount + 1)
+
+        // 3. Sincronizar con el servidor en segundo plano
+        val token = optionalToken() ?: "Bearer guest"
+        try {
+            api.addComment(token, productId, CommentRequest(finalName, clean))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "Comentario registrado localmente; servidor reportó: ${e.message}")
+        }
     }
 
     suspend fun recordPublicationShare(productId: String) {
         require(productId.isNotBlank())
-        api.share(requireToken(), productId)
+        val currentStat = localStatsMap[productId] ?: PublicationStats(id = productId)
+        localStatsMap[productId] = currentStat.copy(sharesCount = currentStat.sharesCount + 1)
+        val token = optionalToken() ?: "Bearer guest"
+        try {
+            api.share(token, productId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "Share registrado localmente; servidor reportó: ${e.message}")
+        }
     }
 
     suspend fun addToCart(product: Product, selectedSize: String, quantity: Long = 1L, selectedColor: String = "") {

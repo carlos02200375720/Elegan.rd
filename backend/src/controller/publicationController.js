@@ -100,11 +100,14 @@ export async function createPublicationComment(req, res) {
     if (!value || value.length > 2000) {
       return res.status(400).json({ error: "INVALID_COMMENT" });
     }
+    const userId = req.user ? String(req.user._id) : `guest-${randomUUID().slice(0, 8)}`;
+    const displayName = String(req.body?.displayName || req.user?.name || "Cliente").trim() || "Cliente";
+
     const item = {
       _id: randomUUID(),
       productId: req.params.productId,
-      userId: String(req.user._id),
-      displayName: String(req.body?.displayName || req.user.name || "Cliente"),
+      userId,
+      displayName,
       text: value,
       createdAt: new Date()
     };
@@ -117,8 +120,9 @@ export async function createPublicationComment(req, res) {
 
 export async function sharePublication(req, res) {
   try {
+    const userId = req.user ? String(req.user._id) : `guest-${randomUUID().slice(0, 8)}`;
     await db.collection(PUBLICATION_SHARES_COLLECTION_NAME).insertOne({
-      userId: String(req.user._id),
+      userId,
       productId: req.params.productId,
       createdAt: new Date()
     });

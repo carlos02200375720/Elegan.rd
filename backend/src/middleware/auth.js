@@ -54,6 +54,25 @@ export async function requireAuth(req, res, next) {
   }
 }
 
+export async function optionalAuth(req, _res, next) {
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    if (token && token !== "guest" && token !== "null" && token !== "undefined") {
+      const payload = jwt.verify(token, process.env.JWT_SECRET, {
+        issuer: "elegan-movil-api",
+        audience: "elegan-android"
+      });
+      let user = await users.findOne({ _id: payload.sub });
+      if (!user) user = await superAdmins.findOne({ _id: payload.sub });
+      if (user) req.user = user;
+    }
+  } catch {
+    // Si no hay token o falló la verificación, continúa como cliente invitado sin error
+  }
+  next();
+}
+
 export function requireAdmin(req, res, next) {
   if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
     return res.status(403).json({ error: "ADMIN_REQUIRED" });
