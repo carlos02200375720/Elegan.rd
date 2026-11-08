@@ -89,6 +89,7 @@ jobs:
       - name: Compilar APK de prueba
         env:
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          ELEGAN_API_BASE_URL: ${{ secrets.ELEGAN_API_BASE_URL }}
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Publicar APK de prueba
@@ -106,6 +107,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          ELEGAN_API_BASE_URL: ${{ secrets.ELEGAN_API_BASE_URL }}
         run: gradle --no-daemon :app:bundleRelease
 
       - name: Publicar AAB para Play Store
