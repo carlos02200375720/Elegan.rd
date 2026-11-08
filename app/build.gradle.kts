@@ -22,7 +22,8 @@ android {
 
     val googleWebClientId = providers.environmentVariable("GOOGLE_WEB_CLIENT_ID").orElse("").get()
     buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${googleWebClientId}\"")
-    val eleganApiBaseUrl = providers.environmentVariable("ELEGAN_API_BASE_URL").orElse("").get()
+    val eleganApiBaseUrl = providers.environmentVariable("ELEGAN_API_BASE_URL").orNull?.takeIf { it.isNotBlank() }
+      ?: "https://backend-elegan-rd-587849039182.us-central1.run.app"
         buildConfigField("String", "ELEGAN_API_BASE_URL", "\"${eleganApiBaseUrl}\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
