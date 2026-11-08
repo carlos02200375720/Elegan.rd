@@ -56,7 +56,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -85,9 +85,7 @@ import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.auth
+import com.example.data.remote.MobileSession
 import kotlinx.coroutines.launch
 
 const val SUPER_ADMIN_EMAIL = "cg0220037@gmail.com"
@@ -106,23 +104,10 @@ fun PerfilScreen(
     onNavigateToMenuAdmin: () -> Unit = {},
     onSignOut: () -> Unit
 ) {
-    var user by remember { mutableStateOf(Firebase.auth.currentUser) }
-    DisposableEffect(Unit) {
-        val listener = FirebaseAuth.AuthStateListener { auth ->
-            user = auth.currentUser
-        }
-        Firebase.auth.addAuthStateListener(listener)
-        onDispose {
-            Firebase.auth.removeAuthStateListener(listener)
-        }
-    }
-
+    val context = LocalContext.current
+    val user = remember { MobileSession.user(context) }
     val currentEmail = (user?.email ?: userProfile?.email ?: "").trim()
-    val providerEmails = user?.providerData?.mapNotNull { it.email?.trim() } ?: emptyList()
-    val isSuperAdmin = user != null && (
-        currentEmail.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) ||
-        providerEmails.any { it.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) }
-    )
+    val isSuperAdmin = user?.role == "admin"
 
     var phone by remember(userProfile) { mutableStateOf(userProfile?.phone ?: "") }
     var address by remember(userProfile) { mutableStateOf(userProfile?.address ?: "") }
@@ -195,7 +180,7 @@ fun PerfilScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Text(
-                                text = user?.displayName ?: userProfile?.displayName ?: "Caballero Elegan",
+                                text = user?.name ?: userProfile?.displayName ?: "Caballero Elegan",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = EleganCharcoal,
