@@ -37,7 +37,6 @@ import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -78,9 +77,7 @@ import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import com.example.ui.theme.EleganTheme
 import com.example.ui.viewmodel.EleganViewModel
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.auth
+import com.example.data.remote.MobileSession
 
 enum class Screen {
     INICIO,
@@ -134,32 +131,16 @@ fun MainApp() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
-    var currentUser by remember { mutableStateOf(Firebase.auth.currentUser) }
-
-    DisposableEffect(Unit) {
-        val listener = FirebaseAuth.AuthStateListener { auth ->
-            currentUser = auth.currentUser
-        }
-        Firebase.auth.addAuthStateListener(listener)
-        onDispose {
-            Firebase.auth.removeAuthStateListener(listener)
-        }
-    }
+    var currentUser by remember { mutableStateOf(MobileSession.user(context)) }
 
     LaunchedEffect(Unit) {
-        if (currentUser == null) {
-            attemptAutoSignIn(
-                context = context,
-                credentialManager = credentialManager,
-                onAuthSuccess = {
-                    currentUser = Firebase.auth.currentUser
-                },
-                onUnauthenticated = {
-                    // Stay on AuthScreen
-                },
-                scope = coroutineScope
-            )
-        }
+        attemptAutoSignIn(
+            context = context,
+            credentialManager = credentialManager,
+            onAuthSuccess = { currentUser = MobileSession.user(context) },
+            onUnauthenticated = { currentUser = null },
+            scope = coroutineScope
+        )
     }
 
     val activity = context as? Activity
@@ -175,7 +156,7 @@ fun MainApp() {
 
     if (currentUser == null) {
         AuthScreen(
-            onAuthSuccess = { currentUser = Firebase.auth.currentUser }
+            onAuthSuccess = { currentUser = MobileSession.user(context) }
         )
     } else {
         AppContent(
