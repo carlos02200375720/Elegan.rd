@@ -4,7 +4,9 @@ Esta es la carpeta física oficial de datos para la aplicación Elegan:
 `app/src/data/`
 
 ## Estructura
-- `model/Models.kt`: Entidades y modelos de datos (Product, CartItem, Order, UserProfile, Announcement, StoreCategory).
-- `repository/EleganRepository.kt`: Repositorio principal de datos con Firestore y sincronización local.
-- `storage/GcsStorageManager.kt`: Administrador de Google Cloud Storage con bucket `bucket-elegan-android`.
-- `util/FirestoreErrorHandler.kt`: Manejador centralizado de errores de Firestore.
+- `model/Models.kt`: entidades y modelos de datos.
+- `repository/EleganRepository.kt`: repositorio principal conectado a los endpoints móviles del backend Elegan.
+- `remote/`: clientes Retrofit, contratos de API y sesión autenticada.
+- `storage/GcsStorageManager.kt`: utilidades relacionadas con Google Cloud Storage.
+
+La persistencia remota se realiza mediante el backend propio y MongoDB. Android no accede directamente a Firebase ni a Firestore.
