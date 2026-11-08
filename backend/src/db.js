@@ -1,4 +1,18 @@
 import { MongoClient } from "mongodb";
+import {
+  USERS_COLLECTION_NAME,
+  SUPER_ADMINS_COLLECTION_NAME,
+  initializeProductCollection,
+  initializeAnnouncementCollection,
+  initializeSavedProductCollection,
+  initializePublicationLikeCollection,
+  initializePublicationCommentCollection,
+  initializePublicationShareCollection,
+  initializeCartCollection,
+  initializeOrderCollection,
+  initializeSupportMessageCollection,
+  initializeProfileCollection
+} from "./modelo/index.js";
 
 // Valores por defecto seguros para evitar que el contenedor falle si no se pasaron en Cloud Run
 process.env.JWT_SECRET = process.env.JWT_SECRET || "elegan_production_jwt_secret_key_2026_sartorial_luxury_secure_auth";
@@ -39,14 +53,28 @@ export const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "cg0220037@gmai
 export async function connectDB() {
   await mongo.connect();
   db = mongo.db(process.env.MONGODB_DATABASE || undefined);
-  users = db.collection("users");
-  superAdmins = db.collection("super-admins");
+  users = db.collection(USERS_COLLECTION_NAME);
+  superAdmins = db.collection(SUPER_ADMINS_COLLECTION_NAME);
 
   // Índices para usuarios y administradores
   await users.createIndex({ email: 1 }, { unique: true, sparse: true });
   await users.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
   await superAdmins.createIndex({ email: 1 }, { unique: true, sparse: true });
   await superAdmins.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
+
+  // Inicializar índices de todos los modelos de colecciones
+  await Promise.allSettled([
+    initializeProductCollection(db),
+    initializeAnnouncementCollection(db),
+    initializeSavedProductCollection(db),
+    initializePublicationLikeCollection(db),
+    initializePublicationCommentCollection(db),
+    initializePublicationShareCollection(db),
+    initializeCartCollection(db),
+    initializeOrderCollection(db),
+    initializeSupportMessageCollection(db),
+    initializeProfileCollection(db)
+  ]);
 
   // Garantizar que la cuenta del superadministrador principal resida en 'super-admins'
   const existingSuperAdminInUsers = await users.findOne({ email: superAdminEmail });
@@ -63,7 +91,7 @@ export async function connectDB() {
     await users.deleteOne({ _id: existingSuperAdminInUsers._id });
   }
 
-  console.log("✅ MongoDB Atlas conectado exitosamente.");
+  console.log("✅ MongoDB Atlas conectado exitosamente con todas las colecciones.");
   return { db, users, superAdmins };
 }
 

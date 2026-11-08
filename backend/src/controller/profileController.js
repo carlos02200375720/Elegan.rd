@@ -1,13 +1,12 @@
 import { db } from "../db.js";
 import { cleanObject, sendError } from "../middleware/auth.js";
+import { PROFILES_COLLECTION_NAME, formatProfileResponse } from "../modelo/index.js";
 
 export async function getProfile(req, res) {
   try {
-    const item = await db.collection("profiles").findOne({ userId: String(req.user._id) });
+    const item = await db.collection(PROFILES_COLLECTION_NAME).findOne({ userId: String(req.user._id) });
     res.json({
-      item: item
-        ? { ...item, id: String(item._id) }
-        : { userId: String(req.user._id), displayName: req.user.name || "", email: req.user.email || "" }
+      item: formatProfileResponse(item, req.user)
     });
   } catch (error) {
     sendError(res, error, "profile read failed");
@@ -17,7 +16,7 @@ export async function getProfile(req, res) {
 export async function updateProfile(req, res) {
   try {
     const data = cleanObject(req.body);
-    await db.collection("profiles").updateOne(
+    await db.collection(PROFILES_COLLECTION_NAME).updateOne(
       { userId: String(req.user._id) },
       {
         $set: { ...data, userId: String(req.user._id), updatedAt: new Date() },

@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db.js";
 import { sendError } from "../middleware/auth.js";
+import {
+  SUPPORT_MESSAGES_COLLECTION_NAME,
+  formatSupportMessageResponse
+} from "../modelo/index.js";
 
 export async function getMessages(req, res) {
   try {
-    const items = await db.collection("supportMessages").find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
-    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+    const items = await db.collection(SUPPORT_MESSAGES_COLLECTION_NAME).find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
+    res.json({ items: items.map(formatSupportMessageResponse) });
   } catch (error) {
     sendError(res, error, "messages list failed");
   }
@@ -26,7 +30,7 @@ export async function createMessage(req, res) {
       text: value,
       createdAt: new Date()
     };
-    await db.collection("supportMessages").insertOne(item);
+    await db.collection(SUPPORT_MESSAGES_COLLECTION_NAME).insertOne(item);
 
     const normalized = value.toLowerCase();
     const reply = normalized.includes("envio") || normalized.includes("entrega")
@@ -39,7 +43,7 @@ export async function createMessage(req, res) {
             ? "Gracias por consultar nuestras promociones. Revisa los anuncios y ofertas vigentes en la tienda."
             : "Gracias por comunicarte con Elegan. Hemos recibido tu consulta y nuestro equipo te dará seguimiento.";
 
-    await db.collection("supportMessages").insertOne({
+    await db.collection(SUPPORT_MESSAGES_COLLECTION_NAME).insertOne({
       _id: randomUUID(),
       userId,
       sender: "support",

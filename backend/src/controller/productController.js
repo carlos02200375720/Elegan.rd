@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db.js";
 import { cleanObject, sendError } from "../middleware/auth.js";
+import { PRODUCTS_COLLECTION_NAME, formatProductResponse } from "../modelo/index.js";
 
 export async function getProducts(_req, res) {
   try {
-    const items = await db.collection("products").find({}).sort({ createdAt: -1 }).toArray();
-    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+    const items = await db.collection(PRODUCTS_COLLECTION_NAME).find({}).sort({ createdAt: -1 }).toArray();
+    res.json({ items: items.map(formatProductResponse) });
   } catch (error) {
     sendError(res, error, "products list failed");
   }
@@ -13,10 +14,9 @@ export async function getProducts(_req, res) {
 
 export async function getProductById(req, res) {
   try {
-    const item = await db.collection("products").findOne({ _id: req.params.id });
+    const item = await db.collection(PRODUCTS_COLLECTION_NAME).findOne({ _id: req.params.id });
     if (!item) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
-    const { _id, ...data } = item;
-    res.json({ item: { ...data, id: String(_id) } });
+    res.json({ item: formatProductResponse(item) });
   } catch (error) {
     sendError(res, error, "product read failed");
   }
@@ -35,8 +35,8 @@ export async function createProduct(req, res) {
       updatedAt: new Date()
     };
     delete item.id;
-    await db.collection("products").insertOne(item);
-    res.status(201).json({ id: item._id, item: { ...item, id: item._id, _id: undefined } });
+    await db.collection(PRODUCTS_COLLECTION_NAME).insertOne(item);
+    res.status(201).json({ id: item._id, item: formatProductResponse(item) });
   } catch (error) {
     sendError(res, error, "product create failed");
   }
@@ -45,7 +45,7 @@ export async function createProduct(req, res) {
 export async function updateProduct(req, res) {
   try {
     const data = cleanObject(req.body);
-    const result = await db.collection("products").updateOne(
+    const result = await db.collection(PRODUCTS_COLLECTION_NAME).updateOne(
       { _id: req.params.id },
       { $set: { ...data, updatedAt: new Date() } }
     );
@@ -58,7 +58,7 @@ export async function updateProduct(req, res) {
 
 export async function deleteProduct(req, res) {
   try {
-    await db.collection("products").deleteOne({ _id: req.params.id });
+    await db.collection(PRODUCTS_COLLECTION_NAME).deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, "product delete failed");

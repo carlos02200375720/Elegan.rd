@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db.js";
 import { cleanObject, sendError } from "../middleware/auth.js";
+import { ANNOUNCEMENTS_COLLECTION_NAME, formatAnnouncementResponse } from "../modelo/index.js";
 
 export async function getAnnouncements(_req, res) {
   try {
-    const items = await db.collection("announcements").find({ isActive: true }).sort({ createdAt: -1 }).toArray();
-    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+    const items = await db.collection(ANNOUNCEMENTS_COLLECTION_NAME).find({ isActive: true }).sort({ createdAt: -1 }).toArray();
+    res.json({ items: items.map(formatAnnouncementResponse) });
   } catch (error) {
     sendError(res, error, "announcements list failed");
   }
@@ -24,7 +25,7 @@ export async function createAnnouncement(req, res) {
       updatedAt: new Date()
     };
     delete item.id;
-    await db.collection("announcements").insertOne(item);
+    await db.collection(ANNOUNCEMENTS_COLLECTION_NAME).insertOne(item);
     res.status(201).json({ id: item._id });
   } catch (error) {
     sendError(res, error, "announcement create failed");
@@ -33,7 +34,7 @@ export async function createAnnouncement(req, res) {
 
 export async function updateAnnouncement(req, res) {
   try {
-    const result = await db.collection("announcements").updateOne(
+    const result = await db.collection(ANNOUNCEMENTS_COLLECTION_NAME).updateOne(
       { _id: req.params.id },
       { $set: { ...cleanObject(req.body), updatedAt: new Date() } }
     );
@@ -46,7 +47,7 @@ export async function updateAnnouncement(req, res) {
 
 export async function deleteAnnouncement(req, res) {
   try {
-    await db.collection("announcements").deleteOne({ _id: req.params.id });
+    await db.collection(ANNOUNCEMENTS_COLLECTION_NAME).deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, "announcement delete failed");

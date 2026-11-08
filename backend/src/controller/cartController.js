@@ -1,11 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../db.js";
 import { cleanObject, sendError, owned } from "../middleware/auth.js";
+import {
+  CART_COLLECTION_NAME,
+  PRODUCTS_COLLECTION_NAME,
+  formatCartResponse
+} from "../modelo/index.js";
 
 export async function getCart(req, res) {
   try {
-    const items = await db.collection("cart").find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
-    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+    const items = await db.collection(CART_COLLECTION_NAME).find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
+    res.json({ items: items.map(formatCartResponse) });
   } catch (error) {
     sendError(res, error, "cart list failed");
   }
@@ -15,7 +20,7 @@ export async function addToCart(req, res) {
   try {
     const data = cleanObject(req.body);
     const productId = String(data.productId || "");
-    const product = await db.collection("products").findOne({ _id: productId });
+    const product = await db.collection(PRODUCTS_COLLECTION_NAME).findOne({ _id: productId });
     if (!product) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
 
     const quantity = Number(data.quantity) || 1;
@@ -30,9 +35,9 @@ export async function addToCart(req, res) {
       selectedColor: String(data.selectedColor || "")
     };
 
-    const existing = await db.collection("cart").findOne(filter);
+    const existing = await db.collection(CART_COLLECTION_NAME).findOne(filter);
     if (existing) {
-      await db.collection("cart").updateOne(
+      await db.collection(CART_COLLECTION_NAME).updateOne(
         { _id: existing._id },
         {
           $inc: { quantity },
@@ -58,7 +63,7 @@ export async function addToCart(req, res) {
       updatedAt: new Date()
     };
 
-    await db.collection("cart").insertOne(item);
+    await db.collection(CART_COLLECTION_NAME).insertOne(item);
     res.status(201).json({ id: item._id });
   } catch (error) {
     sendError(res, error, "cart add failed");
@@ -71,7 +76,7 @@ export async function updateCartItem(req, res) {
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
       return res.status(400).json({ error: "INVALID_QUANTITY" });
     }
-    const result = await db.collection("cart").updateOne(
+    const result = await db.collection(CART_COLLECTION_NAME).updateOne(
       owned(String(req.user._id), req.params.id),
       { $set: { quantity, updatedAt: new Date() } }
     );
@@ -84,7 +89,7 @@ export async function updateCartItem(req, res) {
 
 export async function removeCartItem(req, res) {
   try {
-    await db.collection("cart").deleteOne(owned(String(req.user._id), req.params.id));
+    await db.collection(CART_COLLECTION_NAME).deleteOne(owned(String(req.user._id), req.params.id));
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, "cart remove failed");
@@ -93,7 +98,7 @@ export async function removeCartItem(req, res) {
 
 export async function clearCart(req, res) {
   try {
-    await db.collection("cart").deleteMany({ userId: String(req.user._id) });
+    await db.collection(CART_COLLECTION_NAME).deleteMany({ userId: String(req.user._id) });
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, "cart clear failed");
