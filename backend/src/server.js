@@ -178,6 +178,251 @@ app.post("/api/movil/auth/logout", (_req, res) => {
   res.status(204).end();
 });
 
+
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") return res.status(403).json({ error: "ADMIN_REQUIRED" });
+  next();
+}
+function owned(userId, id) { return { userId, _id: id }; }
+function cleanObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result = { ...value };
+  delete result._id;
+  delete result.userId;
+  delete result.role;
+  delete result.createdAt;
+  delete result.updatedAt;
+  return result;
+}
+function sendError(res, error, label) {
+  console.error(label, error);
+  return res.status(500).json({ error: "INTERNAL_ERROR" });
+}
+
+// Catálogo y anuncios: lectura pública; escritura exclusiva del administrador.
+app.get("/api/movil/products", async (_req, res) => {
+  try {
+    const items = await db.collection("products").find({}).sort({ createdAt: -1 }).toArray();
+    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+  } catch (error) { sendError(res, error, "products list failed"); }
+});
+app.get("/api/movil/products/:id", async (req, res) => {
+  try {
+    const item = await db.collection("products").findOne({ _id: req.params.id });
+    if (!item) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
+    const { _id, ...data } = item;
+    res.json({ item: { ...data, id: String(_id) } });
+  } catch (error) { sendError(res, error, "product read failed"); }
+});
+app.post("/api/movil/products", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const data = cleanObject(req.body);
+    if (!String(data.name || "").trim()) return res.status(400).json({ error: "INVALID_PRODUCT" });
+    const item = { ...data, _id: String(data.id || randomUUID()), createdAt: new Date(), updatedAt: new Date() };
+    delete item.id;
+    await db.collection("products").insertOne(item);
+    res.status(201).json({ id: item._id, item: { ...item, id: item._id, _id: undefined } });
+  } catch (error) { sendError(res, error, "product create failed"); }
+});
+app.patch("/api/movil/products/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const data = cleanObject(req.body);
+    const result = await db.collection("products").updateOne({ _id: req.params.id }, { $set: { ...data, updatedAt: new Date() } });
+    if (!result.matchedCount) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "product update failed"); }
+});
+app.delete("/api/movil/products/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await db.collection("products").deleteOne({ _id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "product delete failed"); }
+});
+
+app.get("/api/movil/announcements", async (_req, res) => {
+  try {
+    const items = await db.collection("announcements").find({ isActive: true }).sort({ createdAt: -1 }).toArray();
+    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+  } catch (error) { sendError(res, error, "announcements list failed"); }
+});
+app.post("/api/movil/announcements", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const data = cleanObject(req.body);
+    if (!String(data.title || "").trim()) return res.status(400).json({ error: "INVALID_ANNOUNCEMENT" });
+    const item = { ...data, _id: String(data.id || randomUUID()), createdAt: new Date(), updatedAt: new Date() };
+    delete item.id;
+    await db.collection("announcements").insertOne(item);
+    res.status(201).json({ id: item._id });
+  } catch (error) { sendError(res, error, "announcement create failed"); }
+});
+app.patch("/api/movil/announcements/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await db.collection("announcements").updateOne({ _id: req.params.id }, { $set: { ...cleanObject(req.body), updatedAt: new Date() } });
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "announcement update failed"); }
+});
+app.delete("/api/movil/announcements/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await db.collection("announcements").deleteOne({ _id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "announcement delete failed"); }
+});
+
+// Favoritos, likes, comentarios y estadísticas quedan aislados por usuario autenticado.
+app.get("/api/movil/saved", requireAuth, async (req, res) => {
+  try {
+    const rows = await db.collection("savedProducts").find({ userId: String(req.user._id) }).toArray();
+    res.json({ ids: rows.map(x => x.productId) });
+  } catch (error) { sendError(res, error, "saved products failed"); }
+});
+app.put("/api/movil/saved/:productId", requireAuth, async (req, res) => {
+  try {
+    const filter = { userId: String(req.user._id), productId: req.params.productId };
+    if (req.body?.saved === false) await db.collection("savedProducts").deleteOne(filter);
+    else await db.collection("savedProducts").updateOne(filter, { $setOnInsert: { ...filter, createdAt: new Date() } }, { upsert: true });
+    res.json({ saved: req.body?.saved !== false });
+  } catch (error) { sendError(res, error, "save product failed"); }
+});
+app.get("/api/movil/publications/stats", async (_req, res) => {
+  try {
+    const [likes, comments, shares, saves] = await Promise.all([
+      db.collection("publicationLikes").aggregate([{ $group: { _id: "$productId", count: { $sum: 1 } } }]).toArray(),
+      db.collection("publicationComments").aggregate([{ $group: { _id: "$productId", count: { $sum: 1 } } }]).toArray(),
+      db.collection("publicationShares").aggregate([{ $group: { _id: "$productId", count: { $sum: 1 } } }]).toArray(),
+      db.collection("savedProducts").aggregate([{ $group: { _id: "$productId", count: { $sum: 1 } } }]).toArray()
+    ]);
+    const ids = new Set([...likes, ...comments, ...shares, ...saves].map(x => x._id));
+    const stats = {};
+    for (const id of ids) stats[id] = {
+      likesCount: likes.find(x => x._id === id)?.count || 0,
+      commentsCount: comments.find(x => x._id === id)?.count || 0,
+      sharesCount: shares.find(x => x._id === id)?.count || 0,
+      savesCount: saves.find(x => x._id === id)?.count || 0
+    };
+    res.json({ stats });
+  } catch (error) { sendError(res, error, "publication stats failed"); }
+});
+app.get("/api/movil/publications/likes", requireAuth, async (req, res) => {
+  try {
+    const rows = await db.collection("publicationLikes").find({ userId: String(req.user._id) }).toArray();
+    res.json({ ids: rows.map(x => x.productId) });
+  } catch (error) { sendError(res, error, "publication likes failed"); }
+});
+app.put("/api/movil/publications/:productId/like", requireAuth, async (req, res) => {
+  try {
+    const filter = { userId: String(req.user._id), productId: req.params.productId };
+    const col = db.collection("publicationLikes");
+    const exists = await col.findOne(filter);
+    if (exists) await col.deleteOne(filter);
+    else await col.insertOne({ ...filter, createdAt: new Date() });
+    res.json({ liked: !exists });
+  } catch (error) { sendError(res, error, "publication like failed"); }
+});
+app.get("/api/movil/publications/:productId/comments", async (req, res) => {
+  try {
+    const items = await db.collection("publicationComments").find({ productId: req.params.productId }).sort({ createdAt: 1 }).toArray();
+    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+  } catch (error) { sendError(res, error, "comments list failed"); }
+});
+app.post("/api/movil/publications/:productId/comments", requireAuth, async (req, res) => {
+  try {
+    const value = String(req.body?.text || "").trim();
+    if (!value || value.length > 2000) return res.status(400).json({ error: "INVALID_COMMENT" });
+    const item = { _id: randomUUID(), productId: req.params.productId, userId: String(req.user._id), displayName: String(req.body?.displayName || req.user.name || "Cliente"), text: value, createdAt: new Date() };
+    await db.collection("publicationComments").insertOne(item);
+    res.status(201).json({ id: item._id });
+  } catch (error) { sendError(res, error, "comment create failed"); }
+});
+app.post("/api/movil/publications/:productId/share", requireAuth, async (req, res) => {
+  try {
+    await db.collection("publicationShares").insertOne({ userId: String(req.user._id), productId: req.params.productId, createdAt: new Date() });
+    res.status(201).json({ success: true });
+  } catch (error) { sendError(res, error, "publication share failed"); }
+});
+
+// Carrito, órdenes, mensajes y perfil: el servidor deriva siempre el userId del JWT.
+app.get("/api/movil/cart", requireAuth, async (req, res) => {
+  try {
+    const items = await db.collection("cart").find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
+    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+  } catch (error) { sendError(res, error, "cart list failed"); }
+});
+app.post("/api/movil/cart", requireAuth, async (req, res) => {
+  try {
+    const data = cleanObject(req.body);
+    const item = { ...data, _id: randomUUID(), userId: String(req.user._id), quantity: Math.max(1, Number(data.quantity) || 1), createdAt: new Date(), updatedAt: new Date() };
+    await db.collection("cart").insertOne(item);
+    res.status(201).json({ id: item._id });
+  } catch (error) { sendError(res, error, "cart add failed"); }
+});
+app.patch("/api/movil/cart/:id", requireAuth, async (req, res) => {
+  try {
+    const quantity = Number(req.body?.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return res.status(400).json({ error: "INVALID_QUANTITY" });
+    const result = await db.collection("cart").updateOne(owned(String(req.user._id), req.params.id), { $set: { quantity, updatedAt: new Date() } });
+    if (!result.matchedCount) return res.status(404).json({ error: "CART_ITEM_NOT_FOUND" });
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "cart update failed"); }
+});
+app.delete("/api/movil/cart/:id", requireAuth, async (req, res) => {
+  try {
+    await db.collection("cart").deleteOne(owned(String(req.user._id), req.params.id));
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "cart remove failed"); }
+});
+app.delete("/api/movil/cart", requireAuth, async (req, res) => {
+  try { await db.collection("cart").deleteMany({ userId: String(req.user._id) }); res.json({ success: true }); }
+  catch (error) { sendError(res, error, "cart clear failed"); }
+});
+app.get("/api/movil/orders", requireAuth, async (req, res) => {
+  try {
+    const filter = req.user.role === "admin" ? {} : { userId: String(req.user._id) };
+    const items = await db.collection("orders").find(filter).sort({ createdAt: -1 }).toArray();
+    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+  } catch (error) { sendError(res, error, "orders list failed"); }
+});
+app.post("/api/movil/orders", requireAuth, async (req, res) => {
+  try {
+    const data = cleanObject(req.body);
+    if (!String(data.customerName || "").trim() || !Number.isFinite(Number(data.total)) || Number(data.total) < 0) return res.status(400).json({ error: "INVALID_ORDER" });
+    const item = { ...data, _id: randomUUID(), userId: String(req.user._id), status: "confirmado", createdAt: new Date() };
+    await db.collection("orders").insertOne(item);
+    res.status(201).json({ id: item._id });
+  } catch (error) { sendError(res, error, "order create failed"); }
+});
+app.get("/api/movil/messages", requireAuth, async (req, res) => {
+  try {
+    const items = await db.collection("supportMessages").find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
+    res.json({ items: items.map(({ _id, ...item }) => ({ ...item, id: String(_id) })) });
+  } catch (error) { sendError(res, error, "messages list failed"); }
+});
+app.post("/api/movil/messages", requireAuth, async (req, res) => {
+  try {
+    const value = String(req.body?.text || "").trim();
+    if (!value || value.length > 4000) return res.status(400).json({ error: "INVALID_MESSAGE" });
+    const item = { _id: randomUUID(), userId: String(req.user._id), sender: "user", senderName: String(req.user.name || "Cliente"), text: value, createdAt: new Date() };
+    await db.collection("supportMessages").insertOne(item);
+    res.status(201).json({ id: item._id });
+  } catch (error) { sendError(res, error, "message create failed"); }
+});
+app.get("/api/movil/profile", requireAuth, async (req, res) => {
+  try {
+    const item = await db.collection("profiles").findOne({ userId: String(req.user._id) });
+    res.json({ item: item ? { ...item, id: String(item._id) } : { userId: String(req.user._id), displayName: req.user.name || "", email: req.user.email || "" } });
+  } catch (error) { sendError(res, error, "profile read failed"); }
+});
+app.put("/api/movil/profile", requireAuth, async (req, res) => {
+  try {
+    const data = cleanObject(req.body);
+    await db.collection("profiles").updateOne(
+      { userId: String(req.user._id) },
+      { $set: { ...data, userId: String(req.user._id), updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true }
+    );
+    res.json({ success: true });
+  } catch (error) { sendError(res, error, "profile update failed"); }
+});
+
 app.use((error, _req, res, _next) => {
   console.error("request failed", error);
   res.status(500).json({ error: "INTERNAL_ERROR" });
