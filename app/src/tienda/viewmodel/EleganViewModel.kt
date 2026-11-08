@@ -14,8 +14,6 @@ import com.example.data.model.StoreCategory
 import com.example.data.model.SupportMessage
 import com.example.data.model.UserProfile
 import com.example.data.repository.EleganRepository
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -168,10 +166,8 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
-            if (Firebase.auth.currentUser != null) {
-                repository.seedProductsIfEmpty()
-                repository.seedAnnouncementsIfEmpty()
-            }
+            repository.seedProductsIfEmpty()
+            repository.seedAnnouncementsIfEmpty()
         }
     }
 
