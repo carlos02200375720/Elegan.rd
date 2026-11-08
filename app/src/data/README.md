@@ -9,4 +9,4 @@ Esta es la carpeta física oficial de datos para la aplicación Elegan:
 - `remote/`: clientes Retrofit, contratos de API y sesión autenticada.
 - `storage/GcsStorageManager.kt`: utilidades relacionadas con Google Cloud Storage.
 
-La persistencia remota se realiza mediante el backend propio y MongoDB. Android no accede directamente a Firebase ni a Firestore.
+La persistencia remota se realiza mediante el backend propio y MongoDB. Android no accede directamente a la base de datos.
