@@ -1,14 +1,8 @@
 package com.example.data.model
 
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.DocumentId
-import com.google.firebase.firestore.IgnoreExtraProperties
-import com.google.firebase.firestore.PropertyName
-import com.google.firebase.firestore.ServerTimestamp
 
-@IgnoreExtraProperties
 data class Product(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val name: String = "",
     val description: String = "",
     val category: String = "todo", // gorra, gafa, camisa, correa, pantalone, zapato, interiore, perfume
@@ -23,8 +17,8 @@ data class Product(
     val isFeatured: Boolean = false,
     val mediaFormat: String = "1:1", // "1:1", "3:4", "4:3", "9:16", "16:9"
     val videoUrl: String = "",
-    @get:PropertyName("isVideo") @set:PropertyName("isVideo") var isVideo: Boolean = false,
-    @ServerTimestamp val createdAt: Timestamp? = null
+    var isVideo: Boolean = false,
+    val createdAt: String? = null
 ) {
     val hasVideo: Boolean
         get() = isVideo || videoUrl.isNotBlank()
@@ -40,9 +34,8 @@ val Product.aspectRatioValue: Float
     }
 
 
-@IgnoreExtraProperties
 data class PublicationStats(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val likesCount: Long = 0L,
     val commentsCount: Long = 0L,
     val sharesCount: Long = 0L,
@@ -50,19 +43,17 @@ data class PublicationStats(
     val lastCommentId: String = ""
 )
 
-@IgnoreExtraProperties
 data class PublicationComment(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val productId: String = "",
     val userId: String = "",
     val displayName: String = "",
     val text: String = "",
-    @ServerTimestamp val createdAt: Timestamp? = null
+    val createdAt: String? = null
 )
 
-@IgnoreExtraProperties
 data class CartItem(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val productId: String = "",
     val name: String = "",
@@ -71,13 +62,12 @@ data class CartItem(
     val selectedSize: String = "",
     val selectedColor: String = "",
     val quantity: Long = 1L,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    val createdAt: String? = null,
+    val updatedAt: String? = null
 )
 
-@IgnoreExtraProperties
 data class Order(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val customerName: String = "",
     val email: String = "",
@@ -89,22 +79,20 @@ data class Order(
     val itemCount: Long = 1L,
     val status: String = "confirmado",
     val itemsSummary: String = "",
-    @ServerTimestamp val createdAt: Timestamp? = null
+    val createdAt: String? = null
 )
 
-@IgnoreExtraProperties
 data class SupportMessage(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val sender: String = "user", // "user" or "support"
     val senderName: String = "",
     val text: String = "",
-    @ServerTimestamp val createdAt: Timestamp? = null
+    val createdAt: String? = null
 )
 
-@IgnoreExtraProperties
 data class UserProfile(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val displayName: String = "",
     val email: String = "",
@@ -112,12 +100,11 @@ data class UserProfile(
     val phone: String = "",
     val address: String = "",
     val city: String = "",
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    val updatedAt: String? = null
 )
 
-@IgnoreExtraProperties
 data class Announcement(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val title: String = "",
     val message: String = "",
     val type: String = "banner", // "banner", "historia_9_16", "descuento", "coleccion"
@@ -128,8 +115,8 @@ data class Announcement(
     val targetCategory: String = "todo",
     val isActive: Boolean = true,
     val videoUrl: String = "",
-    @get:PropertyName("isVideo") @set:PropertyName("isVideo") var isVideo: Boolean = false,
-    @ServerTimestamp val createdAt: Timestamp? = null
+    var isVideo: Boolean = false,
+    val createdAt: String? = null
 ) {
     val hasVideo: Boolean
         get() = isVideo || videoUrl.isNotBlank()
