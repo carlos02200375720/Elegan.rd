@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -70,8 +71,7 @@ import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.example.data.remote.MobileSession
 
 const val SUPER_ADMIN_EMAIL = "cg0220037@gmail.com"
 
@@ -89,13 +89,8 @@ fun MenuAdminScreen(
 ) {
     BackHandler { onBack() }
 
-    val currentUser = Firebase.auth.currentUser
-    val userEmail = (currentUser?.email ?: "").trim()
-    val providerEmails = currentUser?.providerData?.mapNotNull { it.email?.trim() } ?: emptyList()
-    val isSuperAdmin = currentUser != null && (
-        userEmail.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) ||
-        providerEmails.any { it.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) }
-    )
+    val currentUser = MobileSession.user(LocalContext.current)
+    val isSuperAdmin = currentUser?.role == "admin"
 
     if (!isSuperAdmin) {
         Scaffold(
@@ -712,7 +707,7 @@ fun MenuAdminScreen(
                         MultimediaFlowStep(
                             stepNumber = "4",
                             title = "Alojamiento en Nube (Producción)",
-                            description = "Para que otros dispositivos y usuarios vean las fotos, los archivos binarios se suben a Firebase Cloud Storage o Google Cloud Storage, guardando sus URLs públicas HTTPS en Firestore."
+                            description = "Para que otros dispositivos y usuarios vean las fotos, los archivos binarios se suben a el almacenamiento multimedia configurado en el servidor, guardando sus URLs HTTPS en MongoDB."
                         )
                     }
                 }
