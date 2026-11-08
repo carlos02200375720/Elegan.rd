@@ -112,13 +112,13 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-import com.google.firebase.Firebase
-import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.auth.auth
+import com.example.data.remote.EleganApiClient
+import com.example.data.remote.MobileSession
+import com.example.data.remote.RegisterRequest
+import com.example.data.remote.LoginRequest
+import com.example.data.remote.GoogleAuthRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 const val APP_PACKAGE_NAME = "com.elegan"
 const val APP_DEBUG_SHA1 = "1D:3F:73:38:83:E9:8B:0A:00:95:26:0D:08:A9:1D:CE:4E:51:89:72"
@@ -437,7 +437,8 @@ fun AuthScreen(
                                             isLoading = false
                                             errorMessage = err
                                         },
-                                        scope = coroutineScope
+                                        scope = coroutineScope,
+                                        context = context
                                     )
                                 },
                                 modifier = Modifier
@@ -686,8 +687,8 @@ fun AuthScreen(
                                         errorMessage = "Por favor ingresa un correo electrónico válido."
                                         return@Button
                                     }
-                                    if (password.length < 6) {
-                                        errorMessage = "La contraseña debe tener al menos 6 caracteres."
+                                    if (password.length < 8) {
+                                        errorMessage = "La contraseña debe tener al menos 8 caracteres."
                                         return@Button
                                     }
                                     if (isRegisterMode && password != confirmPasswordInput) {
@@ -700,16 +701,14 @@ fun AuthScreen(
 
                                     coroutineScope.launch {
                                         try {
-                                            if (isRegisterMode) {
-                                                val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
-                                                val displayName = nameInput.trim().ifBlank { "Caballero Elegan" }
-                                                val profileUpdates = UserProfileChangeRequest.Builder()
-                                                    .setDisplayName(displayName)
-                                                    .build()
-                                                authResult.user?.updateProfile(profileUpdates)?.await()
+                                            val response = if (isRegisterMode) {
+                                                EleganApiClient.auth.register(
+                                                    RegisterRequest(nameInput.trim().ifBlank { "Caballero Elegan" }, email, password)
+                                                )
                                             } else {
-                                                Firebase.auth.signInWithEmailAndPassword(email, password).await()
+                                                EleganApiClient.auth.login(LoginRequest(email, password))
                                             }
+                                            MobileSession.save(context, response)
                                             isLoading = false
                                             onAuthSuccess()
                                         } catch (e: Exception) {
@@ -1102,8 +1101,8 @@ fun onGoogleSignInClicked(
             val credential = result.credential
             if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
-                Firebase.auth.signInWithCredential(authCredential).await()
+                val response = EleganApiClient.auth.loginWithGoogle(GoogleAuthRequest(googleIdToken))
+                MobileSession.save(context, response)
                 onAuthSuccess()
             } else {
                 onAuthError("Tipo de credencial no esperado")
@@ -1131,23 +1130,18 @@ fun onGoogleSignInClicked(
 }
 
 fun signInAsAdmin(
+    context: Context,
     onAuthSuccess: () -> Unit,
     onError: (String) -> Unit,
     scope: CoroutineScope
 ) {
     scope.launch {
         try {
-            val email = DEFAULT_SUPER_ADMIN_EMAIL
-            val password = "EleganAdmin2026!"
-            try {
-                Firebase.auth.signInWithEmailAndPassword(email, password).await()
-            } catch (e: Exception) {
-                val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
-                val profileUpdates = UserProfileChangeRequest.Builder()
-                    .setDisplayName("Administrador Elegan")
-                    .build()
-                authResult.user?.updateProfile(profileUpdates)?.await()
-            }
+            val response = EleganApiClient.auth.login(
+                LoginRequest(DEFAULT_SUPER_ADMIN_EMAIL, "EleganAdmin2026!")
+            )
+            require(response.user.role == "admin") { "Esta cuenta no tiene permisos de administrador en el servidor." }
+            MobileSession.save(context, response)
             onAuthSuccess()
         } catch (e: Exception) {
             Log.e("Auth", "Error en acceso de administrador", e)
@@ -1157,24 +1151,17 @@ fun signInAsAdmin(
 }
 
 fun signInAsClient(
+    context: Context,
     onAuthSuccess: () -> Unit,
     onError: (String) -> Unit,
     scope: CoroutineScope
 ) {
     scope.launch {
         try {
-            val email = "cliente.elegan@gmail.com"
-            val password = "EleganCliente2026!"
-            try {
-                Firebase.auth.signInWithEmailAndPassword(email, password).await()
-            } catch (e: Exception) {
-                // If the user doesn't exist yet, create it
-                val authResult = Firebase.auth.createUserWithEmailAndPassword(email, password).await()
-                val profileUpdates = UserProfileChangeRequest.Builder()
-                    .setDisplayName("Cliente Elegan")
-                    .build()
-                authResult.user?.updateProfile(profileUpdates)?.await()
-            }
+            val response = EleganApiClient.auth.login(
+                LoginRequest("cliente.elegan@gmail.com", "EleganCliente2026!")
+            )
+            MobileSession.save(context, response)
             onAuthSuccess()
         } catch (e: Exception) {
             Log.e("Auth", "Error en acceso rápido de cliente", e)
@@ -1197,7 +1184,7 @@ fun mapFirebaseError(e: Throwable): String {
         message.contains("WEAK_PASSWORD", ignoreCase = true) ->
             "La contraseña debe tener al menos 6 caracteres."
         message.contains("OPERATION_NOT_ALLOWED", ignoreCase = true) || message.contains("CONFIGURATION_NOT_FOUND", ignoreCase = true) ->
-            "Habilita el proveedor 'Correo electrónico/contraseña' en Firebase Console (Autenticación > Sign-in method)."
+            "Verifica que el servicio de autenticación de Elegan esté configurado correctamente."
         message.contains("NETWORK_ERROR", ignoreCase = true) || message.contains("network", ignoreCase = true) ->
             "Error de conexión. Verifica tu acceso a internet."
         else ->
@@ -1212,8 +1199,17 @@ fun attemptAutoSignIn(
     onUnauthenticated: () -> Unit,
     scope: CoroutineScope
 ) {
-    if (Firebase.auth.currentUser != null) {
-        onAuthSuccess()
+    val savedToken = MobileSession.bearerToken(context)
+    if (savedToken != null) {
+        scope.launch {
+            try {
+                EleganApiClient.auth.currentUser(savedToken)
+                onAuthSuccess()
+            } catch (e: Exception) {
+                MobileSession.clear(context)
+                onUnauthenticated()
+            }
+        }
         return
     }
     val clientId = getGoogleWebClientId(context)
@@ -1236,8 +1232,8 @@ fun attemptAutoSignIn(
             val credential = result.credential
             if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
-                Firebase.auth.signInWithCredential(authCredential).await()
+                val response = EleganApiClient.auth.loginWithGoogle(GoogleAuthRequest(googleIdToken))
+                MobileSession.save(context, response)
                 onAuthSuccess()
             } else {
                 onUnauthenticated()
@@ -1254,8 +1250,13 @@ fun signOutUser(
     onSignOutComplete: () -> Unit,
     scope: CoroutineScope
 ) {
-    Firebase.auth.signOut()
     scope.launch {
+        try {
+            MobileSession.bearerToken(context)?.let { EleganApiClient.auth.logout(it) }
+        } catch (e: Exception) {
+            Log.w("Auth", "No se pudo cerrar la sesión remota: ${e.message}")
+        }
+        MobileSession.clear(context)
         try {
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         } catch (e: Exception) {
