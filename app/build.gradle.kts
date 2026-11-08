@@ -16,7 +16,8 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
-    val googleWebClientId = providers.environmentVariable("GOOGLE_WEB_CLIENT_ID").orElse("").get()
+    val googleWebClientId = providers.environmentVariable("GOOGLE_WEB_CLIENT_ID").orNull?.takeIf { it.isNotBlank() }
+      ?: "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
     buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     val eleganApiBaseUrl = providers.environmentVariable("ELEGAN_API_BASE_URL").orNull?.takeIf { it.isNotBlank() }
       ?: "https://backend-elegan-rd-587849039182.us-central1.run.app"

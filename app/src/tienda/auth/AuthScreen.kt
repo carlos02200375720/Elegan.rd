@@ -886,13 +886,16 @@ fun getGoogleWebClientId(context: Context): String? {
     val configuredClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
     if (configuredClientId.isNotEmpty()) return configuredClientId
 
-    return try {
+    val fromResources = try {
         val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
         if (resId != 0) context.getString(resId).takeIf { it.isNotBlank() } else null
     } catch (e: Exception) {
         Log.e("Auth", "No se pudo leer default_web_client_id", e)
         null
     }
+    if (!fromResources.isNullOrBlank()) return fromResources
+
+    return "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
 }
 
 private fun Context.findActivity(): Activity? {
