@@ -60,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -72,8 +73,7 @@ import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.example.data.remote.MobileSession
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,8 +90,8 @@ fun VerificasionScreen(
 ) {
     BackHandler { onBack() }
 
-    val user = Firebase.auth.currentUser
-    var customerName by remember { mutableStateOf(user?.displayName ?: userProfile?.displayName ?: "") }
+    val user = MobileSession.user(LocalContext.current)
+    var customerName by remember { mutableStateOf(user?.name ?: userProfile?.displayName ?: "") }
     var email by remember { mutableStateOf(user?.email ?: userProfile?.email ?: "") }
     var phone by remember { mutableStateOf(userProfile?.phone ?: "") }
     var address by remember { mutableStateOf(userProfile?.address ?: "") }
