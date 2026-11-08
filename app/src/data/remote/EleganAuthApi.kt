@@ -38,7 +38,7 @@ interface EleganAuthApi {
     suspend fun currentUser(@Header("Authorization") bearerToken: String): CurrentUserResponse
 
     @POST("api/movil/auth/logout")
-    suspend fun logout(): retrofit2.Response<Unit>
+    suspend fun logout(@Header("Authorization") bearerToken: String): retrofit2.Response<Unit>
 }
 
 object EleganApiClient {
