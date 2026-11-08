@@ -96,7 +96,6 @@ class EleganRepository(private val context: Context) {
             ?: getInitialSampleProducts().find { it.id == productId }
     }
 
-    private fun getFallbackCoverForCategory
     private fun getFallbackCoverForCategory(category: String): String {
         return when (category.lowercase().trim()) {
             "camisa" -> "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80"
@@ -373,7 +372,6 @@ class EleganRepository(private val context: Context) {
         } finally { temp.delete() }
     }
 
-    private fun createVideoThumbnail
     private fun createVideoThumbnail(context: Context, videoSource: String): File? {
         if (videoSource.isBlank()) return null
         val uri = Uri.parse(videoSource)
