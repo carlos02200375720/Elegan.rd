@@ -126,8 +126,7 @@ import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.example.data.remote.MobileSession
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -203,9 +202,9 @@ fun InicioScreen(
     var localSavedProductIds by remember { mutableStateOf(setOf<String>()) }
     var activeCommentProduct by remember { mutableStateOf<Product?>(null) }
 
-    val currentUser = Firebase.auth.currentUser
+    val currentUser = MobileSession.user(context)
     val rawName = userProfile?.displayName?.takeIf { it.isNotBlank() }
-        ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
+        ?: currentUser?.name?.takeIf { it.isNotBlank() }
         ?: currentUser?.email?.substringBefore("@")
         ?: "Bienvenido"
     val displayName = rawName.trim()
