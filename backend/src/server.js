@@ -357,11 +357,23 @@ app.post("/api/movil/cart", requireAuth, async (req, res) => {
     if (!product) return res.status(404).json({ error: "PRODUCT_NOT_FOUND" });
     const quantity = Number(data.quantity) || 1;
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return res.status(400).json({ error: "INVALID_QUANTITY" });
+    const filter = {
+      userId: String(req.user._id), productId,
+      selectedSize: String(data.selectedSize || ""),
+      selectedColor: String(data.selectedColor || "")
+    };
+    const existing = await db.collection("cart").findOne(filter);
+    if (existing) {
+      await db.collection("cart").updateOne({ _id: existing._id }, {
+        $inc: { quantity },
+        $set: { updatedAt: new Date(), name: product.name || "", price: Number(product.price) || 0, imageUrl: product.imageUrl || "" }
+      });
+      return res.json({ id: existing._id });
+    }
     const item = {
-      _id: randomUUID(), userId: String(req.user._id), productId,
+      ...filter, _id: randomUUID(),
       name: product.name || "", price: Number(product.price) || 0,
-      imageUrl: product.imageUrl || "", selectedSize: String(data.selectedSize || ""),
-      selectedColor: String(data.selectedColor || ""), quantity,
+      imageUrl: product.imageUrl || "", quantity,
       createdAt: new Date(), updatedAt: new Date()
     };
     await db.collection("cart").insertOne(item);
@@ -423,8 +435,23 @@ app.post("/api/movil/messages", requireAuth, async (req, res) => {
   try {
     const value = String(req.body?.text || "").trim();
     if (!value || value.length > 4000) return res.status(400).json({ error: "INVALID_MESSAGE" });
-    const item = { _id: randomUUID(), userId: String(req.user._id), sender: "user", senderName: String(req.user.name || "Cliente"), text: value, createdAt: new Date() };
+    const userId = String(req.user._id);
+    const item = { _id: randomUUID(), userId, sender: "user", senderName: String(req.user.name || "Cliente"), text: value, createdAt: new Date() };
     await db.collection("supportMessages").insertOne(item);
+    const normalized = value.toLowerCase();
+    const reply = normalized.includes("envio") || normalized.includes("entrega")
+      ? "Gracias por tu consulta. Nuestro equipo de Elegan te ayudará con la información de entrega de tu pedido."
+      : normalized.includes("talla") || normalized.includes("medida")
+        ? "Gracias por escribirnos. Nuestro equipo puede orientarte con las tallas y medidas disponibles."
+        : normalized.includes("devolucion") || normalized.includes("cambio")
+          ? "Recibimos tu consulta sobre cambios o devoluciones. Un asesor de Elegan te dará seguimiento."
+          : normalized.includes("descuento") || normalized.includes("promocion")
+            ? "Gracias por consultar nuestras promociones. Revisa los anuncios y ofertas vigentes en la tienda."
+            : "Gracias por comunicarte con Elegan. Hemos recibido tu consulta y nuestro equipo te dará seguimiento.";
+    await db.collection("supportMessages").insertOne({
+      _id: randomUUID(), userId, sender: "support", senderName: "Elegan Concierge",
+      text: reply, createdAt: new Date(Date.now() + 1)
+    });
     res.status(201).json({ id: item._id });
   } catch (error) { sendError(res, error, "message create failed"); }
 });
