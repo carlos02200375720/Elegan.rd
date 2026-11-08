@@ -15,6 +15,18 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || "elegan_production_jwt_secret
 process.env.GOOGLE_WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID || "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com";
 process.env.MONGODB_DATABASE = process.env.MONGODB_DATABASE || "elegan.rd.db";
 
+// Si el usuario pegó el JSON completo de google-services.json en lugar de solo el client_id, extraerlo limpiamente
+if (process.env.GOOGLE_WEB_CLIENT_ID && process.env.GOOGLE_WEB_CLIENT_ID.trim().startsWith("{")) {
+  try {
+    const parsed = JSON.parse(process.env.GOOGLE_WEB_CLIENT_ID);
+    const oauthClients = parsed?.client?.[0]?.oauth_client || [];
+    const webClient = oauthClients.find(c => c.client_type === 3) || oauthClients[0];
+    process.env.GOOGLE_WEB_CLIENT_ID = webClient?.client_id || "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com";
+  } catch {
+    process.env.GOOGLE_WEB_CLIENT_ID = "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com";
+  }
+}
+
 const required = ["MONGODB_URI"];
 for (const key of required) {
   if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);

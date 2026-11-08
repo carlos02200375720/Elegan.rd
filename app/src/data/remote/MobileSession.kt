@@ -47,14 +47,17 @@ object MobileSession {
     }
 
     fun save(context: Context, response: AuthResponse) {
+        val token = response.token.ifBlank { "remote_jwt_" + UUID.randomUUID().toString() }
+        val userId = response.user.effectiveId.ifBlank { UUID.randomUUID().toString() }
+        val role = if (response.user.isAdmin || response.user.role == "admin" || response.user.role == "superadmin") "admin" else "customer"
         preferences(context).edit()
-            .putString(TOKEN, response.token)
-            .putString(USER_ID, response.user.id)
+            .putString(TOKEN, token)
+            .putString(USER_ID, userId)
             .putString(EMAIL, response.user.email.orEmpty())
-            .putString(NAME, response.user.name)
-            .putString(PHOTO, response.user.photoUrl)
-            .putString(ROLE, response.user.role)
-            .putString(PROVIDER, response.user.provider)
+            .putString(NAME, response.user.name.ifBlank { "Cliente Elegan" })
+            .putString(PHOTO, response.user.effectivePhotoUrl)
+            .putString(ROLE, role)
+            .putString(PROVIDER, response.user.provider.ifBlank { "mongodb" })
             .apply()
     }
 

@@ -14,15 +14,33 @@ data class RegisterRequest(val name: String, val email: String, val password: St
 data class LoginRequest(val email: String, val password: String)
 data class GoogleAuthRequest(val idToken: String)
 data class AuthUser(
-    val id: String,
-    val email: String?,
-    val name: String,
-    val photoUrl: String,
-    val role: String,
-    val provider: String
+    val id: String = "",
+    val originalId: String? = null,
+    val email: String? = null,
+    val name: String = "",
+    val photoUrl: String = "",
+    val avatar: String? = null,
+    val role: String = "customer",
+    val provider: String = "password",
+    val isAdmin: Boolean = false
+) {
+    val effectivePhotoUrl: String
+        get() = photoUrl.ifBlank { avatar.orEmpty() }
+
+    val effectiveId: String
+        get() = originalId?.takeIf { it.isNotBlank() } ?: id
+}
+
+data class AuthResponse(
+    val token: String = "",
+    val user: AuthUser = AuthUser(),
+    val success: Boolean = true,
+    val message: String? = null
 )
-data class AuthResponse(val token: String, val user: AuthUser)
-data class CurrentUserResponse(val user: AuthUser)
+
+data class CurrentUserResponse(
+    val user: AuthUser = AuthUser()
+)
 
 interface EleganAuthApi {
     @POST("api/movil/auth/register")
