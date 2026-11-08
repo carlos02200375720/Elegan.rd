@@ -36,7 +36,6 @@ class EleganRepository(private val context: Context) {
 
     private fun optionalToken(): String? = MobileSession.bearerToken(appContext)
 
-    private fun getDeletedAnnouncementIds()
     private fun getDeletedAnnouncementIds(): Set<String> {
         val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
         return prefs?.getStringSet("deleted_announcements", emptySet()) ?: emptySet()
@@ -465,7 +464,6 @@ class EleganRepository(private val context: Context) {
         api.updateAnnouncement(requireToken(), announcementId, mapOf("isActive" to isActive))
     }
 
-    fun getInitialSampleAnnouncements
     fun getInitialSampleAnnouncements(): List<Announcement> = listOf(
         Announcement(
             id = "ann_1",
@@ -669,7 +667,6 @@ class EleganRepository(private val context: Context) {
         ))
     }
 
-    fun getInitialSampleProducts
     fun getInitialSampleProducts(): List<Product> = listOf(
         Product(
             id = "prod_gorra_1",
