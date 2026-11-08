@@ -122,7 +122,6 @@ import kotlinx.coroutines.launch
 
 const val APP_PACKAGE_NAME = "com.elegan"
 const val APP_DEBUG_SHA1 = "1D:3F:73:38:83:E9:8B:0A:00:95:26:0D:08:A9:1D:CE:4E:51:89:72"
-const val FIREBASE_PROJECT_ID = "carlos-garcia-509521"
 const val DEFAULT_SUPER_ADMIN_EMAIL = "cg0220037@gmail.com"
 
 @Composable
@@ -714,7 +713,7 @@ fun AuthScreen(
                                         } catch (e: Exception) {
                                             isLoading = false
                                             Log.e("Auth", "Error al procesar correo/contraseña", e)
-                                            errorMessage = mapFirebaseError(e)
+                                            errorMessage = mapAuthApiError(e)
                                         }
                                     }
                                 },
