@@ -46,6 +46,19 @@ object EleganApiClient {
         .addLast(KotlinJsonAdapterFactory())
         .build()
 
+
+    val store: EleganStoreApi by lazy {
+        val configuredUrl = BuildConfig.ELEGAN_API_BASE_URL
+        require(configuredUrl.startsWith("https://")) {
+            "ELEGAN_API_BASE_URL must be configured with the HTTPS Cloud Run URL"
+        }
+        Retrofit.Builder()
+            .baseUrl(configuredUrl.trimEnd('/') + "/")
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(EleganStoreApi::class.java)
+    }
+
     val auth: EleganAuthApi by lazy {
         val configuredUrl = BuildConfig.ELEGAN_API_BASE_URL
         require(configuredUrl.startsWith("https://")) {
