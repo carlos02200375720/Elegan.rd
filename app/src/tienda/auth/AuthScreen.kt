@@ -482,7 +482,7 @@ fun AuthScreen(
                                             isLoading = false
                                             errorMessage = err
                                         },
-                                        scope = coroutineScope
+                                        scope = coroutineScope,
                                             context = context
                                     )
                                 },
@@ -823,7 +823,7 @@ fun AuthScreen(
                                                     isLoading = false
                                                     errorMessage = err
                                                 },
-                                                scope = coroutineScope
+                                                scope = coroutineScope,
                                                     context = context
                                             )
                                         },
@@ -1005,7 +1005,7 @@ fun AuthScreen(
                                     isLoading = false
                                     errorMessage = err
                                 },
-                                scope = coroutineScope
+                                scope = coroutineScope,
                                     context = context
                             )
                         },
@@ -1027,7 +1027,7 @@ fun AuthScreen(
                                     isLoading = false
                                     errorMessage = err
                                 },
-                                scope = coroutineScope
+                                scope = coroutineScope,
                                     context = context
                             )
                         },
