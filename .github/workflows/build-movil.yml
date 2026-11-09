@@ -118,6 +118,15 @@ jobs:
           ELEGAN_API_BASE_URL: ${{ secrets.ELEGAN_API_BASE_URL }}
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Inspeccionar firma del APK generado
+        run: |
+          for apk in app/build/outputs/apk/**/*.apk; do
+            if [ -f "$apk" ]; then
+              echo "=== Certificado de $apk ==="
+              keytool -printcert -jarfile "$apk" | grep -E "SHA1:|SHA256:" || true
+            fi
+          done
+
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
