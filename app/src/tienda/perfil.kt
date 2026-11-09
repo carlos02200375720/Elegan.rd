@@ -148,7 +148,7 @@ fun PerfilScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(top = 5.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
+                                .padding(top = 10.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val photoUrl = user?.photoUrl?.toString() ?: userProfile?.photoUrl
