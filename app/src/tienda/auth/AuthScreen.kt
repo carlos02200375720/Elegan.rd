@@ -2,11 +2,8 @@ package com.example.ui.auth
 
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -40,7 +37,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
@@ -783,94 +779,22 @@ fun AuthScreen(
                 }
             },
             text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "El emulador o teléfono actual no tiene ninguna cuenta de Google iniciada en el sistema Android.\n\n" +
-                                "Puedes ingresar de inmediato con los botones a continuación, o añadir una cuenta al dispositivo:",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF444444),
-                            lineHeight = 18.sp
-                        )
+                Text(
+                    text = "No fue posible iniciar sesión con Google en este dispositivo. Para acceder a Elegan, selecciona la pestaña Correo e inicia sesión con tu correo electrónico y contraseña.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF444444),
+                        lineHeight = 18.sp
                     )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    OutlinedButton(
-                        onClick = {
-                            showNoAccountDialog = false
-                            try {
-                                val intent = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
-                                    putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                try {
-                                    context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS))
-                                } catch (e2: Exception) {
-                                    Toast.makeText(context, "Abre Ajustes > Cuentas en Android para añadir tu cuenta", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = EleganBurgundy)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Añadir Cuenta Google al Dispositivo", fontSize = 12.5.sp)
-                    }
-                }
+                )
             },
             confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            showNoAccountDialog = false
-                            isLoading = true
-                            errorMessage = null
-                            signInAsAdmin(
-                                onAuthSuccess = {
-                                    isLoading = false
-                                    onAuthSuccess()
-                                },
-                                onError = { err ->
-                                    isLoading = false
-                                    errorMessage = err
-                                },
-                                scope = coroutineScope,
-                                    context = context
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy)
-                    ) {
-                        Text("Entrar Admin")
-                    }
-                    Button(
-                        onClick = {
-                            showNoAccountDialog = false
-                            isLoading = true
-                            errorMessage = null
-                            signInAsClient(
-                                onAuthSuccess = {
-                                    isLoading = false
-                                    onAuthSuccess()
-                                },
-                                onError = { err ->
-                                    isLoading = false
-                                    errorMessage = err
-                                },
-                                scope = coroutineScope,
-                                    context = context
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = EleganGold, contentColor = Color(0xFF2B050B))
-                    ) {
-                        Text("Entrar Cliente")
-                    }
+                TextButton(onClick = {
+                    showNoAccountDialog = false
+                    selectedTab = 1
+                    isRegisterMode = false
+                    errorMessage = null
+                }) {
+                    Text("Ingresar con correo")
                 }
             },
             dismissButton = {
@@ -881,7 +805,6 @@ fun AuthScreen(
         )
     }
 }
-
 fun getGoogleWebClientId(context: Context): String? {
     val configuredClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
     if (configuredClientId.isNotEmpty()) return configuredClientId
@@ -972,58 +895,6 @@ fun onGoogleSignInClicked(
                 Log.e("Auth", "Inicio de sesión fallido", e)
                 onAuthError(msg)
             }
-        }
-    }
-}
-
-fun signInAsAdmin(
-    context: Context,
-    onAuthSuccess: () -> Unit,
-    onError: (String) -> Unit,
-    scope: CoroutineScope
-) {
-    scope.launch {
-        try {
-            val response = try {
-                val remote = EleganApiClient.auth.login(
-                    LoginRequest(DEFAULT_SUPER_ADMIN_EMAIL, "EleganAdmin2026!")
-                )
-                require(remote.user.role == "admin") { "Esta cuenta no tiene permisos de administrador en el servidor." }
-                remote
-            } catch (netEx: Exception) {
-                Log.w("Auth", "Servidor no disponible para login admin (${netEx.message}), usando credenciales locales seguras.")
-                MobileSession.loginAdminLocally(context)
-            }
-            MobileSession.save(context, response)
-            onAuthSuccess()
-        } catch (e: Exception) {
-            Log.e("Auth", "Error en acceso de administrador", e)
-            onError(mapAuthApiError(e))
-        }
-    }
-}
-
-fun signInAsClient(
-    context: Context,
-    onAuthSuccess: () -> Unit,
-    onError: (String) -> Unit,
-    scope: CoroutineScope
-) {
-    scope.launch {
-        try {
-            val response = try {
-                EleganApiClient.auth.login(
-                    LoginRequest("cliente.elegan@gmail.com", "EleganCliente2026!")
-                )
-            } catch (netEx: Exception) {
-                Log.w("Auth", "Servidor no disponible para login cliente (${netEx.message}), usando credenciales locales seguras.")
-                MobileSession.loginClientLocally(context)
-            }
-            MobileSession.save(context, response)
-            onAuthSuccess()
-        } catch (e: Exception) {
-            Log.e("Auth", "Error en acceso rápido de cliente", e)
-            onError(mapAuthApiError(e))
         }
     }
 }
