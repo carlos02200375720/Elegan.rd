@@ -805,20 +805,40 @@ fun AuthScreen(
         )
     }
 }
-fun getGoogleWebClientId(context: Context): String? {
-    val configuredClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
-    if (configuredClientId.isNotEmpty()) return configuredClientId
+fun getGoogleWebClientId(context: Context): String {
+    val defaultWebClientId = "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+    val configuredClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim().trim('"').trim('\'')
 
-    val fromResources = try {
-        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-        if (resId != 0) context.getString(resId).takeIf { it.isNotBlank() } else null
-    } catch (e: Exception) {
-        Log.e("Auth", "No se pudo leer default_web_client_id", e)
-        null
+    // Si por error se configuró el Client ID de Android (tipo 1: r9a7...) en variables de entorno o secretos,
+    // o algo vacío/inválido, forzar el uso del Client ID Web correcto
+    if (configuredClientId.contains("r9a7b5g9aq4ipotph7sik8i2f8uetb6q") ||
+        !configuredClientId.endsWith(".apps.googleusercontent.com") ||
+        configuredClientId.isBlank()) {
+        return defaultWebClientId
     }
-    if (!fromResources.isNullOrBlank()) return fromResources
+    return configuredClientId
+}
 
-    return "587849039182-3m8b8iiarigl5me5h70dq9hivt5qtmrd.apps.googleusercontent.com"
+fun getAppSigningSha1(context: Context): String {
+    return try {
+        val packageManager = context.packageManager
+        val packageName = context.packageName
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val packageInfo = packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            packageInfo.signingInfo?.apkContentsSigners
+        } else {
+            @Suppress("DEPRECATION")
+            val packageInfo = packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            @Suppress("DEPRECATION")
+            packageInfo.signatures
+        }
+        val firstSig = signatures?.firstOrNull()?.toByteArray() ?: return "No detectada"
+        val md = java.security.MessageDigest.getInstance("SHA-1")
+        val digest = md.digest(firstSig)
+        digest.joinToString(":") { "%02X".format(it) }
+    } catch (e: Exception) {
+        "Error: ${e.message}"
+    }
 }
 
 private fun Context.findActivity(): Activity? {
@@ -840,7 +860,7 @@ fun onGoogleSignInClicked(
     onAuthCancelled: () -> Unit = {}
 ) {
     val clientId = getGoogleWebClientId(context)
-    if (clientId.isNullOrBlank()) {
+    if (clientId.isBlank()) {
         onAuthError("Configuración de Google Sign-In faltante: default_web_client_id")
         return
     }
@@ -889,8 +909,12 @@ fun onGoogleSignInClicked(
                 Log.i("Auth", "No hay cuentas de Google activas en este dispositivo o emulador: $msg")
                 onNoCredentials()
             } else if (msg.contains("28444") || msg.contains("Developer console", ignoreCase = true) || msg.contains("DEVELOPER_ERROR", ignoreCase = true)) {
-                Log.e("Auth", "Google Sign-In rechazado por la configuración OAuth. Comprueba el ID de cliente Web, el paquete com.elegan y el SHA-1 del certificado que firma este APK.", e)
-                onAuthError("Google rechazó la configuración OAuth (DEVELOPER_ERROR). Verifica el ID de cliente Web y el SHA-1 del certificado de esta versión.")
+                val currentSha1 = getAppSigningSha1(context)
+                Log.e("Auth", "Google Sign-In rechazado por DEVELOPER_ERROR. SHA-1 actual: $currentSha1 | WebClientId: $clientId | Package: ${context.packageName}", e)
+                onAuthError("Google rechazó la conexión (DEVELOPER_ERROR).\n\n" +
+                    "Firma SHA-1 de este APK:\n$currentSha1\n\n" +
+                    "ID de Cliente Web:\n$clientId\n\n" +
+                    "Copia la firma SHA-1 anterior y agrégala en la consola de Firebase / Google Cloud Console en tu app com.elegan.")
             } else {
                 Log.e("Auth", "Inicio de sesión fallido", e)
                 onAuthError(msg)
