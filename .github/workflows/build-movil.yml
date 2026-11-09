@@ -75,16 +75,31 @@ jobs:
           fi
 
       - name: Preparar firma debug
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "Restaurando debug.keystore desde secreto..."
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 --decode > debug.keystore
+          elif [ -f "debug.keystore.base64" ]; then
+            echo "Restaurando debug.keystore desde archivo debug.keystore.base64..."
+            base64 --decode debug.keystore.base64 > debug.keystore
+          elif [ -f "debug.keystore" ]; then
+            echo "debug.keystore ya existe en el espacio de trabajo."
+          else
+            echo "::warning::Generando nuevo debug.keystore (Nota: Google Sign-In fallará a menos que se registre su nuevo SHA-1 en Firebase)."
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          # Mostrar la huella SHA-1 en los logs para verificación
+          keytool -list -v -keystore debug.keystore -storepass android -alias androiddebugkey | grep "SHA1:" || true
 
       - name: Compilar APK firmado para distribución
         if: steps.signing.outputs.available == 'true'
