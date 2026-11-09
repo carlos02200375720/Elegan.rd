@@ -116,6 +116,7 @@ fun PerfilScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    var selectedProfileSection by remember { mutableStateOf("saved") }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -222,31 +223,46 @@ fun PerfilScreen(
                         }
                         }
 
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = Color.White
-                        ) {
+                    }
+                }
+
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .testTag("profile_sections_container"),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
                                 ProfileMenuItem(
                                     label = "Guardados",
                                     icon = Icons.Default.Bookmark,
                                     testTag = "profile_saved_menu",
-                                    onClick = { scope.launch { listState.animateScrollToItem(1) } }
+                                    onClick = { selectedProfileSection = "saved" },
+                                    selected = selectedProfileSection == "saved"
                                 )
                                 ProfileMenuItem(
                                     label = "Pedidos",
                                     icon = Icons.Default.ReceiptLong,
                                     testTag = "profile_orders_menu",
-                                    onClick = { scope.launch { listState.animateScrollToItem(6) } }
+                                    onClick = { selectedProfileSection = "orders" },
+                                    selected = selectedProfileSection == "orders"
                                 )
                                 ProfileMenuItem(
                                     label = "Entrega",
                                     icon = Icons.Default.LocationOn,
                                     testTag = "profile_delivery_menu",
-                                    onClick = { scope.launch { listState.animateScrollToItem(2) } }
+                                    onClick = { selectedProfileSection = "delivery" },
+                                    selected = selectedProfileSection == "delivery"
                                 )
                                 ProfileMenuItem(
                                     label = "Ajustes",
@@ -261,310 +277,180 @@ fun PerfilScreen(
                                     }
                                 )
                             }
-                        }
-                    }
-                }
-
-                item {
-                    SavedPublicationsGrid(
-                        savedProducts = savedProducts,
-                        onProductClick = onProductClick,
-                        onExploreClick = onExploreClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                            .testTag("profile_saved_section")
-                    )
-                }
-
-                // Edit Delivery Info
-                item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = EleganBurgundy)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Mis Datos de Entrega",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EleganCharcoal
-                                )
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        OutlinedTextField(
-                            value = phone,
-                            onValueChange = { phone = it },
-                            label = { Text("Teléfono de Contacto") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("profile_phone_input"),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EleganBurgundy,
-                                unfocusedBorderColor = Color(0xFFDDD5CE)
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = address,
-                            onValueChange = { address = it },
-                            label = { Text("Dirección Habitual") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("profile_address_input"),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EleganBurgundy,
-                                unfocusedBorderColor = Color(0xFFDDD5CE)
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = city,
-                            onValueChange = { city = it },
-                            label = { Text("Ciudad / Provincia") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("profile_city_input"),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EleganBurgundy,
-                                unfocusedBorderColor = Color(0xFFDDD5CE)
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Button(
-                            onClick = {
-                                onSaveProfile(phone, address, city)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Datos guardados correctamente")
+                            HorizontalDivider(color = Color(0xFFEAE5E0))
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                when (selectedProfileSection) {
+                                    "saved" -> SavedPublicationsGrid(
+                                        savedProducts = savedProducts,
+                                        onProductClick = onProductClick,
+                                        onExploreClick = onExploreClick,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("profile_saved_section")
+                                    )
+                                    "delivery" -> {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = EleganBurgundy)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Mis Datos de Entrega",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = EleganCharcoal
+                                                )
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(14.dp))
+                                        OutlinedTextField(
+                                            value = phone,
+                                            onValueChange = { phone = it },
+                                            label = { Text("Teléfono de Contacto") },
+                                            modifier = Modifier.fillMaxWidth().testTag("profile_phone_input"),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = EleganBurgundy,
+                                                unfocusedBorderColor = Color(0xFFDDD5CE)
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        OutlinedTextField(
+                                            value = address,
+                                            onValueChange = { address = it },
+                                            label = { Text("Dirección Habitual") },
+                                            modifier = Modifier.fillMaxWidth().testTag("profile_address_input"),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = EleganBurgundy,
+                                                unfocusedBorderColor = Color(0xFFDDD5CE)
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        OutlinedTextField(
+                                            value = city,
+                                            onValueChange = { city = it },
+                                            label = { Text("Ciudad / Provincia") },
+                                            modifier = Modifier.fillMaxWidth().testTag("profile_city_input"),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = EleganBurgundy,
+                                                unfocusedBorderColor = Color(0xFFDDD5CE)
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Button(
+                                            onClick = {
+                                                onSaveProfile(phone, address, city)
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Datos guardados correctamente")
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth().testTag("save_profile_btn")
+                                        ) {
+                                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Guardar Cambios")
+                                        }
+                                    }
+                                    "orders" -> {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = EleganBurgundy)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Mis Pedidos Recientes (${orders.size})",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = EleganCharcoal
+                                                )
+                                            )
+                                        }
+                                        if (orders.isEmpty()) {
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "Aún no has realizado ningún pedido en Elegan.",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                                                )
+                                            }
+                                        } else {
+                                            orders.forEachIndexed { index, order ->
+                                                if (index > 0) HorizontalDivider(
+                                                    modifier = Modifier.padding(vertical = 12.dp),
+                                                    color = Color(0xFFEAE5E0)
+                                                )
+                                                OrderHistoryItemCard(order = order)
+                                            }
+                                        }
+                                    }
                                 }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("save_profile_btn")
-                        ) {
-                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Guardar Cambios")
+                            }
                         }
                     }
                 }
-            }
 
-                // Customer Support shortcut card
+                // Atajos y herramientas fuera de las pestañas del perfil.
                 item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF26292E)),
-                    onClick = onNavigateToChats
-                ) {
-                    Row(
-                        modifier = Modifier.padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF26292E)),
+                        onClick = onNavigateToChats
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(EleganGold.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(Icons.Default.SupportAgent, contentDescription = null, tint = EleganGold)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Soporte & Asesoría VIP", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Chatea en directo con Elegan Concierge", color = Color(0xFFBBBBBB), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = EleganGold)
                         }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Soporte & Asesoría VIP",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                text = "Chatea en directo con Elegan Concierge",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBBBBBB))
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            tint = EleganGold
-                        )
                     }
                 }
-            }
 
-                // Panel de Publicación Admin y Menú Admin (Exclusivo Super Administrador)
                 if (isSuperAdmin) {
                     item {
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .testTag("profile_admin_publicar_card"),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("profile_admin_publicar_card"),
                             colors = CardDefaults.cardColors(containerColor = EleganBurgundyDark),
                             onClick = onNavigateToPublicar
                         ) {
-                            Row(
-                                modifier = Modifier.padding(18.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Campaign, contentDescription = null, tint = Color.White)
-                                }
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Publicar Producto o Anuncio",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Text(
-                                        text = "Panel Administrativo • Boutique Oficial",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = EleganGold)
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .testTag("profile_admin_menu_card"),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                            onClick = onNavigateToMenuAdmin
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(18.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(EleganBurgundy.copy(alpha = 0.12f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Menu, contentDescription = null, tint = EleganBurgundy)
-                                }
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Menú Administrativo",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            color = EleganCharcoal,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Text(
-                                        text = "Panel de control principal • menuadmin.kt",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = EleganBurgundy
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Orders Header
-                item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = EleganBurgundy)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Mis Pedidos Recientes (${orders.size})",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal
-                        )
-                    )
-                }
-            }
-
-                if (orders.isEmpty()) {
-                    item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
                             Text(
-                                text = "Aún no has realizado ningún pedido en Elegan.",
-                                style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                                "Publicar Producto o Anuncio",
+                                modifier = Modifier.padding(18.dp),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    }
-                } else {
-                    items(orders) { order ->
-                        OrderHistoryItemCard(
-                            order = order,
-                            modifier = Modifier.padding(horizontal = 20.dp)
-                        )
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("profile_admin_menu_card"),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            onClick = onNavigateToMenuAdmin
+                        ) {
+                            Text(
+                                "Menú Administrativo",
+                                modifier = Modifier.padding(18.dp),
+                                color = EleganCharcoal,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -626,41 +512,45 @@ private fun ProfileMenuItem(
     icon: ImageVector,
     testTag: String,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
     onClick: () -> Unit
 ) {
     Column(
         modifier = modifier
             .clickable(onClick = onClick)
             .testTag(testTag)
-            .padding(vertical = 2.dp),
+            .padding(horizontal = 8.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = EleganBurgundy,
+            tint = if (selected) EleganBurgundy else Color(0xFF8A817A),
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(
-                color = EleganCharcoal,
-                fontWeight = FontWeight.Medium
+                color = if (selected) EleganBurgundy else EleganCharcoal,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             )
         )
+        if (selected) {
+            Spacer(modifier = Modifier.height(3.dp))
+            Box(
+                modifier = Modifier
+                    .width(28.dp)
+                    .height(2.dp)
+                    .background(EleganBurgundy, RoundedCornerShape(2.dp))
+            )
+        }
     }
 }
 
 @Composable
 fun OrderHistoryItemCard(order: Order, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    Column(modifier = modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -721,6 +611,5 @@ fun OrderHistoryItemCard(order: Order, modifier: Modifier = Modifier) {
                     )
                 )
             }
-        }
     }
 }
