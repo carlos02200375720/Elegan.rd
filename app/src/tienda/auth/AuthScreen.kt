@@ -906,7 +906,7 @@ fun mapAuthApiError(e: Throwable): String {
         message.contains("JsonDataException", ignoreCase = true) ||
         message.contains("End of input", ignoreCase = true) ||
         message.contains("HTTP 200", ignoreCase = true) ->
-            "El servidor aún está inicializando su despliegue en la nube. Puedes ingresar inmediatamente con los botones de acceso."
+            "El servidor está teniendo dificultades para procesar la solicitud. Inténtalo nuevamente o inicia sesión con tu correo electrónico y contraseña."
         message.contains("EMAIL_ALREADY_REGISTERED", ignoreCase = true) ||
         message.contains("already in use", ignoreCase = true) ||
         message.contains("ERROR_EMAIL_ALREADY_IN_USE", ignoreCase = true) ->
