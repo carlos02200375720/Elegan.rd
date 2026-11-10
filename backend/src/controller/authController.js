@@ -28,7 +28,6 @@ export async function register(req, res) {
       role: "customer",
       provider: "password",
       sharedPublications: [],
-      pedidos: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -114,31 +113,25 @@ export async function googleLogin(req, res) {
     }
 
     // Clientes comunes en la colección 'users'
-    let user = await users.findOne({ googleSub: payload.sub });
-    if (!user) {
-      user = await users.findOne({ email });
-      if (user) {
-        await users.updateOne(
-          { _id: user._id },
-          { $set: { googleSub: payload.sub, updatedAt: new Date() } }
-        );
-        user = { ...user, googleSub: payload.sub };
-      } else {
-        user = {
-          _id: randomUUID(),
-          email,
-          name: payload.name || "",
-          photoUrl: payload.picture || "",
-          googleSub: payload.sub,
-          role: "customer",
-          provider: "google",
-          sharedPublications: [],
-          pedidos: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        await users.insertOne(user);
-      }
+    let user = await users.findOne({ email });
+    if (user) {
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { updatedAt: new Date() } }
+      );
+    } else {
+      user = {
+        _id: randomUUID(),
+        email,
+        name: payload.name || "",
+        photoUrl: payload.picture || "",
+        role: "customer",
+        provider: "google",
+        sharedPublications: [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      await users.insertOne(user);
     }
     return res.json({ token: issueToken(user), user: publicUser(user) });
   } catch (error) {

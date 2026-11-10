@@ -54,4 +54,11 @@ class ExampleRobolectricTest {
     assertEquals("admin", adminResponse.user.role)
     assertEquals("cg0220037@gmail.com", adminResponse.user.email)
   }
+
+  @Test
+  fun `test launch MainActivity`() {
+    val controller = org.robolectric.Robolectric.buildActivity(com.example.MainActivity::class.java)
+    controller.setup()
+    org.junit.Assert.assertNotNull(controller.get())
+  }
 }

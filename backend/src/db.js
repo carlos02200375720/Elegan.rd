@@ -61,7 +61,6 @@ export async function connectDB() {
 
   // Índices para usuarios y administradores
   await users.createIndex({ email: 1 }, { unique: true, sparse: true });
-  await users.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
   await superAdmins.createIndex({ email: 1 }, { unique: true, sparse: true });
   await superAdmins.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
   // Inicializar índices de todos los modelos de colecciones

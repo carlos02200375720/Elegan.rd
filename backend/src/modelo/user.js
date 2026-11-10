@@ -43,10 +43,6 @@ export const UserCollectionSchema = {
         bsonType: "string",
         description: "URL pública de la foto de perfil o avatar"
       },
-      googleSub: {
-        bsonType: ["string", "null"],
-        description: "ID de sujeto de Google OAuth"
-      },
       role: {
         enum: ["customer"],
         description: "Rol fijo: cliente común ('customer')"
@@ -76,10 +72,6 @@ export const UserCollectionSchema = {
         items: { bsonType: "string" },
         description: "IDs de publicaciones compartidas por el cliente"
       },
-      pedidos: {
-        bsonType: "array",
-        description: "Lista de pedidos realizados por el cliente"
-      },
       createdAt: {
         bsonType: "date",
         description: "Fecha y hora de registro"
@@ -97,7 +89,6 @@ export const UserCollectionSchema = {
  */
 export const UserIndexes = [
   { key: { email: 1 }, options: { unique: true, sparse: true, name: "idx_users_email_unique" } },
-  { key: { googleSub: 1 }, options: { unique: true, sparse: true, name: "idx_users_google_sub_unique" } },
   { key: { role: 1 }, options: { name: "idx_users_role" } },
   { key: { createdAt: -1 }, options: { name: "idx_users_created_at" } }
 ];
@@ -111,7 +102,6 @@ export const sampleUserDocument = {
   name: "Carlos García",
   passwordHash: "$2a$12$e8Y5M9Qz0K7V9j4N0qHqU.abcdefghijklmnopqrstuvwxyz12345",
   photoUrl: "",
-  googleSub: null,
   role: "customer",
   provider: "password",
   phone: "+1 809-555-0199",
@@ -119,7 +109,6 @@ export const sampleUserDocument = {
   city: "Santo Domingo",
   isActive: true,
   sharedPublications: [],
-  pedidos: [],
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z")
 };
@@ -133,7 +122,6 @@ export function createUserDocument({
   name = "",
   passwordHash = null,
   photoUrl = "",
-  googleSub = null,
   role = "customer",
   provider = "password",
   phone = "",
@@ -153,7 +141,6 @@ export function createUserDocument({
     name: String(name || "").trim(),
     passwordHash: passwordHash ? String(passwordHash) : null,
     photoUrl: String(photoUrl || "").trim(),
-    googleSub: googleSub ? String(googleSub) : null,
     role: "customer",
     provider: provider === "google" ? "google" : "password",
     phone: String(phone || "").trim(),
@@ -161,7 +148,6 @@ export function createUserDocument({
     city: String(city || "").trim(),
     isActive: Boolean(isActive),
     sharedPublications: [],
-    pedidos: [],
     createdAt: now,
     updatedAt: now
   };
@@ -172,8 +158,6 @@ export function createUserDocument({
  */
 export function toPublicUser(user) {
   if (!user) return null;
-  const orderItems = Array.isArray(user.pedidos) ? user.pedidos : (Array.isArray(user.orders) ? user.orders : []);
-
   return {
     id: user._id,
     email: user.email || null,
@@ -186,8 +170,6 @@ export function toPublicUser(user) {
     city: user.city || "",
     isActive: user.isActive !== false,
     sharedPublications: Array.isArray(user.sharedPublications) ? user.sharedPublications : [],
-    pedidos: orderItems,
-    orders: orderItems,
     createdAt: user.createdAt
   };
 }

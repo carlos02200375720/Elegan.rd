@@ -66,46 +66,25 @@ import coil.compose.AsyncImage
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganGold
 import java.io.File
-import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * Extrae y almacena en caché local la portada (primer fotograma) del video
- * para que sirva de imagen de portada y acompañe el contenido de la galería.
+ * Almacenamiento local de contenido multimedia erradicado definitivamente.
+ * No guarda ningún archivo ni fotograma en disco local.
  */
 fun extractVideoPosterLocally(context: Context, videoUriStr: String): String? {
-    if (videoUriStr.isBlank()) return null
-    return try {
-        val uri = Uri.parse(videoUriStr)
-        val retriever = MediaMetadataRetriever()
-        if (videoUriStr.startsWith("http://") || videoUriStr.startsWith("https://")) {
-            retriever.setDataSource(videoUriStr, HashMap<String, String>())
-        } else {
-            retriever.setDataSource(context, uri)
+    return null
+}
+
+fun purgeLocalMediaStorage(context: Context) {
+    try {
+        val mediaDir = File(context.filesDir, "product_media")
+        if (mediaDir.exists()) {
+            mediaDir.deleteRecursively()
         }
-        val frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            ?: retriever.frameAtTime
-        if (frame != null) {
-            val mediaDir = File(context.filesDir, "product_media").apply { if (!exists()) mkdirs() }
-            val hash = videoUriStr.hashCode().let { if (it < 0) -it else it }
-            val thumbFile = File(mediaDir, "thumb_$hash.jpg")
-            if (!thumbFile.exists() || thumbFile.length() == 0L) {
-                FileOutputStream(thumbFile).use { out ->
-                    frame.compress(Bitmap.CompressFormat.JPEG, 92, out)
-                }
-            }
-            frame.recycle()
-            retriever.release()
-            Uri.fromFile(thumbFile).toString()
-        } else {
-            retriever.release()
-            null
-        }
-    } catch (_: Exception) {
-        null
-    }
+    } catch (_: Exception) {}
 }
 
 /**

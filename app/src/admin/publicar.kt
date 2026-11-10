@@ -80,6 +80,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -101,60 +102,18 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
-import java.io.FileOutputStream
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import kotlinx.coroutines.launch
 
+// Almacenamiento local de contenido multimedia erradicado definitivamente
 private fun persistUriLocallyInApp(context: Context, sourceUri: Uri, prefix: String, isVideo: Boolean): String {
-    return try {
-        if (sourceUri.scheme == "file") {
-            val f = File(sourceUri.path ?: "")
-            if (f.exists() && f.length() > 0) return sourceUri.toString()
-        }
-        val mediaDir = File(context.filesDir, "product_media").apply { if (!exists()) mkdirs() }
-        val ext = if (isVideo) "mp4" else "jpg"
-        val targetFile = File(mediaDir, "${prefix}_${System.currentTimeMillis()}.$ext")
-        context.contentResolver.openInputStream(sourceUri)?.use { input ->
-            FileOutputStream(targetFile).use { output ->
-                input.copyTo(output)
-            }
-        }
-        if (targetFile.exists() && targetFile.length() > 0) {
-            Uri.fromFile(targetFile).toString()
-        } else {
-            sourceUri.toString()
-        }
-    } catch (_: Exception) {
-        sourceUri.toString()
-    }
+    return sourceUri.toString()
 }
 
 private fun extractThumbnailLocally(context: Context, videoUriStr: String): String? {
-    return try {
-        val uri = Uri.parse(videoUriStr)
-        val retriever = MediaMetadataRetriever()
-        retriever.setDataSource(context, uri)
-        val frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: retriever.frameAtTime
-        if (frame != null) {
-            val mediaDir = File(context.filesDir, "product_media").apply { if (!exists()) mkdirs() }
-            val thumbFile = File(mediaDir, "thumb_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(thumbFile).use { out ->
-                frame.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
-            }
-            frame.recycle()
-            retriever.release()
-            if (thumbFile.exists() && thumbFile.length() > 0) {
-                Uri.fromFile(thumbFile).toString()
-            } else null
-        } else {
-            retriever.release()
-            null
-        }
-    } catch (_: Exception) {
-        null
-    }
+    return null
 }
 
 private fun getProductVariantSuggestions(category: String): List<String> = when (category) {
@@ -193,13 +152,21 @@ fun PublicarScreen(
     var productMediaFormat by remember { mutableStateOf("1:1") }
     val productGalleryImages = remember { mutableStateListOf<String>() }
 
+    LaunchedEffect(Unit) {
+        try {
+            val mediaDir = File(context.filesDir, "product_media")
+            if (mediaDir.exists()) {
+                mediaDir.deleteRecursively()
+            }
+        } catch (_: Exception) {}
+    }
+
     // Lanzadores para abrir la galería de fotos del dispositivo
     val mainPhotoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            val persisted = persistUriLocallyInApp(context, uri, "main_photo", isVideo = false)
-            productMainImageUrl = persisted
+            productMainImageUrl = uri.toString()
         }
     }
 
@@ -207,9 +174,9 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 9)
     ) { uris: List<Uri> ->
         uris.forEach { uri ->
-            val persisted = persistUriLocallyInApp(context, uri, "gallery_photo", isVideo = false)
-            if (persisted !in productGalleryImages && (productGalleryImages.size + if (productMainImageUrl.isNotBlank()) 1 else 0) < 10) {
-                productGalleryImages.add(persisted)
+            val uriStr = uri.toString()
+            if (uriStr !in productGalleryImages && (productGalleryImages.size + if (productMainImageUrl.isNotBlank()) 1 else 0) < 10) {
+                productGalleryImages.add(uriStr)
             }
         }
     }
@@ -221,17 +188,7 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            val persisted = persistUriLocallyInApp(context, uri, "prod_video", isVideo = true)
-            productVideoUrl = persisted
-            val thumb = extractThumbnailLocally(context, persisted)
-            if (thumb != null) {
-                if (productMainImageUrl.isBlank()) {
-                    productMainImageUrl = thumb
-                }
-                if (thumb !in productGalleryImages) {
-                    productGalleryImages.add(0, thumb)
-                }
-            }
+            productVideoUrl = uri.toString()
         }
     }
 
@@ -259,8 +216,7 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            val persisted = persistUriLocallyInApp(context, uri, "ann_photo", isVideo = false)
-            announcementImageUrl = persisted
+            announcementImageUrl = uri.toString()
         }
     }
 
@@ -269,15 +225,9 @@ fun PublicarScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            val persisted = persistUriLocallyInApp(context, uri, "ann_video", isVideo = true)
-            announcementVideoUrl = persisted
+            announcementVideoUrl = uri.toString()
             if (announcementImageUrl.isBlank()) {
-                val thumb = extractThumbnailLocally(context, persisted)
-                if (thumb != null) {
-                    announcementImageUrl = thumb
-                } else {
-                    announcementImageUrl = persisted
-                }
+                announcementImageUrl = uri.toString()
             }
         }
     }

@@ -32,10 +32,14 @@ import androidx.compose.material.icons.Icons
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +88,8 @@ val supportQuestionsSuggestions = listOf(
 @Composable
 fun ChatsScreen(
     messages: List<SupportMessage>,
+    cartItemCount: Long = 0L,
+    onNavigateToCart: () -> Unit = {},
     onSendMessage: (String) -> Unit,
     onBack: () -> Unit = {}
 ) {
@@ -106,15 +112,15 @@ fun ChatsScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                color = EleganIvory,
-                tonalElevation = 2.dp,
-                shadowElevation = 3.dp
+                    .height(52.dp),
+                color = Color.White,
+                tonalElevation = 0.dp,
+                shadowElevation = 2.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 4.dp),
+                        .padding(start = 4.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
@@ -132,16 +138,16 @@ fun ChatsScreen(
 
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .padding(3.dp),
+                            .background(Color(0xFFF6F3EF))
+                            .padding(4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.icono),
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
@@ -160,9 +166,9 @@ fun ChatsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF2E7D32))
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2E7D32))
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
@@ -173,12 +179,45 @@ fun ChatsScreen(
                             )
                         }
                     }
+
+                    // Icono del carrito en la esquina superior derecha de la cabecera
+                    IconButton(
+                        onClick = onNavigateToCart,
+                        modifier = Modifier.testTag("chats_cart_button")
+                    ) {
+                        if (cartItemCount > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = EleganBurgundy,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("$cartItemCount", fontSize = 10.sp)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingBag,
+                                    contentDescription = "Carrito",
+                                    tint = EleganCharcoal,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = "Carrito",
+                                tint = EleganCharcoal,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                 }
             }
         },
         bottomBar = {
             Surface(
-                color = EleganIvory,
+                color = Color.White,
                 shadowElevation = 8.dp,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,6 +234,7 @@ fun ChatsScreen(
                             }
                         )
                 ) {
+                    HorizontalDivider(color = Color(0xFFEBE6DF), thickness = 0.8.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -216,7 +256,7 @@ fun ChatsScreen(
                                 .weight(1f)
                                 .height(38.dp)
                                 .clip(RoundedCornerShape(19.dp))
-                                .background(Color.White)
+                                .background(Color(0xFFF9F7F5))
                                 .border(1.dp, Color(0xFFD6CDC4), RoundedCornerShape(19.dp))
                                 .padding(horizontal = 14.dp),
                             verticalAlignment = Alignment.CenterVertically

@@ -21,8 +21,6 @@ export function publicUser(user) {
     role: user.role || "customer",
     provider: user.provider || "password",
     sharedPublications: Array.isArray(user.sharedPublications) ? user.sharedPublications : [],
-    orders: Array.isArray(user.orders) ? user.orders : (Array.isArray(user.pedidos) ? user.pedidos : []),
-    pedidos: Array.isArray(user.pedidos) ? user.pedidos : (Array.isArray(user.orders) ? user.orders : []),
     createdAt: user.createdAt
   };
 }

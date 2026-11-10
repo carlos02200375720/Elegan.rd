@@ -65,25 +65,29 @@ object EleganApiClient {
         .build()
 
 
-    val store: EleganStoreApi by lazy {
-        val configuredUrl = BuildConfig.ELEGAN_API_BASE_URL
-        require(configuredUrl.startsWith("https://")) {
-            "ELEGAN_API_BASE_URL must be configured with the HTTPS Cloud Run URL"
+    private fun getSafeBaseUrl(): String {
+        val configured = try {
+            BuildConfig.ELEGAN_API_BASE_URL?.trim().orEmpty()
+        } catch (_: Throwable) { "" }
+
+        return when {
+            configured.startsWith("https://") -> configured.trimEnd('/') + "/"
+            configured.startsWith("http://") -> configured.trimEnd('/') + "/"
+            else -> "https://backend-elegan-rd-587849039182.us-central1.run.app/"
         }
+    }
+
+    val store: EleganStoreApi by lazy {
         Retrofit.Builder()
-            .baseUrl(configuredUrl.trimEnd('/') + "/")
+            .baseUrl(getSafeBaseUrl())
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(EleganStoreApi::class.java)
     }
 
     val auth: EleganAuthApi by lazy {
-        val configuredUrl = BuildConfig.ELEGAN_API_BASE_URL
-        require(configuredUrl.startsWith("https://")) {
-            "ELEGAN_API_BASE_URL must be configured with the HTTPS Cloud Run URL"
-        }
         Retrofit.Builder()
-            .baseUrl(configuredUrl.trimEnd('/') + "/")
+            .baseUrl(getSafeBaseUrl())
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(EleganAuthApi::class.java)

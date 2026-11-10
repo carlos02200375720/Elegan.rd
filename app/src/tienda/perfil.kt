@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,7 +39,10 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +60,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +102,8 @@ fun PerfilScreen(
     userProfile: UserProfile?,
     orders: List<Order>,
     savedProducts: List<Product> = emptyList(),
+    cartItemCount: Long = 0L,
+    onNavigateToCart: () -> Unit = {},
     onProductClick: (Product) -> Unit = {},
     onExploreClick: () -> Unit = {},
     onSaveProfile: (phone: String, address: String, city: String) -> Unit,
@@ -121,17 +129,18 @@ fun PerfilScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = Color.Transparent
+        containerColor = Color.White
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
                 .padding(padding)
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(EleganIvory)
+                    .background(Color.White)
                     .testTag("perfil_screen"),
                 state = listState,
                 contentPadding = PaddingValues(bottom = 16.dp),
@@ -143,13 +152,13 @@ fun PerfilScreen(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(top = 10.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
+                                .padding(top = 50.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val photoUrl = user?.photoUrl?.toString() ?: userProfile?.photoUrl
@@ -158,24 +167,19 @@ fun PerfilScreen(
                                     model = photoUrl,
                                     contentDescription = "Foto de perfil",
                                     modifier = Modifier
-                                        .size(80.dp)
+                                        .size(88.dp)
                                         .clip(CircleShape),
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                Box(
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_avatar_gold),
+                                    contentDescription = "Foto de perfil",
                                     modifier = Modifier
-                                        .size(80.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFF0EBE3)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.icono),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(44.dp)
-                                    )
-                                }
+                                        .size(88.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Fit
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -234,7 +238,7 @@ fun PerfilScreen(
                             .testTag("profile_sections_container"),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
@@ -442,6 +446,7 @@ fun PerfilScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("profile_admin_menu_card"),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             onClick = onNavigateToMenuAdmin
                         ) {
                             Text(
@@ -457,18 +462,16 @@ fun PerfilScreen(
                 // Sign out button
                 item {
                     Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedButton(
+                    TextButton(
                         onClick = onSignOut,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
-                            .height(50.dp)
+                            .height(48.dp)
                             .testTag("sign_out_button"),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB00020)),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE57373))
-                    )
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFFB00020)
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ExitToApp,
@@ -476,19 +479,38 @@ fun PerfilScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Cerrar Sesión", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Cerrar Sesión",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
                     }
                     Spacer(modifier = Modifier.height(30.dp))
                 }
             }
 
-            if (isSuperAdmin) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .statusBarsPadding()
-                        .height(50.dp)
-                ) {
+            // Fondo blanco fijo para la barra de estado
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(Color.White)
+            )
+
+            // Cabecera fija con fondo transparente
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .height(48.dp)
+                    .background(Color.Transparent)
+                    .padding(horizontal = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isSuperAdmin) {
                     IconButton(
                         onClick = onNavigateToMenuAdmin,
                         modifier = Modifier.testTag("perfil_menu_admin_button")
@@ -497,6 +519,41 @@ fun PerfilScreen(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menú Administración",
                             tint = EleganCharcoal
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.size(48.dp))
+                }
+
+                // Icono del carrito en la esquina superior derecha de la cabecera fija
+                IconButton(
+                    onClick = onNavigateToCart,
+                    modifier = Modifier.testTag("perfil_cart_button")
+                ) {
+                    if (cartItemCount > 0L) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = EleganBurgundy,
+                                    contentColor = Color.White
+                                ) {
+                                    Text("$cartItemCount", fontSize = 10.sp)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = "Carrito",
+                                tint = EleganCharcoal,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingBag,
+                            contentDescription = "Carrito",
+                            tint = EleganCharcoal,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }

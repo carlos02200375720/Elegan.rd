@@ -8,9 +8,9 @@ import com.example.R
 import com.example.data.model.*
 import com.example.data.remote.*
 import java.io.File
-import java.io.FileOutputStream
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.CancellationException
@@ -28,6 +28,18 @@ class EleganRepository(private val context: Context) {
     private val appContext = context.applicationContext
     private val api get() = EleganApiClient.store
 
+    init {
+        // Erradicación definitiva de almacenamiento local de contenido multimedia y datos locales
+        try {
+            val mediaDir = File(appContext.filesDir, "product_media")
+            if (mediaDir.exists()) {
+                mediaDir.deleteRecursively()
+            }
+            context.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
+                .edit().clear().apply()
+        } catch (_: Exception) {}
+    }
+
     private fun requireUserId(): String =
         MobileSession.userId(appContext) ?: throw IllegalStateException("Debes iniciar sesión para realizar esta operación.")
 
@@ -41,45 +53,17 @@ class EleganRepository(private val context: Context) {
     private val localCommentsCache = java.util.concurrent.ConcurrentHashMap<String, MutableList<PublicationComment>>()
     private val localStatsMap = java.util.concurrent.ConcurrentHashMap<String, PublicationStats>()
 
-    private fun getDeletedAnnouncementIds(): Set<String> {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-        return prefs?.getStringSet("deleted_announcements", emptySet()) ?: emptySet()
-    }
-
-    private fun markAnnouncementDeleted(id: String) {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return
-        val current = prefs.getStringSet("deleted_announcements", emptySet())?.toMutableSet() ?: mutableSetOf()
-        current.add(id)
-        prefs.edit().putStringSet("deleted_announcements", current).apply()
-    }
-
-    private fun getDeletedProductIds(): Set<String> {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE)
-        return prefs?.getStringSet("deleted_products", emptySet()) ?: emptySet()
-    }
-
-    private fun markProductDeleted(id: String) {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return
-        val current = prefs.getStringSet("deleted_products", emptySet())?.toMutableSet() ?: mutableSetOf()
-        current.add(id)
-        prefs.edit().putStringSet("deleted_products", current).apply()
-    }
-
     // -------------------------------------------------------------
     // PRODUCTS
     // -------------------------------------------------------------
 
     fun observeProducts(): Flow<List<Product>> = flow {
-        val deleted = getDeletedProductIds()
-        val local = getCustomProductsLocally().filterNot { it.id in deleted }
-        val samples = getInitialSampleProducts().filterNot { it.id in deleted }
-        emit((local + samples).distinctBy { it.id })
+        val samples = getInitialSampleProducts()
+        emit(samples)
         while (true) {
             try {
-                val remote = api.products().items.filterNot { it.id in getDeletedProductIds() }
-                val currentLocal = getCustomProductsLocally().filterNot { it.id in getDeletedProductIds() }
-                val combined = (currentLocal + remote).distinctBy { it.id }
-                emit(if (combined.isEmpty()) samples else combined)
+                val remote = api.products().items
+                emit(if (remote.isEmpty()) samples else remote)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { Log.w("EleganRepository", "No se pudo actualizar el catálogo: ${e.message}") }
             delay(15000)
@@ -87,18 +71,17 @@ class EleganRepository(private val context: Context) {
     }
 
     suspend fun seedProductsIfEmpty() {
-        // Los productos de muestra son un respaldo local; no se insertan automáticamente en MongoDB.
+        // Los productos de muestra son un respaldo; no se insertan automáticamente en MongoDB.
     }
 
     suspend fun seedAnnouncementsIfEmpty() {
-        // Los anuncios de muestra son un respaldo local; no se insertan automáticamente en MongoDB.
+        // Los anuncios de muestra son un respaldo; no se insertan automáticamente en MongoDB.
     }
 
     suspend fun getProductById(productId: String): Product? = try {
         api.product(productId).item ?: getInitialSampleProducts().find { it.id == productId }
     } catch (e: Exception) {
-        getCustomProductsLocally().find { it.id == productId }
-            ?: getInitialSampleProducts().find { it.id == productId }
+        getInitialSampleProducts().find { it.id == productId }
     }
 
     private fun getFallbackCoverForCategory(category: String): String {
@@ -115,200 +98,6 @@ class EleganRepository(private val context: Context) {
         }
     }
 
-    private fun persistMediaLocally(
-        appContext: Context,
-        sourceUri: Uri,
-        productId: String,
-        label: String,
-        isVideo: Boolean
-    ): String {
-        return try {
-            if (sourceUri.scheme == "file") {
-                val f = File(sourceUri.path ?: "")
-                if (f.exists() && f.length() > 0) return sourceUri.toString()
-            }
-            val mediaDir = File(appContext.filesDir, "product_media").apply { if (!exists()) mkdirs() }
-            val mimeType = appContext.contentResolver.getType(sourceUri)
-                ?: if (isVideo) "video/mp4" else "image/jpeg"
-            val extension = android.webkit.MimeTypeMap.getSingleton()
-                .getExtensionFromMimeType(mimeType)
-                ?.takeIf { it.isNotBlank() }
-                ?: if (isVideo) "mp4" else "jpg"
-            val targetFile = File(mediaDir, "${productId}_${label}_${System.currentTimeMillis()}.$extension")
-
-            appContext.contentResolver.openInputStream(sourceUri)?.use { input ->
-                targetFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            if (targetFile.exists() && targetFile.length() > 0) {
-                Uri.fromFile(targetFile).toString()
-            } else {
-                sourceUri.toString()
-            }
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "No se pudo copiar el archivo a almacenamiento local permanente: ${e.message}")
-            sourceUri.toString()
-        }
-    }
-
-    private fun saveCustomProductLocally(product: Product) {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return
-        val currentJson = prefs.getString("local_custom_products_json", "[]") ?: "[]"
-        try {
-            val array = JSONArray(currentJson)
-            val newArray = JSONArray()
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                if (obj.optString("id") != product.id) {
-                    newArray.put(obj)
-                }
-            }
-            val productObj = JSONObject().apply {
-                put("id", product.id)
-                put("name", product.name)
-                put("description", product.description)
-                put("category", product.category)
-                put("price", product.price)
-                put("imageUrl", product.imageUrl)
-                put("images", JSONArray(product.images))
-                put("colors", JSONArray(product.colors))
-                put("rating", product.rating)
-                put("reviewCount", product.reviewCount)
-                put("sizes", JSONArray(product.sizes))
-                put("inStock", product.inStock)
-                put("isFeatured", product.isFeatured)
-                put("mediaFormat", product.mediaFormat)
-                put("videoUrl", product.videoUrl)
-                put("isVideo", product.hasVideo)
-            }
-            newArray.put(productObj)
-            prefs.edit().putString("local_custom_products_json", newArray.toString()).apply()
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Error saving product locally: ${e.message}")
-        }
-    }
-
-    private fun getCustomProductsLocally(): List<Product> {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return emptyList()
-        val currentJson = prefs.getString("local_custom_products_json", "[]") ?: "[]"
-        val list = mutableListOf<Product>()
-        try {
-            val array = JSONArray(currentJson)
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val imagesArray = obj.optJSONArray("images")
-                val imagesList = mutableListOf<String>()
-                if (imagesArray != null) {
-                    for (j in 0 until imagesArray.length()) {
-                        imagesList.add(imagesArray.optString(j))
-                    }
-                }
-                val sizesArray = obj.optJSONArray("sizes")
-                val sizesList = mutableListOf<String>()
-                if (sizesArray != null) {
-                    for (j in 0 until sizesArray.length()) {
-                        sizesList.add(sizesArray.optString(j))
-                    }
-                }
-                val colorsArray = obj.optJSONArray("colors")
-                val colorsList = mutableListOf<String>()
-                if (colorsArray != null) {
-                    for (j in 0 until colorsArray.length()) {
-                        colorsList.add(colorsArray.optString(j))
-                    }
-                }
-                list.add(
-                    Product(
-                        id = obj.optString("id"),
-                        name = obj.optString("name"),
-                        description = obj.optString("description"),
-                        category = obj.optString("category"),
-                        price = obj.optDouble("price", 0.0),
-                        imageUrl = obj.optString("imageUrl"),
-                        images = imagesList,
-                        colors = colorsList,
-                        rating = obj.optDouble("rating", 5.0),
-                        reviewCount = obj.optLong("reviewCount", 0L),
-                        sizes = sizesList,
-                        inStock = obj.optBoolean("inStock", true),
-                        isFeatured = obj.optBoolean("isFeatured", false),
-                        mediaFormat = obj.optString("mediaFormat", "1:1"),
-                        videoUrl = obj.optString("videoUrl"),
-                        isVideo = obj.optBoolean("isVideo", false)
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Error reading local products: ${e.message}")
-        }
-        return list
-    }
-
-    private fun saveCustomAnnouncementLocally(announcement: Announcement) {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return
-        val currentJson = prefs.getString("local_custom_announcements_json", "[]") ?: "[]"
-        try {
-            val array = JSONArray(currentJson)
-            val newArray = JSONArray()
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                if (obj.optString("id") != announcement.id) {
-                    newArray.put(obj)
-                }
-            }
-            val annObj = JSONObject().apply {
-                put("id", announcement.id)
-                put("title", announcement.title)
-                put("message", announcement.message)
-                put("type", announcement.type)
-                put("imageUrl", announcement.imageUrl)
-                put("discountCode", announcement.discountCode)
-                put("discountPercent", announcement.discountPercent)
-                put("ctaText", announcement.ctaText)
-                put("targetCategory", announcement.targetCategory)
-                put("isActive", announcement.isActive)
-                put("videoUrl", announcement.videoUrl)
-                put("isVideo", announcement.hasVideo)
-            }
-            newArray.put(annObj)
-            prefs.edit().putString("local_custom_announcements_json", newArray.toString()).apply()
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Error saving announcement locally: ${e.message}")
-        }
-    }
-
-    private fun getCustomAnnouncementsLocally(): List<Announcement> {
-        val prefs = context?.getSharedPreferences("elegan_admin_prefs", Context.MODE_PRIVATE) ?: return emptyList()
-        val currentJson = prefs.getString("local_custom_announcements_json", "[]") ?: "[]"
-        val list = mutableListOf<Announcement>()
-        try {
-            val array = JSONArray(currentJson)
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                list.add(
-                    Announcement(
-                        id = obj.optString("id"),
-                        title = obj.optString("title"),
-                        message = obj.optString("message"),
-                        type = obj.optString("type", "banner"),
-                        imageUrl = obj.optString("imageUrl"),
-                        discountCode = obj.optString("discountCode"),
-                        discountPercent = obj.optDouble("discountPercent", 0.0),
-                        ctaText = obj.optString("ctaText", "Ver Más"),
-                        targetCategory = obj.optString("targetCategory", "todo"),
-                        isActive = obj.optBoolean("isActive", true),
-                        videoUrl = obj.optString("videoUrl"),
-                        isVideo = obj.optBoolean("isVideo", false)
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            Log.w("EleganRepository", "Error reading local announcements: ${e.message}")
-        }
-        return list
-    }
-
     suspend fun addProduct(product: Product): String {
         val productId = product.id.ifBlank { "prod_${java.util.UUID.randomUUID()}" }
         val category = product.category.ifBlank { "camisa" }
@@ -320,102 +109,71 @@ class EleganRepository(private val context: Context) {
             isVideo = uploaded.hasVideo
         )
         val response = api.createProduct(requireToken(), finalProduct)
-        saveCustomProductLocally(finalProduct)
         return response.id.ifBlank { productId }
     }
 
     private suspend fun uploadProductMedia(product: Product, productId: String): Product {
         val sourceVideo = product.videoUrl.takeIf { product.isVideo }.orEmpty()
-        var generatedThumbnail: File? = null
-        try {
-            val coverSource = if (product.isVideo) {
-                if (product.imageUrl.isNotBlank() && product.imageUrl != sourceVideo) product.imageUrl
-                else {
-                    val thumbnail = withContext(Dispatchers.IO) { createVideoThumbnail(appContext, sourceVideo) }
-                    if (thumbnail != null && thumbnail.exists() && thumbnail.length() > 0) {
-                        generatedThumbnail = thumbnail
-                        Uri.fromFile(thumbnail).toString()
-                    } else getFallbackCoverForCategory(product.category)
-                }
-            } else product.imageUrl.ifBlank { product.images.firstOrNull() ?: getFallbackCoverForCategory(product.category) }
+        val coverSource = if (product.isVideo) {
+            if (product.imageUrl.isNotBlank() && product.imageUrl != sourceVideo) product.imageUrl
+            else getFallbackCoverForCategory(product.category)
+        } else product.imageUrl.ifBlank { product.images.firstOrNull() ?: getFallbackCoverForCategory(product.category) }
 
-            val videoUrl = if (product.isVideo && sourceVideo.isNotBlank()) uploadProductFile(sourceVideo, productId, "video") else ""
-            val coverUrl = uploadProductFile(coverSource, productId, "cover").ifBlank { getFallbackCoverForCategory(product.category) }
-            val gallery = (product.images + listOfNotNull(product.imageUrl.takeIf { it.isNotBlank() }))
-                .distinct().filterNot { it == coverSource || it == sourceVideo }
-                .map { uploadProductFile(it, productId, "gallery") }.filter { it.isNotBlank() }
-            val images = (listOf(coverUrl) + gallery).distinct()
-            return product.copy(
-                imageUrl = coverUrl,
-                images = images,
-                videoUrl = videoUrl.ifBlank { if (sourceVideo.startsWith("http")) sourceVideo else "" },
-                isVideo = product.isVideo
-            )
-        } finally { generatedThumbnail?.delete() }
+        val videoUrl = if (product.isVideo && sourceVideo.isNotBlank()) uploadProductFile(sourceVideo, productId, "video") else ""
+        val coverUrl = uploadProductFile(coverSource, productId, "cover").ifBlank { getFallbackCoverForCategory(product.category) }
+        val gallery = (product.images + listOfNotNull(product.imageUrl.takeIf { it.isNotBlank() }))
+            .distinct().filterNot { it == coverSource || it == sourceVideo }
+            .map { uploadProductFile(it, productId, "gallery") }.filter { it.isNotBlank() }
+        val images = (listOf(coverUrl) + gallery).distinct()
+        return product.copy(
+            imageUrl = coverUrl,
+            images = images,
+            videoUrl = videoUrl.ifBlank { if (sourceVideo.startsWith("http")) sourceVideo else "" },
+            isVideo = product.isVideo
+        )
     }
 
     private suspend fun uploadProductFile(source: String, productId: String, label: String): String {
         if (source.isBlank()) return ""
         if (source.startsWith("https://") || source.startsWith("http://")) return source
         val uri = Uri.parse(source)
-        val temp = withContext(Dispatchers.IO) {
-            val file = File.createTempFile("elegan_upload_", if (label.contains("video") || source.endsWith(".mp4", true)) ".mp4" else ".jpg", appContext.cacheDir)
-            val input = when (uri.scheme) {
-                "content" -> appContext.contentResolver.openInputStream(uri)
-                "file" -> File(uri.path ?: "").inputStream()
-                else -> File(source).takeIf { it.exists() }?.inputStream()
-            } ?: throw IllegalArgumentException("No se pudo leer el archivo multimedia seleccionado.")
-            input.use { inputStream -> file.outputStream().use { output -> inputStream.copyTo(output) } }
-            file
-        }
-        try {
-            val isVideo = label.contains("video") || source.endsWith(".mp4", true)
-            val mime = if (isVideo) "video/mp4" else "image/jpeg"
-            val part = MultipartBody.Part.createFormData("file", temp.name, temp.asRequestBody(mime.toMediaTypeOrNull()))
-            val name = "${productId}_${label}".toRequestBody("text/plain".toMediaTypeOrNull())
-            return api.uploadMedia(requireToken(), part, name).url
-        } finally { temp.delete() }
-    }
+        val isVideo = label.contains("video") || source.endsWith(".mp4", true)
+        val ext = if (isVideo) "mp4" else "jpg"
+        val mime = if (isVideo) "video/mp4" else "image/jpeg"
+        val fileName = "${productId}_${label}.$ext"
 
-    private fun createVideoThumbnail(context: Context, videoSource: String): File? {
-        if (videoSource.isBlank()) return null
-        val uri = Uri.parse(videoSource)
-        if (uri.scheme != "content" && uri.scheme != "file") return null
+        val requestBody = object : RequestBody() {
+            override fun contentType() = mime.toMediaTypeOrNull()
 
-        val retriever = MediaMetadataRetriever()
-        val thumbnail = File.createTempFile("product_video_cover_", ".jpg", context.cacheDir)
-        return try {
-            retriever.setDataSource(context, uri)
-            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                ?.toLongOrNull() ?: 0L
-            val frameTimeUs = (durationMs.coerceAtLeast(0L) / 2) * 1000L
-            val frame = retriever.getFrameAtTime(frameTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                ?: retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                ?: retriever.frameAtTime
+            override fun contentLength(): Long {
+                return try {
+                    if (uri.scheme == "content") {
+                        appContext.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+                    } else if (uri.scheme == "file") {
+                        File(uri.path ?: "").length()
+                    } else -1L
+                } catch (_: Exception) { -1L }
+            }
 
-            if (frame != null) {
-                try {
-                    FileOutputStream(thumbnail).use { output ->
-                        frame.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, output)
+            override fun writeTo(sink: okio.BufferedSink) {
+                val input = when (uri.scheme) {
+                    "content" -> appContext.contentResolver.openInputStream(uri)
+                    "file" -> File(uri.path ?: "").inputStream()
+                    else -> File(source).takeIf { it.exists() }?.inputStream()
+                } ?: throw IllegalArgumentException("No se pudo leer el archivo multimedia seleccionado.")
+                input.use { inputStream ->
+                    val buffer = ByteArray(16384)
+                    var bytesRead: Int
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        sink.write(buffer, 0, bytesRead)
                     }
-                    thumbnail
-                } finally {
-                    frame.recycle()
                 }
-            } else {
-                thumbnail.delete()
-                null
-            }
-        } catch (exception: Exception) {
-            thumbnail.delete()
-            Log.w("EleganRepository", "No se pudo extraer miniatura del video: ${exception.message}")
-            null
-        } finally {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
             }
         }
+
+        val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+        val name = "${productId}_${label}".toRequestBody("text/plain".toMediaTypeOrNull())
+        return api.uploadMedia(requireToken(), part, name).url
     }
 
     suspend fun addAnnouncement(announcement: Announcement): String {
@@ -428,21 +186,16 @@ class EleganRepository(private val context: Context) {
         else announcement.videoUrl
         val final = announcement.copy(id=id, imageUrl=image, videoUrl=video, isVideo=announcement.hasVideo || video.isNotBlank())
         api.createAnnouncement(requireToken(), final)
-        saveCustomAnnouncementLocally(final)
         return id
     }
 
     fun observeAnnouncements(): Flow<List<Announcement>> = flow {
-        val deleted = getDeletedAnnouncementIds()
-        val local = getCustomAnnouncementsLocally().filterNot { it.id in deleted }
-        val samples = getInitialSampleAnnouncements().filterNot { it.id in deleted }
-        emit((local + samples).distinctBy { it.id })
+        val samples = getInitialSampleAnnouncements()
+        emit(samples)
         while (true) {
             try {
-                val remote = api.announcements().items.filterNot { it.id in getDeletedAnnouncementIds() }
-                val currentLocal = getCustomAnnouncementsLocally().filterNot { it.id in getDeletedAnnouncementIds() }
-                val combined = (currentLocal + remote).distinctBy { it.id }
-                emit(if (combined.isEmpty()) samples else combined)
+                val remote = api.announcements().items
+                emit(if (remote.isEmpty()) samples else remote)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { Log.w("EleganRepository", "No se pudieron actualizar los anuncios: ${e.message}") }
             delay(15000)
@@ -450,7 +203,6 @@ class EleganRepository(private val context: Context) {
     }
 
     suspend fun deleteProduct(productId: String) {
-        markProductDeleted(productId)
         api.deleteProduct(requireToken(), productId)
     }
 
@@ -459,7 +211,6 @@ class EleganRepository(private val context: Context) {
     }
 
     suspend fun deleteAnnouncement(announcementId: String) {
-        markAnnouncementDeleted(announcementId)
         api.deleteAnnouncement(requireToken(), announcementId)
     }
 
