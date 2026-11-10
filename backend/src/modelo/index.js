@@ -15,11 +15,20 @@ export { default as ProductModel } from "./product.js";
 export * from "./announcement.js";
 export { default as AnnouncementModel } from "./announcement.js";
 
+export * from "./guardada.js";
+export { default as GuardadaModel } from "./guardada.js";
+
 export * from "./savedProduct.js";
 export { default as SavedProductModel } from "./savedProduct.js";
 
+export * from "./likes.js";
+export { default as LikeModel } from "./likes.js";
+
 export * from "./publicationLike.js";
 export { default as PublicationLikeModel } from "./publicationLike.js";
+
+export * from "./comentario.js";
+export { default as ComentarioModel } from "./comentario.js";
 
 export * from "./publicationComment.js";
 export { default as PublicationCommentModel } from "./publicationComment.js";

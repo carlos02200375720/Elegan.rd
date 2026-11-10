@@ -27,6 +27,8 @@ export async function register(req, res) {
       passwordHash,
       role: "customer",
       provider: "password",
+      sharedPublications: [],
+      pedidos: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -130,6 +132,8 @@ export async function googleLogin(req, res) {
           googleSub: payload.sub,
           role: "customer",
           provider: "google",
+          sharedPublications: [],
+          pedidos: [],
           createdAt: new Date(),
           updatedAt: new Date()
         };

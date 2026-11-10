@@ -4,8 +4,11 @@ import {
   SUPER_ADMINS_COLLECTION_NAME,
   initializeProductCollection,
   initializeAnnouncementCollection,
+  initializeGuardadaCollection,
   initializeSavedProductCollection,
+  initializeLikeCollection,
   initializePublicationLikeCollection,
+  initializeComentarioCollection,
   initializePublicationCommentCollection,
   initializePublicationShareCollection,
   initializeCartCollection,
@@ -61,13 +64,15 @@ export async function connectDB() {
   await users.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
   await superAdmins.createIndex({ email: 1 }, { unique: true, sparse: true });
   await superAdmins.createIndex({ googleSub: 1 }, { unique: true, sparse: true });
-
   // Inicializar índices de todos los modelos de colecciones
   await Promise.allSettled([
     initializeProductCollection(db),
     initializeAnnouncementCollection(db),
+    initializeGuardadaCollection(db),
     initializeSavedProductCollection(db),
+    initializeLikeCollection(db),
     initializePublicationLikeCollection(db),
+    initializeComentarioCollection(db),
     initializePublicationCommentCollection(db),
     initializePublicationShareCollection(db),
     initializeCartCollection(db),

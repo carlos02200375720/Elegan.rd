@@ -51,7 +51,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.admin.MenuAdminScreen
 import com.example.admin.PublicarScreen
@@ -130,13 +129,11 @@ class MainActivity : ComponentActivity() {
 fun MainApp() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val credentialManager = remember { CredentialManager.create(context) }
     var currentUser by remember { mutableStateOf(MobileSession.user(context)) }
 
     LaunchedEffect(Unit) {
         attemptAutoSignIn(
             context = context,
-            credentialManager = credentialManager,
             onAuthSuccess = { currentUser = MobileSession.user(context) },
             onUnauthenticated = { currentUser = null },
             scope = coroutineScope
@@ -163,7 +160,6 @@ fun MainApp() {
             onSignOut = {
                 signOutUser(
                     context = context,
-                    credentialManager = credentialManager,
                     onSignOutComplete = { currentUser = null },
                     scope = coroutineScope
                 )

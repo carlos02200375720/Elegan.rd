@@ -9,7 +9,11 @@ import {
 
 export async function getCart(req, res) {
   try {
-    const items = await db.collection(CART_COLLECTION_NAME).find({ userId: String(req.user._id) }).sort({ createdAt: 1 }).toArray();
+    const items = await db
+      .collection(CART_COLLECTION_NAME)
+      .find({ userId: String(req.user._id) })
+      .sort({ createdAt: 1 })
+      .toArray();
     res.json({ items: items.map(formatCartResponse) });
   } catch (error) {
     sendError(res, error, "cart list failed");
@@ -64,7 +68,7 @@ export async function addToCart(req, res) {
     };
 
     await db.collection(CART_COLLECTION_NAME).insertOne(item);
-    res.status(201).json({ id: item._id });
+    return res.status(201).json({ id: item._id });
   } catch (error) {
     sendError(res, error, "cart add failed");
   }
