@@ -1,11 +1,9 @@
 package com.example.ui.components
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
 import android.media.AudioAttributes
-import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.net.Uri
 import android.view.Surface
@@ -63,50 +61,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganGold
-import java.io.File
-import java.io.FileOutputStream
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-
-/**
- * Extrae y almacena en caché local la portada (primer fotograma) del video
- * para que sirva de imagen de portada y acompañe el contenido de la galería.
- */
-fun extractVideoPosterLocally(context: Context, videoUriStr: String): String? {
-    if (videoUriStr.isBlank()) return null
-    return try {
-        val uri = Uri.parse(videoUriStr)
-        val retriever = MediaMetadataRetriever()
-        if (videoUriStr.startsWith("http://") || videoUriStr.startsWith("https://")) {
-            retriever.setDataSource(videoUriStr, HashMap<String, String>())
-        } else {
-            retriever.setDataSource(context, uri)
-        }
-        val frame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            ?: retriever.frameAtTime
-        if (frame != null) {
-            val mediaDir = File(context.filesDir, "product_media").apply { if (!exists()) mkdirs() }
-            val hash = videoUriStr.hashCode().let { if (it < 0) -it else it }
-            val thumbFile = File(mediaDir, "thumb_$hash.jpg")
-            if (!thumbFile.exists() || thumbFile.length() == 0L) {
-                FileOutputStream(thumbFile).use { out ->
-                    frame.compress(Bitmap.CompressFormat.JPEG, 92, out)
-                }
-            }
-            frame.recycle()
-            retriever.release()
-            Uri.fromFile(thumbFile).toString()
-        } else {
-            retriever.release()
-            null
-        }
-    } catch (_: Exception) {
-        null
-    }
-}
 
 /**
  * Reproductor de video optimizado para la galería de Elegan.
@@ -141,10 +100,9 @@ fun EleganVideoPlayer(
     var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
     var surfaceRef by remember { mutableStateOf<Surface?>(null) }
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
-    var extractedPosterUrl by remember { mutableStateOf<String?>(null) }
 
-    // Control automático inteligente de reproducción según el foco en pantalla del usuario:
-    // Se reproduce automáticamente al entrar en foco, y se pausa de inmediato al salir del foco.
+    // Solo el video enfocado conserva un reproductor activo.
+    // Al perder el foco se pausa y se desmonta el reproductor para liberar el decodificador.
     LaunchedEffect(isFocused) {
         if (isFocused) {
             shouldLoadPlayer = true
@@ -157,9 +115,7 @@ fun EleganVideoPlayer(
                             mp.seekTo(0)
                             isCompleted = false
                         }
-                        if (!mp.isPlaying) {
-                            mp.start()
-                        }
+                        if (!mp.isPlaying) mp.start()
                     }
                 } catch (_: Exception) {}
             }
@@ -167,28 +123,23 @@ fun EleganVideoPlayer(
             isPlaying = false
             mediaPlayerRef?.let { mp ->
                 try {
-                    if (isPrepared && mp.isPlaying) {
-                        mp.pause()
-                    }
+                    if (isPrepared && mp.isPlaying) mp.pause()
                 } catch (_: Exception) {}
             }
+            shouldLoadPlayer = false
         }
     }
 
-    // Generar la portada a partir del video si posterUrl no viene provisto
-    LaunchedEffect(videoUrl, posterUrl, shouldLoadPlayer) {
-        isFirstFrameRendered = false
-        if (shouldLoadPlayer && posterUrl.isNullOrBlank() && videoUrl.isNotBlank()) {
-            withContext(Dispatchers.IO) {
-                val thumb = extractVideoPosterLocally(context, videoUrl)
-                if (thumb != null) {
-                    extractedPosterUrl = thumb
-                }
-            }
+    val effectivePoster = posterUrl?.takeIf { it.isNotBlank() }
+    val posterRequest = remember(effectivePoster) {
+        effectivePoster?.let {
+            ImageRequest.Builder(context)
+                .data(it)
+                .size(900, 1200)
+                .precision(Precision.INEXACT)
+                .build()
         }
     }
-
-    val effectivePoster = posterUrl?.takeIf { it.isNotBlank() } ?: extractedPosterUrl
 
     fun adjustVideoTransform(
         textureView: TextureView?,
@@ -282,6 +233,7 @@ fun EleganVideoPlayer(
                 setOnErrorListener { _, _, _ ->
                     hasError = true
                     isPlaying = false
+                    shouldLoadPlayer = false
                     true
                 }
             }
@@ -303,6 +255,9 @@ fun EleganVideoPlayer(
             }
 
             onDispose {
+                try {
+                    mp.setSurface(null)
+                } catch (_: Exception) {}
                 try {
                     mp.stop()
                 } catch (_: Exception) {}
@@ -425,7 +380,7 @@ fun EleganVideoPlayer(
         // Esto garantiza que en NINGÚN momento se vea un fondo negro al inicio.
         if (!isFirstFrameRendered && !hasError && !effectivePoster.isNullOrBlank()) {
             AsyncImage(
-                model = effectivePoster,
+                model = posterRequest,
                 contentDescription = "Portada del video",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
