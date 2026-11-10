@@ -36,20 +36,24 @@ object MobileSession {
 
         val appContext = context.applicationContext
         return synchronized(this) {
-            cachedPreferences ?: try {
-                EncryptedSharedPreferences.create(
-                    appContext,
-                    PREFS,
-                    MasterKey.Builder(appContext)
-                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                        .build(),
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-                )
-            } catch (e: Exception) {
-                Log.w("MobileSession", "Fallo al inicializar EncryptedSharedPreferences, usando almacenamiento seguro estándar", e)
-                appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            }.also { cachedPreferences = it }
+            cachedPreferences ?: run {
+                val prefs = try {
+                    EncryptedSharedPreferences.create(
+                        appContext,
+                        PREFS,
+                        MasterKey.Builder(appContext)
+                            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                            .build(),
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                } catch (e: Exception) {
+                    Log.w("MobileSession", "Fallo al inicializar EncryptedSharedPreferences, usando almacenamiento seguro estándar", e)
+                    appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                }
+                cachedPreferences = prefs
+                prefs
+            }
         }
     }
 
