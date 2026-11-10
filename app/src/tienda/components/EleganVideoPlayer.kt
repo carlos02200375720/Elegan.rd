@@ -151,6 +151,9 @@ fun EleganVideoPlayer(
                     }
                 } catch (_: Exception) {}
             }
+            // Al salir del foco se destruye el reproductor y se libera el decodificador.
+            // La reproducción manual puede volver a crearlo al pulsar Play.
+            shouldLoadPlayer = false
         }
     }
 
@@ -283,16 +286,17 @@ fun EleganVideoPlayer(
             }
 
             onDispose {
-                try {
-                    mp.stop()
-                } catch (_: Exception) {}
-                try {
-                    mp.reset()
-                    mp.release()
-                } catch (_: Exception) {}
                 if (mediaPlayerRef == mp) {
                     mediaPlayerRef = null
                 }
+                try {
+                    mp.setSurface(null)
+                } catch (_: Exception) {}
+                try {
+                    // release() basta para liberar el reproductor y su decodificador;
+                    // stop() y reset() antes de release() no son necesarios.
+                    mp.release()
+                } catch (_: Exception) {}
             }
         }
     }
