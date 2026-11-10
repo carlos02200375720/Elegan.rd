@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -54,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.R
 import com.example.data.model.Product
 import com.example.ui.GalleryMediaItem
@@ -81,6 +84,10 @@ fun ProductPublicationPost(
     onProductClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    // Limita la resolución decodificada para reducir memoria en el feed.
+    // Coil conserva su caché habitual y reutiliza las solicitudes por URL.
     // Determinar formato de publicación: 1:1, 3:4 o 4:3 con remember para scroll 100% fluido
     val ratio = remember(product.mediaFormat, index) {
         when (product.mediaFormat.trim()) {
@@ -202,8 +209,15 @@ fun ProductPublicationPost(
                         )
                     }
                     is GalleryMediaItem.Image -> {
+                        val imageRequest = remember(item.imageUrl) {
+                            ImageRequest.Builder(context)
+                                .data(item.imageUrl)
+                                .size(900, 1200)
+                                .precision(Precision.INEXACT)
+                                .build()
+                        }
                         AsyncImage(
-                            model = item.imageUrl,
+                            model = imageRequest,
                             contentDescription = "${product.name} - ${page + 1}",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
