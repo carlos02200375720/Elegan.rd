@@ -27,6 +27,7 @@ jobs:
       GCP_PROJECT_ID: carlos-garcia-509521
       CLOUD_RUN_SERVICE: backend-elegan-rd
       CLOUD_RUN_REGION: us-central1
+      BUILD_SERVICE_ACCOUNT: elegan-cuenta-servicio@carlos-garcia-509521.iam.gserviceaccount.com
 
     steps:
       - name: Checkout Elegan.rd
@@ -57,6 +58,7 @@ jobs:
             --source . \
             --project "$GCP_PROJECT_ID" \
             --region "$CLOUD_RUN_REGION" \
+            --build-service-account "projects/$GCP_PROJECT_ID/serviceAccounts/$BUILD_SERVICE_ACCOUNT" \
             --quiet
 
       - name: Verify deployed revision
