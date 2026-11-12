@@ -245,7 +245,7 @@ fun AppContent(
                         NavigationBar(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(60.dp),
+                                .height(55.dp),
                             containerColor = Color.White,
                             tonalElevation = 0.dp,
                             windowInsets = WindowInsets(0, 0, 0, 0)
@@ -257,7 +257,7 @@ fun AppContent(
                                 Icon(
                                     Icons.Default.Home,
                                     contentDescription = "Inicio",
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(25.dp)
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
@@ -278,7 +278,7 @@ fun AppContent(
                                 Icon(
                                     Icons.Default.GridView,
                                     contentDescription = "Catálogo",
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(25.dp)
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
@@ -308,14 +308,14 @@ fun AppContent(
                                         Icon(
                                             Icons.Default.ShoppingBag,
                                             contentDescription = "Carrito",
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(25.dp)
                                         )
                                     }
                                 } else {
                                     Icon(
                                         Icons.Default.ShoppingBag,
                                         contentDescription = "Carrito",
-                                        modifier = Modifier.size(28.dp)
+                                        modifier = Modifier.size(25.dp)
                                     )
                                 }
                             },
@@ -334,7 +334,7 @@ fun AppContent(
                                 Icon(
                                     Icons.Default.ChatBubbleOutline,
                                     contentDescription = "Soporte",
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(25.dp)
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
@@ -352,7 +352,7 @@ fun AppContent(
                                 Icon(
                                     Icons.Default.PersonOutline,
                                     contentDescription = "Perfil",
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(25.dp)
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
