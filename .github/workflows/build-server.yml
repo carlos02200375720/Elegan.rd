@@ -1,0 +1,67 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "Dockerfile"
+      - ".github/workflows/build-server.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elegan-rd-cloud-run
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy Elegan backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      GCP_PROJECT_ID: carlos-garcia-509521
+      CLOUD_RUN_SERVICE: backend-elegan-rd
+      CLOUD_RUN_REGION: us-central1
+
+    steps:
+      - name: Checkout Elegan.rd
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Validate backend source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f Dockerfile
+          test -f backend/package.json
+          test -f backend/src/server.js
+          echo "Backend source and root Dockerfile found."
+
+      - name: Build and deploy to Cloud Run
+        run: |
+          gcloud run deploy "$CLOUD_RUN_SERVICE" \
+            --source . \
+            --project "$GCP_PROJECT_ID" \
+            --region "$CLOUD_RUN_REGION" \
+            --quiet
+
+      - name: Verify deployed revision
+        run: |
+          gcloud run services describe "$CLOUD_RUN_SERVICE" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$CLOUD_RUN_REGION" \
+            --format="table(status.url,status.latestReadyRevisionName)"
