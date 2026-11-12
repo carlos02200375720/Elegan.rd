@@ -30,12 +30,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -91,7 +94,11 @@ fun CatalogoScreen(
     onCategoryChange: (String) -> Unit,
     onNavigateToMenu: () -> Unit,
     onProductClick: (Product) -> Unit,
-    onQuickAddToCart: (Product) -> Unit
+    onQuickAddToCart: (Product) -> Unit = {},
+    cartItemCount: Long = 0L,
+    onNavigateToCart: () -> Unit = {},
+    savedProductIds: Set<String> = emptySet(),
+    onToggleSaveProduct: (String) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -150,7 +157,7 @@ fun CatalogoScreen(
                             .weight(1f)
                             .height(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFF6F5F2))
+                            .background(Color.White)
                             .border(1.dp, Color(0xFFDDD5CE), CircleShape)
                             .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -198,10 +205,40 @@ fun CatalogoScreen(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onNavigateToCart,
+                        modifier = Modifier.testTag("catalogo_cart_button")
+                    ) {
+                        if (cartItemCount > 0L) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = EleganBurgundy,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("$cartItemCount", fontSize = 10.sp)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingBag,
+                                    contentDescription = "Carrito",
+                                    tint = EleganCharcoal
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = "Carrito",
+                                tint = EleganCharcoal
+                            )
+                        }
+                    }
                 }
             }
         },
-        containerColor = EleganIvory
+        containerColor = Color.White
     ) { padding ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -359,13 +396,18 @@ fun CatalogoScreen(
             }
 
             items(filteredProducts, key = { it.id }) { product ->
+                val isSaved = savedProductIds.contains(product.id)
                 ProductGridCard(
                     product = product,
+                    isSaved = isSaved,
                     onClick = { onProductClick(product) },
-                    onAddToCart = {
-                        onQuickAddToCart(product)
+                    onToggleSave = {
+                        val willSave = !isSaved
+                        onToggleSaveProduct(product.id)
                         scope.launch {
-                            snackbarHostState.showSnackbar("Añadido al carrito: ${product.name}")
+                            snackbarHostState.showSnackbar(
+                                if (willSave) "Guardado en tu colección" else "Eliminado de guardados"
+                            )
                         }
                     }
                 )
@@ -377,8 +419,9 @@ fun CatalogoScreen(
 @Composable
 fun ProductGridCard(
     product: Product,
+    isSaved: Boolean,
     onClick: () -> Unit,
-    onAddToCart: () -> Unit
+    onToggleSave: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier
@@ -418,24 +461,6 @@ fun ProductGridCard(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
-
-                IconButton(
-                    onClick = onAddToCart,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp)
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .testTag("quick_add_${product.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddShoppingCart,
-                        contentDescription = "Añadir al carrito",
-                        tint = EleganBurgundy,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
 
             Column(modifier = Modifier.padding(10.dp)) {
@@ -464,21 +489,17 @@ fun ProductGridCard(
                         )
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onToggleSave,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .testTag("catalog_save_${product.id}")
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = EleganGold,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = "${product.rating}",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Gray,
-                                fontSize = 11.sp
-                            )
+                            imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = if (isSaved) "Guardado en colección" else "Guardar en colección guardado",
+                            tint = if (isSaved) EleganBurgundy else Color(0xFF8E8E93),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }

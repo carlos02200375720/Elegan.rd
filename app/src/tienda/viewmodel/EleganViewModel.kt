@@ -259,25 +259,49 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
 
     fun addToCart(product: Product, size: String, quantity: Long = 1L, color: String = "") {
         viewModelScope.launch {
-            repository.addToCart(product, size, quantity, color)
+            try {
+                repository.addToCart(product, size, quantity, color)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al agregar al carrito: ${e.message}")
+            }
         }
     }
 
     fun updateCartQuantity(cartItemId: String, quantity: Long) {
         viewModelScope.launch {
-            repository.updateCartQuantity(cartItemId, quantity)
+            try {
+                repository.updateCartQuantity(cartItemId, quantity)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al actualizar cantidad: ${e.message}")
+            }
         }
     }
 
     fun removeFromCart(cartItemId: String) {
         viewModelScope.launch {
-            repository.removeFromCart(cartItemId)
+            try {
+                repository.removeFromCart(cartItemId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al eliminar del carrito: ${e.message}")
+            }
         }
     }
 
     fun clearCart() {
         viewModelScope.launch {
-            repository.clearCart()
+            try {
+                repository.clearCart()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al vaciar el carrito: ${e.message}")
+            }
         }
     }
 
@@ -326,7 +350,10 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 _lastCreatedOrderId.value = orderId
                 onSuccess(orderId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al procesar la orden: ${e.message}")
             }
         }
     }
@@ -334,13 +361,25 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
     fun sendSupportMessage(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch {
-            repository.sendSupportMessage(text, viewModelScope)
+            try {
+                repository.sendSupportMessage(text, viewModelScope)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al enviar mensaje: ${e.message}")
+            }
         }
     }
 
     fun saveProfile(phone: String, address: String, city: String) {
         viewModelScope.launch {
-            repository.saveUserProfile(phone, address, city)
+            try {
+                repository.saveUserProfile(phone, address, city)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("EleganViewModel", "Error al guardar perfil: ${e.message}")
+            }
         }
     }
 

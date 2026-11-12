@@ -52,6 +52,9 @@ class EleganRepository(private val context: Context) {
 
     private val localCommentsCache = java.util.concurrent.ConcurrentHashMap<String, MutableList<PublicationComment>>()
     private val localStatsMap = java.util.concurrent.ConcurrentHashMap<String, PublicationStats>()
+    private val localCartItems = java.util.concurrent.CopyOnWriteArrayList<CartItem>()
+    private val localSavedProductIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val localMessagesList = java.util.concurrent.CopyOnWriteArrayList<SupportMessage>()
 
     // -------------------------------------------------------------
     // PRODUCTS
@@ -262,28 +265,65 @@ class EleganRepository(private val context: Context) {
     // -------------------------------------------------------------
 
     fun observeCart(): Flow<List<CartItem>> = flow {
-        if (optionalToken() == null) { emit(emptyList()); return@flow }
+        emit(localCartItems.toList())
         while (true) {
-            try { emit(api.cart(requireToken()).items) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { Log.w("EleganRepository", "No se pudo actualizar el carrito: ${e.message}") }
+            val token = optionalToken()
+            if (token != null) {
+                try {
+                    val remote = api.cart(token).items
+                    if (remote.isNotEmpty()) {
+                        localCartItems.clear()
+                        localCartItems.addAll(remote)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("EleganRepository", "Servidor no disponible para sincronizar carrito (${e.message}), manteniendo carrito local.")
+                }
+            }
+            emit(localCartItems.toList())
             delay(10000)
         }
     }
 
     fun observeSavedProductIds(): Flow<Set<String>> = flow {
-        if (optionalToken() == null) { emit(emptySet()); return@flow }
+        emit(localSavedProductIds.toSet())
         while (true) {
-            try { emit(api.saved(requireToken()).ids.toSet()) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar los guardados: ${e.message}") }
+            val token = optionalToken()
+            if (token != null) {
+                try {
+                    val remoteIds = api.saved(token).ids.toSet()
+                    if (remoteIds.isNotEmpty()) {
+                        localSavedProductIds.addAll(remoteIds)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("EleganRepository", "Servidor no disponible para sincronizar guardados (${e.message}), usando guardados locales.")
+                }
+            }
+            emit(localSavedProductIds.toSet())
             delay(15000)
         }
     }
 
     suspend fun setProductSaved(productId: String, isSaved: Boolean) {
         require(productId.isNotBlank())
-        api.setSaved(requireToken(), productId, SavedRequest(isSaved))
+        if (isSaved) {
+            localSavedProductIds.add(productId)
+        } else {
+            localSavedProductIds.remove(productId)
+        }
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.setSaved(token, productId, SavedRequest(isSaved))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo sincronizar guardado remoto (${e.message}), guardado localmente.")
+            }
+        }
     }
 
     fun observePublicationStats(): Flow<Map<String, PublicationStats>> = flow {
@@ -420,32 +460,101 @@ class EleganRepository(private val context: Context) {
 
     suspend fun addToCart(product: Product, selectedSize: String, quantity: Long = 1L, selectedColor: String = "") {
         require(product.id.isNotBlank() && quantity > 0)
-        api.addCartItem(requireToken(), CartItem(
-            productId = product.id, name = product.name, price = product.price,
-            imageUrl = product.imageUrl, selectedSize = selectedSize,
-            selectedColor = selectedColor, quantity = quantity
-        ))
+        val existingIndex = localCartItems.indexOfFirst {
+            it.productId == product.id && it.selectedSize == selectedSize && it.selectedColor == selectedColor
+        }
+        val targetItem: CartItem
+        if (existingIndex >= 0) {
+            val existing = localCartItems[existingIndex]
+            targetItem = existing.copy(quantity = existing.quantity + quantity)
+            localCartItems[existingIndex] = targetItem
+        } else {
+            targetItem = CartItem(
+                id = java.util.UUID.randomUUID().toString(),
+                productId = product.id,
+                name = product.name,
+                price = product.price,
+                imageUrl = product.imageUrl,
+                selectedSize = selectedSize,
+                selectedColor = selectedColor,
+                quantity = quantity
+            )
+            localCartItems.add(targetItem)
+        }
+
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.addCartItem(token, targetItem)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo sincronizar producto en carrito remoto (${e.message}), guardado localmente.")
+            }
+        }
     }
 
     suspend fun updateCartQuantity(cartItemId: String, newQuantity: Long) {
-        if (newQuantity <= 0) removeFromCart(cartItemId)
-        else api.updateCartItem(requireToken(), cartItemId, QuantityRequest(newQuantity))
+        if (newQuantity <= 0) {
+            removeFromCart(cartItemId)
+            return
+        }
+        val index = localCartItems.indexOfFirst { it.id == cartItemId }
+        if (index >= 0) {
+            val updated = localCartItems[index].copy(quantity = newQuantity)
+            localCartItems[index] = updated
+        }
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.updateCartItem(token, cartItemId, QuantityRequest(newQuantity))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo actualizar cantidad en servidor (${e.message}), actualizado localmente.")
+            }
+        }
     }
 
     suspend fun removeFromCart(cartItemId: String) {
-        api.removeCartItem(requireToken(), cartItemId)
+        localCartItems.removeAll { it.id == cartItemId }
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.removeCartItem(token, cartItemId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo eliminar item en servidor (${e.message}), eliminado localmente.")
+            }
+        }
     }
 
     suspend fun clearCart() {
-        api.clearCart(requireToken())
+        localCartItems.clear()
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.clearCart(token)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo vaciar carrito en servidor (${e.message}), vaciado localmente.")
+            }
+        }
     }
 
     fun observeOrders(): Flow<List<Order>> = flow {
-        if (optionalToken() == null) { emit(emptyList()); return@flow }
+        val token = optionalToken()
+        if (token == null) { emit(emptyList()); return@flow }
         while (true) {
-            try { emit(api.orders(requireToken()).items) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar órdenes: ${e.message}") }
+            try {
+                emit(api.orders(token).items)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudieron cargar órdenes: ${e.message}")
+            }
             delay(15000)
         }
     }
@@ -454,27 +563,55 @@ class EleganRepository(private val context: Context) {
         customerName: String, email: String, phone: String, address: String,
         city: String, paymentMethod: String, total: Double, itemCount: Long, itemsSummary: String
     ): String {
+        val localId = "order_" + java.util.UUID.randomUUID().toString().take(8)
         val order = Order(
-            customerName = customerName, email = email, phone = phone, address = address,
-            city = city, paymentMethod = paymentMethod, total = total,
+            id = localId, customerName = customerName, email = email, phone = phone,
+            address = address, city = city, paymentMethod = paymentMethod, total = total,
             itemCount = itemCount, itemsSummary = itemsSummary
         )
-        return api.createOrder(requireToken(), order).id
+        val token = optionalToken()
+        return if (token != null) {
+            try {
+                api.createOrder(token, order).id
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo crear orden en servidor: ${e.message}, registrando localmente")
+                localId
+            }
+        } else {
+            localId
+        }
     }
 
     fun observeMessages(): Flow<List<SupportMessage>> = flow {
-        if (optionalToken() == null) { emit(emptyList()); return@flow }
+        val currentUserId = optionalUserId().orEmpty()
         val welcome = SupportMessage(
-            id = "welcome", userId = requireUserId(), sender = "support",
+            id = "welcome", userId = currentUserId, sender = "support",
             senderName = "Concierge Elegan",
             text = "¡Bienvenido a Elegan! Soy tu asesor personal de estilo y compras. ¿En qué podemos ayudarte hoy?"
         )
+        if (localMessagesList.isEmpty()) {
+            localMessagesList.add(welcome)
+        }
+        emit(localMessagesList.toList())
         while (true) {
-            try {
-                val items = api.messages(requireToken()).items
-                emit(if (items.isEmpty()) listOf(welcome) else items)
-            } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { Log.w("EleganRepository", "No se pudieron cargar mensajes: ${e.message}") }
+            val token = optionalToken()
+            if (token != null) {
+                try {
+                    val items = api.messages(token).items
+                    if (items.isNotEmpty()) {
+                        val merged = (localMessagesList + items).distinctBy { it.id }.sortedBy { it.createdAt ?: "" }
+                        localMessagesList.clear()
+                        localMessagesList.addAll(merged)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("EleganRepository", "No se pudieron cargar mensajes del servidor: ${e.message}")
+                }
+            }
+            emit(localMessagesList.toList())
             delay(10000)
         }
     }
@@ -482,28 +619,72 @@ class EleganRepository(private val context: Context) {
     suspend fun sendSupportMessage(text: String, scope: CoroutineScope) {
         val clean = text.trim()
         require(clean.isNotEmpty() && clean.length <= 4000)
-        api.sendMessage(requireToken(), MessageRequest(clean))
+        val userMsg = SupportMessage(
+            id = java.util.UUID.randomUUID().toString(),
+            userId = optionalUserId().orEmpty(),
+            sender = "client",
+            senderName = MobileSession.user(appContext)?.name ?: "Cliente",
+            text = clean
+        )
+        localMessagesList.add(userMsg)
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.sendMessage(token, MessageRequest(clean))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo sincronizar mensaje remoto: ${e.message}")
+            }
+        }
     }
 
     fun observeUserProfile(): Flow<UserProfile?> = flow {
-        if (optionalToken() == null) { emit(null); return@flow }
+        val cachedUser = MobileSession.user(appContext)
+        val initialProfile = cachedUser?.let {
+            UserProfile(
+                userId = it.id,
+                displayName = it.name,
+                email = it.email.orEmpty(),
+                photoUrl = it.photoUrl
+            )
+        }
+        emit(initialProfile)
         while (true) {
-            try { emit(api.profile(requireToken()).item) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { Log.w("EleganRepository", "No se pudo cargar perfil: ${e.message}") }
+            val token = optionalToken()
+            if (token != null) {
+                try {
+                    val remote = api.profile(token).item
+                    if (remote != null) emit(remote)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("EleganRepository", "No se pudo cargar perfil remoto: ${e.message}")
+                }
+            }
             delay(15000)
         }
     }
 
     suspend fun saveUserProfile(phone: String, address: String, city: String) {
         val user = MobileSession.user(appContext)
-        api.saveProfile(requireToken(), UserProfile(
-            userId = requireUserId(),
+        val profile = UserProfile(
+            userId = optionalUserId().orEmpty(),
             displayName = user?.name.orEmpty(),
             email = user?.email.orEmpty(),
             photoUrl = user?.photoUrl.orEmpty(),
             phone = phone, address = address, city = city
-        ))
+        )
+        val token = optionalToken()
+        if (token != null) {
+            try {
+                api.saveProfile(token, profile)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo guardar perfil en servidor: ${e.message}")
+            }
+        }
     }
 
     fun getInitialSampleProducts(): List<Product> = listOf(

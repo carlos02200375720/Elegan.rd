@@ -247,7 +247,7 @@ fun CarritoScreen(
                 }
             }
         },
-        containerColor = EleganIvory
+        containerColor = Color.White
     ) { padding ->
         if (cartItems.isEmpty()) {
             Box(

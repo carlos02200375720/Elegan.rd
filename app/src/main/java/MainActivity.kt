@@ -438,6 +438,12 @@ fun AppContent(
                             val defaultSize = prod.sizes.firstOrNull() ?: "Estándar"
                             val defaultColor = prod.colors.firstOrNull().orEmpty()
                             viewModel.addToCart(prod, defaultSize, 1L, defaultColor)
+                        },
+                        cartItemCount = cartItems.sumOf { it.quantity },
+                        onNavigateToCart = { navigateTo(Screen.CARRITO) },
+                        savedProductIds = savedProductIds,
+                        onToggleSaveProduct = { id ->
+                            viewModel.toggleSaveProduct(id)
                         }
                     )
                 }
