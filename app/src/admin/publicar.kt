@@ -96,6 +96,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.Announcement
 import com.example.data.model.Product
 import com.example.data.model.StoreCategory
+import com.example.ui.EleganTopBarShadow
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import android.content.Context
@@ -242,14 +243,15 @@ fun PublicarScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 2.dp
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -289,6 +291,8 @@ fun PublicarScreen(
                         )
                     }
                 }
+            }
+                EleganTopBarShadow()
             }
         },
         containerColor = EleganIvory
@@ -507,7 +511,7 @@ fun PublicarScreen(
                                                 containerColor = if (isSel) EleganBurgundy else Color.White,
                                                 contentColor = if (isSel) Color.White else EleganCharcoal
                                             ),
-                                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                            border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                                                 brush = androidx.compose.ui.graphics.SolidColor(
                                                     if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
                                                 )
@@ -541,7 +545,7 @@ fun PublicarScreen(
                                                     containerColor = if (isSel) EleganBurgundy else Color.White,
                                                     contentColor = if (isSel) Color.White else EleganCharcoal
                                                 ),
-                                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                                border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                                                     brush = androidx.compose.ui.graphics.SolidColor(
                                                         if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
                                                     )
@@ -774,7 +778,7 @@ fun PublicarScreen(
                                                 containerColor = if (isSel) EleganBurgundy else Color.White,
                                                 contentColor = if (isSel) Color.White else EleganCharcoal
                                             ),
-                                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                            border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                                                 brush = androidx.compose.ui.graphics.SolidColor(
                                                     if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
                                                 )
@@ -1573,7 +1577,7 @@ fun PublicarScreen(
                                                 containerColor = if (isSel) EleganBurgundy else Color.White,
                                                 contentColor = if (isSel) Color.White else EleganCharcoal
                                             ),
-                                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                            border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                                                 brush = androidx.compose.ui.graphics.SolidColor(
                                                     if (isSel) EleganBurgundy else Color(0xFFD6CEC5)
                                                 )

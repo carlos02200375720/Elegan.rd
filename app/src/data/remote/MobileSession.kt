@@ -31,6 +31,9 @@ object MobileSession {
     @Volatile
     private var cachedPreferences: SharedPreferences? = null
 
+    @Volatile
+    private var remoteSessionRejected = false
+
     private fun preferences(context: Context): SharedPreferences {
         cachedPreferences?.let { return it }
 
@@ -58,6 +61,7 @@ object MobileSession {
     }
 
     fun save(context: Context, response: AuthResponse) {
+        remoteSessionRejected = false
         val token = response.token.ifBlank { "remote_jwt_" + UUID.randomUUID().toString() }
         val userId = response.user.effectiveId.ifBlank { UUID.randomUUID().toString() }
         val role = if (response.user.isAdmin || response.user.role == "admin" || response.user.role == "superadmin") "admin" else "customer"
@@ -70,6 +74,27 @@ object MobileSession {
             .putString(ROLE, role)
             .putString(PROVIDER, response.user.provider.ifBlank { "mongodb" })
             .apply()
+    }
+
+    fun isValidRemoteJwt(rawToken: String?): Boolean {
+        if (rawToken.isNullOrBlank()) return false
+        if (rawToken.startsWith("local_jwt_") || rawToken.startsWith("remote_jwt_")) return false
+        return rawToken.count { it == '.' } == 2
+    }
+
+    fun hasRemoteSession(context: Context): Boolean {
+        if (remoteSessionRejected) return false
+        return isValidRemoteJwt(preferences(context).getString(TOKEN, null))
+    }
+
+    fun remoteBearerToken(context: Context): String? {
+        if (remoteSessionRejected) return null
+        val raw = preferences(context).getString(TOKEN, null) ?: return null
+        return if (isValidRemoteJwt(raw)) "Bearer $raw" else null
+    }
+
+    fun markRemoteSessionRejected() {
+        remoteSessionRejected = true
     }
 
     fun bearerToken(context: Context): String? =
@@ -92,6 +117,7 @@ object MobileSession {
     }
 
     fun clear(context: Context) {
+        remoteSessionRejected = false
         val prefs = preferences(context)
         // Keep the local registered users, but remove current session
         val savedAccounts = prefs.getString(LOCAL_USERS_KEY, null)

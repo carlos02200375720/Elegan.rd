@@ -1,6 +1,8 @@
 package com.example.data.model
 
+import androidx.compose.runtime.Immutable
 
+@Immutable
 data class Product(
     val id: String = "",
     val name: String = "",
@@ -17,7 +19,7 @@ data class Product(
     val isFeatured: Boolean = false,
     val mediaFormat: String = "1:1", // "1:1", "3:4", "4:3", "9:16", "16:9"
     val videoUrl: String = "",
-    var isVideo: Boolean = false,
+    val isVideo: Boolean = false,
     val createdAt: String? = null
 ) {
     val hasVideo: Boolean
@@ -34,6 +36,7 @@ val Product.aspectRatioValue: Float
     }
 
 
+@Immutable
 data class PublicationStats(
     val id: String = "",
     val likesCount: Long = 0L,
@@ -43,6 +46,7 @@ data class PublicationStats(
     val lastCommentId: String = ""
 )
 
+@Immutable
 data class PublicationComment(
     val id: String = "",
     val productId: String = "",
@@ -52,6 +56,7 @@ data class PublicationComment(
     val createdAt: String? = null
 )
 
+@Immutable
 data class CartItem(
     val id: String = "",
     val userId: String = "",
@@ -66,6 +71,7 @@ data class CartItem(
     val updatedAt: String? = null
 )
 
+@Immutable
 data class Order(
     val id: String = "",
     val userId: String = "",
@@ -75,6 +81,7 @@ data class Order(
     val address: String = "",
     val city: String = "",
     val paymentMethod: String = "Tarjeta",
+    val paymentProofUrl: String = "",
     val total: Double = 0.0,
     val itemCount: Long = 1L,
     val status: String = "confirmado",
@@ -82,6 +89,44 @@ data class Order(
     val createdAt: String? = null
 )
 
+@Immutable
+data class BankAccountInfo(
+    val id: String = "",
+    val bankName: String = "",
+    val accountNumber: String = "",
+    val accountType: String = "",
+    val holderName: String = "",
+    val holderDocument: String = ""
+)
+
+fun defaultBankAccounts(): List<BankAccountInfo> = listOf(
+    BankAccountInfo(
+        id = "bank_1",
+        bankName = "Banco Popular",
+        accountNumber = "804-291847-3",
+        accountType = "Cuenta Corriente",
+        holderName = "Carlos Alberto García",
+        holderDocument = "001-1849203-7"
+    ),
+    BankAccountInfo(
+        id = "bank_2",
+        bankName = "Banreservas",
+        accountNumber = "960-448201-5",
+        accountType = "Cuenta de Ahorros",
+        holderName = "Elegan Sartorial S.R.L.",
+        holderDocument = "1-32-84910-4"
+    ),
+    BankAccountInfo(
+        id = "bank_3",
+        bankName = "Banco BHD",
+        accountNumber = "215-009384-1",
+        accountType = "Cuenta Corriente",
+        holderName = "Carlos Alberto García",
+        holderDocument = "001-1849203-7"
+    )
+)
+
+@Immutable
 data class SupportMessage(
     val id: String = "",
     val userId: String = "",
@@ -91,6 +136,7 @@ data class SupportMessage(
     val createdAt: String? = null
 )
 
+@Immutable
 data class UserProfile(
     val id: String = "",
     val userId: String = "",
@@ -103,6 +149,7 @@ data class UserProfile(
     val updatedAt: String? = null
 )
 
+@Immutable
 data class Announcement(
     val id: String = "",
     val title: String = "",
@@ -115,7 +162,7 @@ data class Announcement(
     val targetCategory: String = "todo",
     val isActive: Boolean = true,
     val videoUrl: String = "",
-    var isVideo: Boolean = false,
+    val isVideo: Boolean = false,
     val createdAt: String? = null
 ) {
     val hasVideo: Boolean

@@ -128,114 +128,118 @@ fun CatalogoScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                color = Color.White,
-                shadowElevation = 2.dp
-            ) {
-                Row(
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
                 ) {
-                    IconButton(
-                        onClick = onNavigateToMenu,
-                        modifier = Modifier.testTag("catalogo_menu_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Abrir menú de categorías",
-                            tint = EleganCharcoal
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
                     Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, Color(0xFFDDD5CE), CircleShape)
-                            .padding(horizontal = 12.dp),
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = EleganBurgundy,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("catalogo_search_field"),
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = EleganCharcoal),
-                            cursorBrush = SolidColor(EleganBurgundy),
-                            decorationBox = { innerTextField ->
-                                Box {
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = "Buscar prendas, zapatos, perfumes...",
-                                            fontSize = 14.sp,
-                                            color = Color.Gray,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                    innerTextField()
-                                }
-                            }
-                        )
-                        if (searchQuery.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = onNavigateToMenu,
+                            modifier = Modifier.testTag("catalogo_menu_button")
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Limpiar búsqueda",
-                                tint = EleganCharcoal,
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clickable { searchQuery = "" }
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Abrir menú de categorías",
+                                tint = EleganCharcoal
                             )
                         }
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(
-                        onClick = onNavigateToCart,
-                        modifier = Modifier.testTag("catalogo_cart_button")
-                    ) {
-                        if (cartItemCount > 0L) {
-                            BadgedBox(
-                                badge = {
-                                    Badge(
-                                        containerColor = EleganBurgundy,
-                                        contentColor = Color.White
-                                    ) {
-                                        Text("$cartItemCount", fontSize = 10.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(1.dp, Color(0xFFDDD5CE), CircleShape)
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = EleganBurgundy,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("catalogo_search_field"),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(color = EleganCharcoal),
+                                cursorBrush = SolidColor(EleganBurgundy),
+                                decorationBox = { innerTextField ->
+                                    Box {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = "Buscar prendas, zapatos, perfumes...",
+                                                fontSize = 14.sp,
+                                                color = Color.Gray,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        innerTextField()
                                     }
                                 }
-                            ) {
+                            )
+                            if (searchQuery.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Limpiar búsqueda",
+                                    tint = EleganCharcoal,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clickable { searchQuery = "" }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = onNavigateToCart,
+                            modifier = Modifier.testTag("catalogo_cart_button")
+                        ) {
+                            if (cartItemCount > 0L) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge(
+                                            containerColor = EleganBurgundy,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text("$cartItemCount", fontSize = 10.sp)
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ShoppingBag,
+                                        contentDescription = "Carrito",
+                                        tint = EleganCharcoal
+                                    )
+                                }
+                            } else {
                                 Icon(
                                     imageVector = Icons.Default.ShoppingBag,
                                     contentDescription = "Carrito",
                                     tint = EleganCharcoal
                                 )
                             }
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.ShoppingBag,
-                                contentDescription = "Carrito",
-                                tint = EleganCharcoal
-                            )
                         }
                     }
                 }
+                EleganTopBarShadow()
             }
         },
         containerColor = Color.White

@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Bookmark
@@ -36,7 +37,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -256,7 +256,7 @@ fun PerfilScreen(
                                 )
                                 ProfileMenuItem(
                                     label = "Pedidos",
-                                    icon = Icons.Default.ReceiptLong,
+                                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
                                     testTag = "profile_orders_menu",
                                     onClick = { selectedProfileSection = "orders" },
                                     selected = selectedProfileSection == "orders"
@@ -369,7 +369,7 @@ fun PerfilScreen(
                                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = EleganBurgundy)
+                                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = EleganBurgundy)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(
                                                 text = "Mis Pedidos Recientes (${orders.size})",

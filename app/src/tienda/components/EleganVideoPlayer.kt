@@ -63,12 +63,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganGold
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private val videoReleaseScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 /**
  * Almacenamiento local de contenido multimedia erradicado definitivamente.
@@ -171,6 +179,17 @@ fun EleganVideoPlayer(
     }
 
     val effectivePoster = posterUrl?.takeIf { it.isNotBlank() } ?: extractedPosterUrl
+    val posterRequest = remember(effectivePoster, context) {
+        effectivePoster?.let { url ->
+            ImageRequest.Builder(context)
+                .data(url)
+                .size(900, 900)
+                .precision(Precision.INEXACT)
+                .allowRgb565(true)
+                .crossfade(false)
+                .build()
+        }
+    }
 
 
     fun adjustVideoTransform(
@@ -222,6 +241,7 @@ fun EleganVideoPlayer(
             videoWidth = 0
             videoHeight = 0
 
+            val disposed = AtomicBoolean(false)
             val mp = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -231,6 +251,7 @@ fun EleganVideoPlayer(
                 )
                 isLooping = true
                 setOnPreparedListener { player ->
+                    if (disposed.get()) return@setOnPreparedListener
                     isPrepared = true
                     hasError = false
                     val w = player.videoWidth
@@ -251,6 +272,7 @@ fun EleganVideoPlayer(
                     }
                 }
                 setOnVideoSizeChangedListener { _, w, h ->
+                    if (disposed.get()) return@setOnVideoSizeChangedListener
                     if (w > 0 && h > 0) {
                         videoWidth = w
                         videoHeight = h
@@ -258,26 +280,20 @@ fun EleganVideoPlayer(
                     }
                 }
                 setOnCompletionListener {
+                    if (disposed.get()) return@setOnCompletionListener
                     isCompleted = true
                     isPlaying = false
                     showOverlayControls = true
                 }
                 setOnErrorListener { _, _, _ ->
-                    hasError = true
-                    isPlaying = false
+                    if (!disposed.get()) {
+                        hasError = true
+                        isPlaying = false
+                    }
                     true
                 }
             }
             mediaPlayerRef = mp
-
-            if (videoUrl.isNotBlank()) {
-                try {
-                    mp.setDataSource(context, Uri.parse(videoUrl))
-                    mp.prepareAsync()
-                } catch (_: Exception) {
-                    hasError = true
-                }
-            }
 
             surfaceRef?.let { surf ->
                 try {
@@ -285,18 +301,48 @@ fun EleganVideoPlayer(
                 } catch (_: Exception) {}
             }
 
+            if (videoUrl.isNotBlank()) {
+                val appContext = context.applicationContext
+                videoReleaseScope.launch {
+                    var failed = false
+                    synchronized(mp) {
+                        if (disposed.get()) return@launch
+                        try {
+                            mp.setDataSource(appContext, Uri.parse(videoUrl))
+                            if (!disposed.get()) {
+                                mp.prepareAsync()
+                            }
+                        } catch (_: Exception) {
+                            failed = true
+                        }
+                    }
+                    if (failed && !disposed.get()) {
+                        withContext(Dispatchers.Main) {
+                            if (!disposed.get()) {
+                                hasError = true
+                            }
+                        }
+                    }
+                }
+            }
+
             onDispose {
+                disposed.set(true)
                 if (mediaPlayerRef == mp) {
                     mediaPlayerRef = null
                 }
                 try {
                     mp.setSurface(null)
                 } catch (_: Exception) {}
-                try {
-                    // release() basta para liberar el reproductor y su decodificador;
-                    // stop() y reset() antes de release() no son necesarios.
-                    mp.release()
-                } catch (_: Exception) {}
+                videoReleaseScope.launch {
+                    synchronized(mp) {
+                        try {
+                            // release() basta para liberar el reproductor y su decodificador;
+                            // stop() y reset() antes de release() no son necesarios.
+                            mp.release()
+                        } catch (_: Exception) {}
+                    }
+                }
             }
         }
     }
@@ -407,9 +453,9 @@ fun EleganVideoPlayer(
 
         // Portada: Permanece visible hasta que el primer fotograma real del video se haya renderizado.
         // Esto garantiza que en NINGÚN momento se vea un fondo negro al inicio.
-        if (!isFirstFrameRendered && !hasError && !effectivePoster.isNullOrBlank()) {
+        if (!isFirstFrameRendered && !hasError && posterRequest != null) {
             AsyncImage(
-                model = effectivePoster,
+                model = posterRequest,
                 contentDescription = "Portada del video",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()

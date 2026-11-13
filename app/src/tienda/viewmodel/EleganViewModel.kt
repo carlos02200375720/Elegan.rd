@@ -10,7 +10,6 @@ import com.example.data.model.Order
 import com.example.data.model.Product
 import com.example.data.model.PublicationComment
 import com.example.data.model.PublicationStats
-import com.example.data.model.StoreCategory
 import com.example.data.model.SupportMessage
 import com.example.data.model.UserProfile
 import com.example.data.repository.EleganRepository
@@ -39,6 +38,12 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _lastCreatedOrderId = MutableStateFlow<String?>(null)
     val lastCreatedOrderId: StateFlow<String?> = _lastCreatedOrderId.asStateFlow()
+
+    private val _lastOrderPaymentMethod = MutableStateFlow("")
+    val lastOrderPaymentMethod: StateFlow<String> = _lastOrderPaymentMethod.asStateFlow()
+
+    private val _lastOrderDetails = MutableStateFlow<OrderConfirmationDetails?>(null)
+    val lastOrderDetails: StateFlow<OrderConfirmationDetails?> = _lastOrderDetails.asStateFlow()
 
     private val _searchQuery = MutableStateFlow<String>("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -72,7 +77,7 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         .catch { emit(emptyList()) }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
@@ -333,10 +338,12 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         total: Double,
         itemCount: Long,
         itemsSummary: String,
+        paymentProofUri: String = "",
         onSuccess: (String) -> Unit
     ) {
         viewModelScope.launch {
             try {
+                val purchasedItemsSnapshot = cartItems.value.toList()
                 val orderId = repository.createOrder(
                     customerName = customerName,
                     email = email,
@@ -346,8 +353,20 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
                     paymentMethod = paymentMethod,
                     total = total,
                     itemCount = itemCount,
-                    itemsSummary = itemsSummary
+                    itemsSummary = itemsSummary,
+                    paymentProofUri = paymentProofUri
                 )
+                _lastOrderDetails.value = OrderConfirmationDetails(
+                    orderId = orderId,
+                    items = purchasedItemsSnapshot,
+                    total = total,
+                    paymentMethod = paymentMethod,
+                    customerName = customerName,
+                    phone = phone,
+                    address = address,
+                    city = city
+                )
+                _lastOrderPaymentMethod.value = paymentMethod
                 _lastCreatedOrderId.value = orderId
                 onSuccess(orderId)
             } catch (e: CancellationException) {
@@ -402,7 +421,9 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 repository.addAnnouncement(announcement)
                 onResult(true)
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 onResult(false)
             }
         }
@@ -414,7 +435,9 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 repository.deleteProduct(productId)
                 onResult(true)
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 onResult(false)
             }
         }
@@ -424,7 +447,9 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 repository.toggleProductStock(productId, inStock)
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
             }
         }
     }
@@ -435,7 +460,9 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 repository.deleteAnnouncement(announcementId)
                 onResult(true)
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 onResult(false)
             }
         }
@@ -445,8 +472,21 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 repository.toggleAnnouncementActive(announcementId, isActive)
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
             }
         }
     }
 }
+
+data class OrderConfirmationDetails(
+    val orderId: String,
+    val items: List<CartItem>,
+    val total: Double,
+    val paymentMethod: String,
+    val customerName: String,
+    val phone: String,
+    val address: String,
+    val city: String
+)

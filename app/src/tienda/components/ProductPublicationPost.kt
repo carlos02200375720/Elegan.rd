@@ -36,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -46,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -54,6 +54,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.R
 import com.example.data.model.Product
 import com.example.ui.GalleryMediaItem
@@ -61,7 +63,6 @@ import com.example.ui.getProductMediaItems
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
-import com.example.ui.theme.EleganIvory
 
 @Composable
 fun ProductPublicationPost(
@@ -95,7 +96,21 @@ fun ProductPublicationPost(
         }
     }
 
-    val mediaItems = remember(product) { getProductMediaItems(product) }
+    val mediaItems = remember(
+        product.id,
+        product.imageUrl,
+        product.images,
+        product.videoUrl,
+        product.isVideo
+    ) {
+        getProductMediaItems(product)
+    }
+    val priceText = remember(product.price) {
+        "$${String.format("%.2f", product.price)} USD"
+    }
+    val categoryLabel = remember(product.category) {
+        "Boutique Oficial • ${product.category.replaceFirstChar { it.uppercase() }}"
+    }
     val pagerState = rememberPagerState(pageCount = { mediaItems.size })
 
     Column(
@@ -111,20 +126,15 @@ fun ProductPublicationPost(
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            Image(
+                painter = painterResource(id = R.drawable.icono),
+                contentDescription = "Logo Elegan",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(EleganIvory)
-                    .padding(3.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.icono),
-                    contentDescription = "Logo Elegan",
-                    modifier = Modifier.size(26.dp)
-                )
-            }
+                    .background(Color.White)
+            )
 
             Spacer(modifier = Modifier.width(10.dp))
 
@@ -148,7 +158,7 @@ fun ProductPublicationPost(
                     )
                 }
                 Text(
-                    text = "Boutique Oficial • ${product.category.replaceFirstChar { it.uppercase() }}",
+                    text = categoryLabel,
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color.Gray,
                         fontSize = 11.sp
@@ -181,37 +191,67 @@ fun ProductPublicationPost(
                 .background(Color(0xFFF0EBE3)),
             contentAlignment = Alignment.Center
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("post_media_pager_${product.id}")
-            ) { page ->
-                when (val item = mediaItems.getOrNull(page)) {
-                    is GalleryMediaItem.Video -> {
-                        val isVideoFocused = isFocused && (pagerState.currentPage == page)
-                        EleganVideoPlayer(
-                            videoUrl = item.videoUrl,
-                            posterUrl = item.posterUrl,
-                            aspectRatio = ratio,
-                            autoPlay = isVideoFocused,
-                            isFocused = isVideoFocused,
-                            showControls = true,
-                            testTagPrefix = "inicio_video_${product.id}_$page",
-                            modifier = Modifier.fillMaxSize()
-                        )
+            if (mediaItems.size <= 1) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("post_media_pager_${product.id}")
+                ) {
+                    when (val item = mediaItems.firstOrNull()) {
+                        is GalleryMediaItem.Video -> {
+                            EleganVideoPlayer(
+                                videoUrl = item.videoUrl,
+                                posterUrl = item.posterUrl,
+                                aspectRatio = ratio,
+                                autoPlay = isFocused,
+                                isFocused = isFocused,
+                                showControls = true,
+                                testTagPrefix = "inicio_video_${product.id}_0",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        is GalleryMediaItem.Image -> {
+                            PostImageItem(
+                                imageUrl = item.imageUrl,
+                                contentDescription = "${product.name} - 1",
+                                onClick = onProductClick
+                            )
+                        }
+                        null -> {}
                     }
-                    is GalleryMediaItem.Image -> {
-                        AsyncImage(
-                            model = item.imageUrl,
-                            contentDescription = "${product.name} - ${page + 1}",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable { onProductClick() }
-                        )
+                }
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 0,
+                    key = { page -> "${product.id}_$page" },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("post_media_pager_${product.id}")
+                ) { page ->
+                    when (val item = mediaItems.getOrNull(page)) {
+                        is GalleryMediaItem.Video -> {
+                            val isVideoFocused = isFocused && (pagerState.currentPage == page)
+                            EleganVideoPlayer(
+                                videoUrl = item.videoUrl,
+                                posterUrl = item.posterUrl,
+                                aspectRatio = ratio,
+                                autoPlay = isVideoFocused,
+                                isFocused = isVideoFocused,
+                                showControls = true,
+                                testTagPrefix = "inicio_video_${product.id}_$page",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        is GalleryMediaItem.Image -> {
+                            PostImageItem(
+                                imageUrl = item.imageUrl,
+                                contentDescription = "${product.name} - ${page + 1}",
+                                onClick = onProductClick
+                            )
+                        }
+                        null -> {}
                     }
-                    null -> {}
                 }
             }
 
@@ -220,48 +260,45 @@ fun ProductPublicationPost(
                 val currentItem = mediaItems.getOrNull(pagerState.currentPage)
                 val isCurrentVideo = currentItem is GalleryMediaItem.Video
 
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color.Black.copy(alpha = 0.65f),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(start = 12.dp, bottom = 12.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .padding(horizontal = 9.dp, vertical = 4.dp)
                         .testTag("post_content_indicator_${product.id}")
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isCurrentVideo) Icons.Default.Videocam else Icons.Default.Collections,
-                            contentDescription = "Tipo de contenido",
-                            tint = if (isCurrentVideo) EleganGold else Color.White.copy(alpha = 0.95f),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${pagerState.currentPage + 1}/${mediaItems.size}",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isCurrentVideo) Icons.Default.Videocam else Icons.Default.Collections,
+                        contentDescription = "Tipo de contenido",
+                        tint = if (isCurrentVideo) EleganGold else Color.White.copy(alpha = 0.95f),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${pagerState.currentPage + 1}/${mediaItems.size}",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
                 }
             }
 
             // Badge de precio
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color.White.copy(alpha = 0.84f),
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 12.dp, bottom = 12.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.84f))
                     .testTag("post_price_${product.id}")
             ) {
                 Text(
-                    text = "$${String.format("%.2f", product.price)} USD",
+                    text = priceText,
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF137A3A)
@@ -471,6 +508,32 @@ fun ProductPublicationPost(
                 .background(Color(0xFFEBE6DF))
         )
     }
+}
+
+@Composable
+private fun PostImageItem(
+    imageUrl: String,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageRequest = remember(imageUrl, context) {
+        ImageRequest.Builder(context)
+            .data(imageUrl)
+            .size(900, 900)
+            .precision(Precision.INEXACT)
+            .allowRgb565(true)
+            .crossfade(false)
+            .build()
+    }
+    AsyncImage(
+        model = imageRequest,
+        contentDescription = contentDescription,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(onClick = onClick)
+    )
 }
 
 @Composable

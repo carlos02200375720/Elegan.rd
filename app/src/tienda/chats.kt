@@ -109,14 +109,15 @@ fun ChatsScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 2.dp
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -214,27 +215,33 @@ fun ChatsScreen(
                     }
                 }
             }
+                EleganTopBarShadow()
+            }
         },
         bottomBar = {
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .imePadding()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (!isKeyboardOpen) {
-                                Modifier.navigationBarsPadding()
-                            } else {
-                                Modifier
-                            }
-                        )
+                EleganBottomBarShadow()
+                Surface(
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    HorizontalDivider(color = Color(0xFFEBE6DF), thickness = 0.8.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (!isKeyboardOpen) {
+                                    Modifier.navigationBarsPadding()
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -311,6 +318,7 @@ fun ChatsScreen(
                         }
                     }
                 }
+            }
             }
         },
         containerColor = EleganIvory

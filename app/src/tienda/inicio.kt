@@ -14,22 +14,29 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.data.model.Product
 import com.example.data.model.PublicationComment
 import com.example.data.model.PublicationStats
 import com.example.data.model.StoreCategory
 import com.example.data.model.UserProfile
 import com.example.data.remote.MobileSession
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,54 +61,97 @@ fun InicioScreen(
     onNavigateToCart: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    val productIds = remember(featuredProducts) { featuredProducts.map { it.id }.toSet() }
+    val context = LocalContext.current
+    val videoProductIds = remember(featuredProducts) {
+        featuredProducts.asSequence()
+            .filter { it.hasVideo && it.videoUrl.isNotBlank() }
+            .map { it.id }
+            .toSet()
+    }
+    var focusedProductId by remember { mutableStateOf<String?>(null) }
 
-    // Reutiliza el conjunto de IDs para no reconstruirlo en cada actualización del scroll.
-    val focusedProductId by remember(listState, productIds) {
-        derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val visibleItems = layoutInfo.visibleItemsInfo
-            if (visibleItems.isEmpty()) return@derivedStateOf null
-
-            val vpStart = layoutInfo.viewportStartOffset
-            val vpEnd = layoutInfo.viewportEndOffset
-            val vpCenter = (vpStart + vpEnd) / 2
-            val visibleProducts = visibleItems.filter { it.key in productIds }
-            if (visibleProducts.isEmpty()) return@derivedStateOf null
-
-            // Prioridad 1: el producto que cruza el centro de visión del usuario
-            val centerProduct = visibleProducts.find { item ->
-                item.offset <= vpCenter && (item.offset + item.size) >= vpCenter
-            }
-
-            if (centerProduct != null) {
-                val visibleTop = maxOf(centerProduct.offset, vpStart)
-                val visibleBottom = minOf(centerProduct.offset + centerProduct.size, vpEnd)
-                val visiblePx = (visibleBottom - visibleTop).coerceAtLeast(0)
-                if (visiblePx >= 100) {
-                    return@derivedStateOf centerProduct.key as? String
-                }
-            }
-
-            // Prioridad 2: el producto con mayor altura visible en el viewport
-            val maxVisible = visibleProducts.maxByOrNull { item ->
-                val visibleTop = maxOf(item.offset, vpStart)
-                val visibleBottom = minOf(item.offset + item.size, vpEnd)
-                (visibleBottom - visibleTop).coerceAtLeast(0)
-            }
-            if (maxVisible != null) {
-                val visibleTop = maxOf(maxVisible.offset, vpStart)
-                val visibleBottom = minOf(maxVisible.offset + maxVisible.size, vpEnd)
-                val visiblePx = (visibleBottom - visibleTop).coerceAtLeast(0)
-                if (visiblePx >= 140) {
-                    return@derivedStateOf maxVisible.key as? String
-                }
-            }
-            null
+    // Activa el foco de video únicamente cuando el usuario detiene el scroll para evitar bloqueos por tarjeta.
+    LaunchedEffect(listState, videoProductIds) {
+        if (videoProductIds.isEmpty()) {
+            focusedProductId = null
+            return@LaunchedEffect
         }
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collectLatest { scrolling ->
+                if (scrolling) {
+                    focusedProductId = null
+                } else {
+                    delay(220L)
+                    val layoutInfo = listState.layoutInfo
+                    val visibleItems = layoutInfo.visibleItemsInfo
+                    if (visibleItems.isEmpty()) {
+                        focusedProductId = null
+                        return@collectLatest
+                    }
+                    val vpStart = layoutInfo.viewportStartOffset
+                    val vpEnd = layoutInfo.viewportEndOffset
+                    val vpCenter = (vpStart + vpEnd) / 2
+                    val visibleVideoProducts = visibleItems.filter { it.key in videoProductIds }
+                    if (visibleVideoProducts.isEmpty()) {
+                        focusedProductId = null
+                        return@collectLatest
+                    }
+
+                    val centerProduct = visibleVideoProducts.find { item ->
+                        item.offset <= vpCenter && (item.offset + item.size) >= vpCenter
+                    }
+                    focusedProductId = if (centerProduct != null) {
+                        val visibleTop = maxOf(centerProduct.offset, vpStart)
+                        val visibleBottom = minOf(centerProduct.offset + centerProduct.size, vpEnd)
+                        if ((visibleBottom - visibleTop) >= 100) centerProduct.key as? String else null
+                    } else {
+                        val maxVisible = visibleVideoProducts.maxByOrNull { item ->
+                            val visibleTop = maxOf(item.offset, vpStart)
+                            val visibleBottom = minOf(item.offset + item.size, vpEnd)
+                            (visibleBottom - visibleTop).coerceAtLeast(0)
+                        }
+                        if (maxVisible != null) {
+                            val visibleTop = maxOf(maxVisible.offset, vpStart)
+                            val visibleBottom = minOf(maxVisible.offset + maxVisible.size, vpEnd)
+                            if ((visibleBottom - visibleTop) >= 140) maxVisible.key as? String else null
+                        } else {
+                            null
+                        }
+                    }
+                }
+            }
     }
 
-    val context = LocalContext.current
+    // Precarga las portadas de las próximas tarjetas antes de que entren en pantalla.
+    val imageLoader = remember(context) { context.imageLoader }
+    LaunchedEffect(listState, featuredProducts, imageLoader) {
+        if (featuredProducts.isEmpty()) return@LaunchedEffect
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+            .distinctUntilChanged()
+            .collectLatest { lastVisibleIndex ->
+                val startProductIndex = (lastVisibleIndex - 3 + 1).coerceAtLeast(0)
+                val endProductIndex = (startProductIndex + 4).coerceAtMost(featuredProducts.size)
+                for (i in startProductIndex until endProductIndex) {
+                    val p = featuredProducts[i]
+                    val coverUrl = p.imageUrl.takeIf {
+                        it.isNotBlank() && !it.endsWith(".mp4", ignoreCase = true)
+                    } ?: p.images.firstOrNull {
+                        it.isNotBlank() && !it.endsWith(".mp4", ignoreCase = true)
+                    }
+                    if (!coverUrl.isNullOrBlank()) {
+                        val request = ImageRequest.Builder(context)
+                            .data(coverUrl)
+                            .size(900, 900)
+                            .precision(Precision.INEXACT)
+                            .allowRgb565(true)
+                            .build()
+                        imageLoader.enqueue(request)
+                    }
+                }
+            }
+    }
+
     var localSavedProductIds by remember { mutableStateOf(setOf<String>()) }
     var activeCommentProduct by remember { mutableStateOf<Product?>(null) }
 
@@ -171,19 +221,10 @@ fun InicioScreen(
                 val currentCommentCount = stats?.commentsCount?.toInt() ?: 0
                 val currentShareCount = stats?.sharesCount?.toInt() ?: 0
                 val currentSaveCount = stats?.savesCount?.toInt() ?: 0
-                val isPostFocused = (focusedProductId == prod.id)
+                val isPostFocused = prod.hasVideo && (focusedProductId == prod.id)
 
-                ProductPublicationPost(
-                    product = prod,
-                    index = index,
-                    isLiked = isLiked,
-                    isSaved = isSaved,
-                    likeCount = currentLikes,
-                    commentCount = currentCommentCount,
-                    shareCount = currentShareCount,
-                    saveCount = currentSaveCount,
-                    isFocused = isPostFocused,
-                    onLikeClick = {
+                val onLikeAction = remember(prod.id, onToggleLike) {
+                    {
                         onToggleLike(prod.id) { result ->
                             Toast.makeText(
                                 context,
@@ -196,12 +237,16 @@ fun InicioScreen(
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                    },
-                    onCommentClick = {
+                    }
+                }
+                val onCommentAction = remember(prod, onOpenComments) {
+                    {
                         activeCommentProduct = prod
                         onOpenComments(prod.id)
-                    },
-                    onSaveClick = {
+                    }
+                }
+                val onSaveAction = remember(prod.id, isSaved, onToggleSaveProduct) {
+                    {
                         val willSave = !isSaved
                         if (onToggleSaveProduct != null) {
                             onToggleSaveProduct(prod.id) { result ->
@@ -224,8 +269,10 @@ fun InicioScreen(
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                    },
-                    onShareClick = {
+                    }
+                }
+                val onShareAction = remember(prod, onRecordShare) {
+                    {
                         onRecordShare(prod.id) { result ->
                             if (result.isSuccess) {
                                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -244,8 +291,27 @@ fun InicioScreen(
                                 ).show()
                             }
                         }
-                    },
-                    onProductClick = { onNavigateToProduct(prod) }
+                    }
+                }
+                val onProductAction = remember(prod, onNavigateToProduct) {
+                    { onNavigateToProduct(prod) }
+                }
+
+                ProductPublicationPost(
+                    product = prod,
+                    index = index,
+                    isLiked = isLiked,
+                    isSaved = isSaved,
+                    likeCount = currentLikes,
+                    commentCount = currentCommentCount,
+                    shareCount = currentShareCount,
+                    saveCount = currentSaveCount,
+                    isFocused = isPostFocused,
+                    onLikeClick = onLikeAction,
+                    onCommentClick = onCommentAction,
+                    onSaveClick = onSaveAction,
+                    onShareClick = onShareAction,
+                    onProductClick = onProductAction
                 )
             }
 

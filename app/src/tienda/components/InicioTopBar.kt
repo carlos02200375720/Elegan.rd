@@ -1,7 +1,5 @@
 package com.example.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -117,18 +114,6 @@ fun InicioTopBar(
         }
 
         // Sombra inferior para mantener continuidad fluida y elegante
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.5.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.07f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
+        EleganTopBarShadow()
     }
 }

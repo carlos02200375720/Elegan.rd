@@ -1,19 +1,25 @@
 package com.example
 
 import android.app.Activity
-import android.os.Build
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.view.WindowCompat
-import android.graphics.Color as AndroidColor
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,8 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.GridView
@@ -55,32 +60,40 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.Coil
+import coil.ImageLoader
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.example.admin.MenuAdminScreen
-import com.example.admin.PublicarScreen
 import com.example.admin.PublicacionesScreen
+import com.example.admin.PublicarScreen
 import com.example.data.model.Announcement
 import com.example.data.model.Product
+import com.example.data.remote.AuthUser
+import com.example.data.remote.EleganApiClient
+import com.example.data.remote.MobileSession
 import com.example.ui.CarritoScreen
 import com.example.ui.CatalogoScreen
 import com.example.ui.ChatsScreen
+import com.example.ui.EleganBottomBarShadow
 import com.example.ui.GraciaScreen
 import com.example.ui.InicioScreen
 import com.example.ui.MenuScreen
-import com.example.ui.ProductoScreen
 import com.example.ui.PerfilScreen
+import com.example.ui.ProductoScreen
 import com.example.ui.VerificasionScreen
 import com.example.ui.auth.AuthScreen
 import com.example.ui.auth.attemptAutoSignIn
 import com.example.ui.auth.signOutUser
 import com.example.ui.theme.EleganBurgundy
-import com.example.ui.theme.EleganBurgundyDark
-import com.example.ui.theme.EleganCharcoal
-import com.example.ui.theme.EleganGold
-import com.example.ui.theme.EleganIvory
 import com.example.ui.theme.EleganTheme
 import com.example.ui.viewmodel.EleganViewModel
-import com.example.data.remote.MobileSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class Screen {
     INICIO,
@@ -102,10 +115,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-            window.isStatusBarContrastEnforced = false
-        }
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(
                 AndroidColor.WHITE,
@@ -116,21 +125,22 @@ class MainActivity : ComponentActivity() {
                 AndroidColor.WHITE
             )
         )
-        window.navigationBarColor = AndroidColor.WHITE
-        window.statusBarColor = AndroidColor.WHITE
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         insetsController.isAppearanceLightStatusBars = true
         insetsController.isAppearanceLightNavigationBars = true
 
-        // Erradicación definitiva de almacenamiento de contenido multimedia y local
-        try {
-            val mediaDir = java.io.File(filesDir, "product_media")
-            if (mediaDir.exists()) {
-                mediaDir.deleteRecursively()
-            }
-            getSharedPreferences("elegan_admin_prefs", android.content.Context.MODE_PRIVATE)
-                .edit().clear().apply()
-        } catch (_: Exception) {}
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val mediaDir = java.io.File(filesDir, "product_media")
+                if (mediaDir.exists()) {
+                    mediaDir.deleteRecursively()
+                }
+                getSharedPreferences("elegan_admin_prefs", android.content.Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+            } catch (_: Exception) {}
+        }
+
+        configureCoilImageLoader()
 
         setContent {
             EleganTheme {
@@ -138,15 +148,55 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun configureCoilImageLoader() {
+        if (isCoilConfigured) return
+        synchronized(this) {
+            if (isCoilConfigured) return
+            val appCtx = applicationContext
+            Coil.setImageLoader(
+                ImageLoader.Builder(appCtx)
+                    .memoryCache {
+                        MemoryCache.Builder(appCtx)
+                            .maxSizePercent(0.30)
+                            .build()
+                    }
+                    .diskCache {
+                        DiskCache.Builder()
+                            .directory(appCtx.cacheDir.resolve("elegan_image_cache"))
+                            .maxSizePercent(0.05)
+                            .build()
+                    }
+                    .respectCacheHeaders(false)
+                    .allowRgb565(true)
+                    .crossfade(false)
+                    .build()
+            )
+            isCoilConfigured = true
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var isCoilConfigured = false
+    }
 }
 
 @Composable
 fun MainApp() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var currentUser by remember { mutableStateOf(MobileSession.user(context)) }
+    var currentUser by remember { mutableStateOf<AuthUser?>(null) }
+    var isSessionReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        val loadedUser = withContext(Dispatchers.IO) {
+            val cachedUser = MobileSession.user(context)
+            EleganApiClient.store
+            cachedUser
+        }
+        currentUser = loadedUser
+        isSessionReady = true
         attemptAutoSignIn(
             context = context,
             onAuthSuccess = { currentUser = MobileSession.user(context) },
@@ -161,25 +211,33 @@ fun MainApp() {
             val controller = WindowCompat.getInsetsController(window, window.decorView)
             controller.isAppearanceLightStatusBars = true
             controller.isAppearanceLightNavigationBars = true
-            window.statusBarColor = AndroidColor.WHITE
-            window.navigationBarColor = AndroidColor.WHITE
         }
     }
 
-    if (currentUser == null) {
-        AuthScreen(
-            onAuthSuccess = { currentUser = MobileSession.user(context) }
-        )
-    } else {
-        AppContent(
-            onSignOut = {
-                signOutUser(
-                    context = context,
-                    onSignOutComplete = { currentUser = null },
-                    scope = coroutineScope
-                )
-            }
-        )
+    when {
+        !isSessionReady -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White)
+            )
+        }
+        currentUser == null -> {
+            AuthScreen(
+                onAuthSuccess = { currentUser = MobileSession.user(context) }
+            )
+        }
+        else -> {
+            AppContent(
+                onSignOut = {
+                    signOutUser(
+                        context = context,
+                        onSignOutComplete = { currentUser = null },
+                        scope = coroutineScope
+                    )
+                }
+            )
+        }
     }
 }
 
@@ -212,207 +270,271 @@ fun AppContent(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedProduct by viewModel.selectedProduct.collectAsState()
     val lastOrderId by viewModel.lastCreatedOrderId.collectAsState()
+    val lastOrderPaymentMethod by viewModel.lastOrderPaymentMethod.collectAsState()
+    val lastOrderDetails by viewModel.lastOrderDetails.collectAsState()
 
     fun navigateTo(screen: Screen) {
         previousScreen = currentScreen
         currentScreen = screen
     }
 
-    val showBottomBar = currentScreen in listOf(
-        Screen.INICIO,
-        Screen.CATALOGO,
-        Screen.PERFIL
-    )
-
-    Scaffold(
-        contentWindowInsets = if (currentScreen == Screen.PERFIL) {
-            WindowInsets(0, 0, 0, 0)
-        } else {
-            ScaffoldDefaults.contentWindowInsets
-        },
-        bottomBar = {
-            if (showBottomBar) {
-                Surface(
-                    color = Color.White,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                    ) {
-                        NavigationBar(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(55.dp),
-                            containerColor = Color.White,
-                            tonalElevation = 0.dp,
-                            windowInsets = WindowInsets(0, 0, 0, 0)
-                        ) {
-                        NavigationBarItem(
-                            selected = currentScreen == Screen.INICIO,
-                            onClick = { navigateTo(Screen.INICIO) },
-                            icon = {
-                                Icon(
-                                    Icons.Default.Home,
-                                    contentDescription = "Inicio",
-                                    modifier = Modifier.size(25.dp)
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = EleganBurgundy,
-                                unselectedIconColor = Color.Black,
-                                indicatorColor = Color.Transparent
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        AnimatedContent(
+            targetState = currentScreen,
+            modifier = Modifier.fillMaxSize(),
+            transitionSpec = {
+                when {
+                    targetState == Screen.GRACIA -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 320)
                             ),
-                            modifier = Modifier.testTag("nav_inicio")
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
                         )
-
-                        NavigationBarItem(
-                            selected = currentScreen == Screen.CATALOGO,
-                            onClick = {
+                    }
+                    initialState == Screen.GRACIA -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    targetState == Screen.VERIFICASION -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.VERIFICASION && targetState == Screen.CARRITO -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    targetState == Screen.CARRITO -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.CARRITO && targetState != Screen.VERIFICASION -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    targetState == Screen.PRODUCTO -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.PRODUCTO && targetState != Screen.CARRITO -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    else -> {
+                        ContentTransform(
+                            targetContentEnter = EnterTransition.None,
+                            initialContentExit = ExitTransition.None,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                }
+            },
+            label = "screen_transition"
+        ) { screen ->
+            val isTabScreen = screen == Screen.INICIO || screen == Screen.CATALOGO || screen == Screen.PERFIL
+            if (isTabScreen) {
+                Scaffold(
+                    contentWindowInsets = if (screen == Screen.PERFIL) {
+                        WindowInsets(0, 0, 0, 0)
+                    } else {
+                        ScaffoldDefaults.contentWindowInsets
+                    },
+                    bottomBar = {
+                        EleganBottomBar(
+                            currentScreen = screen,
+                            cartItemCount = cartItems.sumOf { it.quantity },
+                            onNavigateToInicio = { navigateTo(Screen.INICIO) },
+                            onNavigateToCatalogo = {
                                 viewModel.setCategory("todo")
                                 navigateTo(Screen.CATALOGO)
                             },
-                            icon = {
-                                Icon(
-                                    Icons.Default.GridView,
-                                    contentDescription = "Catálogo",
-                                    modifier = Modifier.size(25.dp)
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = EleganBurgundy,
-                                unselectedIconColor = Color.Black,
-                                indicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.testTag("nav_catalogo")
+                            onNavigateToCarrito = { navigateTo(Screen.CARRITO) },
+                            onNavigateToChats = { navigateTo(Screen.CHATS) },
+                            onNavigateToPerfil = { navigateTo(Screen.PERFIL) }
                         )
+                    },
+                    containerColor = Color.White
+                ) { innerPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding)
+                    ) {
+                        when (screen) {
+                            Screen.INICIO -> {
+                                InicioScreen(
+                                    featuredProducts = products,
+                                    userProfile = userProfile,
+                                    cartItemCount = cartItems.sumOf { it.quantity },
+                                    savedProductIds = savedProductIds,
+                                    publicationStats = publicationStats,
+                                    likedPublicationIds = likedPublicationIds,
+                                    publicationComments = publicationComments,
+                                    onToggleLike = { id, onResult ->
+                                        viewModel.togglePublicationLike(id, onResult)
+                                    },
+                                    onOpenComments = viewModel::openPublicationComments,
+                                    onSubmitComment = { productId, displayName, text, onResult ->
+                                        viewModel.addPublicationComment(productId, displayName, text, onResult)
+                                    },
+                                    onRecordShare = { productId, onResult ->
+                                        viewModel.recordPublicationShare(productId, onResult)
+                                    },
+                                    onToggleSaveProduct = { id, onResult ->
+                                        viewModel.toggleSaveProduct(id, onResult)
+                                    },
+                                    onNavigateToCatalogo = { cat ->
+                                        viewModel.setCategory(cat)
+                                        navigateTo(Screen.CATALOGO)
+                                    },
+                                    onNavigateToProduct = { prod ->
+                                        viewModel.selectProduct(prod)
+                                        navigateTo(Screen.PRODUCTO)
+                                    },
+                                    onNavigateToMenu = { navigateTo(Screen.MENU) },
+                                    onNavigateToCategoryMenu = { navigateTo(Screen.MENU) },
+                                    onNavigateToChats = { navigateTo(Screen.CHATS) },
+                                    onNavigateToCart = { navigateTo(Screen.CARRITO) }
+                                )
+                            }
 
-                        NavigationBarItem(
-                            selected = currentScreen == Screen.CARRITO,
-                            onClick = { navigateTo(Screen.CARRITO) },
-                            icon = {
-                                val totalQty = cartItems.sumOf { it.quantity }
-                                if (totalQty > 0) {
-                                    BadgedBox(
-                                        badge = {
-                                            Badge(
-                                                containerColor = EleganBurgundy,
-                                                contentColor = Color.White
-                                            ) {
-                                                Text("$totalQty", fontSize = 9.sp)
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.ShoppingBag,
-                                            contentDescription = "Carrito",
-                                            modifier = Modifier.size(25.dp)
-                                        )
+                            Screen.CATALOGO -> {
+                                CatalogoScreen(
+                                    products = products,
+                                    selectedCategory = selectedCategory,
+                                    onCategoryChange = { viewModel.setCategory(it) },
+                                    onNavigateToMenu = { navigateTo(Screen.MENU) },
+                                    onProductClick = { prod ->
+                                        viewModel.selectProduct(prod)
+                                        navigateTo(Screen.PRODUCTO)
+                                    },
+                                    onQuickAddToCart = { prod ->
+                                        val defaultSize = prod.sizes.firstOrNull() ?: "Estándar"
+                                        val defaultColor = prod.colors.firstOrNull().orEmpty()
+                                        viewModel.addToCart(prod, defaultSize, 1L, defaultColor)
+                                    },
+                                    cartItemCount = cartItems.sumOf { it.quantity },
+                                    onNavigateToCart = { navigateTo(Screen.CARRITO) },
+                                    savedProductIds = savedProductIds,
+                                    onToggleSaveProduct = { id ->
+                                        viewModel.toggleSaveProduct(id)
                                     }
-                                } else {
-                                    Icon(
-                                        Icons.Default.ShoppingBag,
-                                        contentDescription = "Carrito",
-                                        modifier = Modifier.size(25.dp)
-                                    )
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = EleganBurgundy,
-                                unselectedIconColor = Color.Black,
-                                indicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.testTag("nav_carrito")
-                        )
-
-                        NavigationBarItem(
-                            selected = currentScreen == Screen.CHATS,
-                            onClick = { navigateTo(Screen.CHATS) },
-                            icon = {
-                                Icon(
-                                    Icons.Default.ChatBubbleOutline,
-                                    contentDescription = "Soporte",
-                                    modifier = Modifier.size(25.dp)
                                 )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = EleganBurgundy,
-                                unselectedIconColor = Color.Black,
-                                indicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.testTag("nav_chats")
-                        )
+                            }
 
-                        NavigationBarItem(
-                            selected = currentScreen == Screen.PERFIL,
-                            onClick = { navigateTo(Screen.PERFIL) },
-                            icon = {
-                                Icon(
-                                    Icons.Default.PersonOutline,
-                                    contentDescription = "Perfil",
-                                    modifier = Modifier.size(25.dp)
+                            Screen.PERFIL -> {
+                                PerfilScreen(
+                                    userProfile = userProfile,
+                                    orders = orders,
+                                    savedProducts = savedProducts,
+                                    cartItemCount = cartItems.sumOf { it.quantity },
+                                    onNavigateToCart = { navigateTo(Screen.CARRITO) },
+                                    onProductClick = { prod ->
+                                        viewModel.selectProduct(prod)
+                                        navigateTo(Screen.PRODUCTO)
+                                    },
+                                    onExploreClick = { navigateTo(Screen.INICIO) },
+                                    onSaveProfile = { ph, ad, ct -> viewModel.saveProfile(ph, ad, ct) },
+                                    onNavigateToChats = { navigateTo(Screen.CHATS) },
+                                    onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
+                                    onNavigateToMenuAdmin = { navigateTo(Screen.MENU_ADMIN) },
+                                    onSignOut = onSignOut
                                 )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = EleganBurgundy,
-                                unselectedIconColor = Color.Black,
-                                indicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.testTag("nav_perfil")
-                        )
+                            }
+
+                            else -> {}
                         }
                     }
                 }
-            }
-        },
-        containerColor = Color.White
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
-        ) {
-            when (currentScreen) {
-                Screen.INICIO -> {
-                    InicioScreen(
-                        featuredProducts = products,
-                        userProfile = userProfile,
-                        cartItemCount = cartItems.sumOf { it.quantity },
-                        savedProductIds = savedProductIds,
-                        publicationStats = publicationStats,
-                        likedPublicationIds = likedPublicationIds,
-                        publicationComments = publicationComments,
-                        onToggleLike = { id, onResult ->
-                            viewModel.togglePublicationLike(id, onResult)
-                        },
-                        onOpenComments = viewModel::openPublicationComments,
-                        onSubmitComment = { productId, displayName, text, onResult ->
-                            viewModel.addPublicationComment(productId, displayName, text, onResult)
-                        },
-                        onRecordShare = { productId, onResult ->
-                            viewModel.recordPublicationShare(productId, onResult)
-                        },
-                        onToggleSaveProduct = { id, onResult ->
-                            viewModel.toggleSaveProduct(id, onResult)
-                        },
-                        onNavigateToCatalogo = { cat ->
-                            viewModel.setCategory(cat)
-                            navigateTo(Screen.CATALOGO)
-                        },
-                        onNavigateToProduct = { prod ->
-                            viewModel.selectProduct(prod)
-                            navigateTo(Screen.PRODUCTO)
-                        },
-                        onNavigateToMenu = { navigateTo(Screen.MENU) },
-                        onNavigateToCategoryMenu = { navigateTo(Screen.MENU) },
-                        onNavigateToChats = { navigateTo(Screen.CHATS) },
-                        onNavigateToCart = { navigateTo(Screen.CARRITO) }
-                    )
-                }
-
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.White)
+                        .windowInsetsPadding(ScaffoldDefaults.contentWindowInsets)
+                ) {
+                    when (screen) {
                 Screen.MENU -> {
                     MenuScreen(
                         products = products,
@@ -424,32 +546,10 @@ fun AppContent(
                     )
                 }
 
-                Screen.CATALOGO -> {
-                    CatalogoScreen(
-                        products = products,
-                        selectedCategory = selectedCategory,
-                        onCategoryChange = { viewModel.setCategory(it) },
-                        onNavigateToMenu = { navigateTo(Screen.MENU) },
-                        onProductClick = { prod ->
-                            viewModel.selectProduct(prod)
-                            navigateTo(Screen.PRODUCTO)
-                        },
-                        onQuickAddToCart = { prod ->
-                            val defaultSize = prod.sizes.firstOrNull() ?: "Estándar"
-                            val defaultColor = prod.colors.firstOrNull().orEmpty()
-                            viewModel.addToCart(prod, defaultSize, 1L, defaultColor)
-                        },
-                        cartItemCount = cartItems.sumOf { it.quantity },
-                        onNavigateToCart = { navigateTo(Screen.CARRITO) },
-                        savedProductIds = savedProductIds,
-                        onToggleSaveProduct = { id ->
-                            viewModel.toggleSaveProduct(id)
-                        }
-                    )
-                }
-
                 Screen.PRODUCTO -> {
-                    val prod = selectedProduct ?: products.firstOrNull()
+                    val prod = selectedProduct
+                        ?: cartItems.lastOrNull()?.let { item -> products.find { it.id == item.productId } }
+                        ?: products.firstOrNull()
                     if (prod != null) {
                         ProductoScreen(
                             product = prod,
@@ -466,10 +566,12 @@ fun AppContent(
                                 navigateTo(Screen.CARRITO)
                             },
                             onNavigateToCart = { navigateTo(Screen.CARRITO) },
-                            onBack = { navigateTo(previousScreen) }
+                            onBack = { navigateTo(Screen.CATALOGO) }
                         )
                     } else {
-                        navigateTo(Screen.CATALOGO)
+                        LaunchedEffect(Unit) {
+                            navigateTo(Screen.CATALOGO)
+                        }
                     }
                 }
 
@@ -489,7 +591,7 @@ fun AppContent(
                             viewModel.setCategory("todo")
                             navigateTo(Screen.CATALOGO)
                         },
-                        onBack = { navigateTo(previousScreen) }
+                        onBack = { navigateTo(Screen.PRODUCTO) }
                     )
                 }
 
@@ -501,7 +603,7 @@ fun AppContent(
                         shipping = checkoutShipping,
                         total = checkoutTotal,
                         userProfile = userProfile,
-                        onConfirmOrder = { name, email, phone, addr, city, payMethod ->
+                        onConfirmOrder = { name, email, phone, addr, city, payMethod, paymentProofUri ->
                             val itemsSummary = cartItems.joinToString(", ") { "${it.quantity}x ${it.name}" }
                             viewModel.placeOrder(
                                 customerName = name,
@@ -513,6 +615,7 @@ fun AppContent(
                                 total = checkoutTotal,
                                 itemCount = cartItems.sumOf { it.quantity },
                                 itemsSummary = itemsSummary,
+                                paymentProofUri = paymentProofUri,
                                 onSuccess = {
                                     navigateTo(Screen.GRACIA)
                                 }
@@ -525,29 +628,11 @@ fun AppContent(
                 Screen.GRACIA -> {
                     GraciaScreen(
                         orderId = lastOrderId,
+                        isBankTransfer = lastOrderPaymentMethod.contains("Transferencia", ignoreCase = true),
+                        orderDetails = lastOrderDetails,
                         onNavigateToInicio = { navigateTo(Screen.INICIO) },
                         onNavigateToPerfil = { navigateTo(Screen.PERFIL) },
                         onNavigateToChats = { navigateTo(Screen.CHATS) }
-                    )
-                }
-
-                Screen.PERFIL -> {
-                    PerfilScreen(
-                        userProfile = userProfile,
-                        orders = orders,
-                        savedProducts = savedProducts,
-                        cartItemCount = cartItems.sumOf { it.quantity },
-                        onNavigateToCart = { navigateTo(Screen.CARRITO) },
-                        onProductClick = { prod ->
-                            viewModel.selectProduct(prod)
-                            navigateTo(Screen.PRODUCTO)
-                        },
-                        onExploreClick = { navigateTo(Screen.INICIO) },
-                        onSaveProfile = { ph, ad, ct -> viewModel.saveProfile(ph, ad, ct) },
-                        onNavigateToChats = { navigateTo(Screen.CHATS) },
-                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
-                        onNavigateToMenuAdmin = { navigateTo(Screen.MENU_ADMIN) },
-                        onSignOut = onSignOut
                     )
                 }
 
@@ -599,7 +684,157 @@ fun AppContent(
                         onBack = { navigateTo(Screen.MENU_ADMIN) }
                     )
                 }
+
+                else -> {}
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun EleganBottomBar(
+    currentScreen: Screen,
+    cartItemCount: Long,
+    onNavigateToInicio: () -> Unit,
+    onNavigateToCatalogo: () -> Unit,
+    onNavigateToCarrito: () -> Unit,
+    onNavigateToChats: () -> Unit,
+    onNavigateToPerfil: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Sombra superior idéntica a la de la cabecera (2.5.dp, alpha 0.07f)
+        EleganBottomBarShadow()
+
+        Surface(
+            color = Color.White,
+            shadowElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+            ) {
+            NavigationBar(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(55.dp),
+                containerColor = Color.White,
+                tonalElevation = 0.dp,
+                windowInsets = WindowInsets(0, 0, 0, 0)
+            ) {
+                NavigationBarItem(
+                    selected = currentScreen == Screen.INICIO,
+                    onClick = onNavigateToInicio,
+                    icon = {
+                        Icon(
+                            Icons.Default.Home,
+                            contentDescription = "Inicio",
+                            modifier = Modifier.size(25.dp)
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = EleganBurgundy,
+                        unselectedIconColor = Color.Black,
+                        indicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.testTag("nav_inicio")
+                )
+
+                NavigationBarItem(
+                    selected = currentScreen == Screen.CATALOGO,
+                    onClick = onNavigateToCatalogo,
+                    icon = {
+                        Icon(
+                            Icons.Default.GridView,
+                            contentDescription = "Catálogo",
+                            modifier = Modifier.size(25.dp)
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = EleganBurgundy,
+                        unselectedIconColor = Color.Black,
+                        indicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.testTag("nav_catalogo")
+                )
+
+                NavigationBarItem(
+                    selected = currentScreen == Screen.CARRITO,
+                    onClick = onNavigateToCarrito,
+                    icon = {
+                        if (cartItemCount > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = EleganBurgundy,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("$cartItemCount", fontSize = 9.sp)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.ShoppingBag,
+                                    contentDescription = "Carrito",
+                                    modifier = Modifier.size(25.dp)
+                                )
+                            }
+                        } else {
+                            Icon(
+                                Icons.Default.ShoppingBag,
+                                contentDescription = "Carrito",
+                                modifier = Modifier.size(25.dp)
+                            )
+                        }
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = EleganBurgundy,
+                        unselectedIconColor = Color.Black,
+                        indicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.testTag("nav_carrito")
+                )
+
+                NavigationBarItem(
+                    selected = currentScreen == Screen.CHATS,
+                    onClick = onNavigateToChats,
+                    icon = {
+                        Icon(
+                            Icons.Default.ChatBubbleOutline,
+                            contentDescription = "Soporte",
+                            modifier = Modifier.size(25.dp)
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = EleganBurgundy,
+                        unselectedIconColor = Color.Black,
+                        indicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.testTag("nav_chats")
+                )
+
+                NavigationBarItem(
+                    selected = currentScreen == Screen.PERFIL,
+                    onClick = onNavigateToPerfil,
+                    icon = {
+                        Icon(
+                            Icons.Default.PersonOutline,
+                            contentDescription = "Perfil",
+                            modifier = Modifier.size(25.dp)
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = EleganBurgundy,
+                        unselectedIconColor = Color.Black,
+                        indicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.testTag("nav_perfil")
+                )
+            }
+        }
         }
     }
 }

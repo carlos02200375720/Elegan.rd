@@ -65,6 +65,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -95,8 +96,11 @@ import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
 import kotlinx.coroutines.launch
 
+@Immutable
 sealed interface GalleryMediaItem {
+    @Immutable
     data class Video(val videoUrl: String, val posterUrl: String) : GalleryMediaItem
+    @Immutable
     data class Image(val imageUrl: String) : GalleryMediaItem
 }
 
@@ -128,74 +132,77 @@ fun ProductoScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            Surface(
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 14.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-            ) {
-                Row(
+            Column(modifier = Modifier.fillMaxWidth()) {
+                EleganBottomBarShadow()
+                Surface(
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxWidth()
+                        .height(55.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            onAddToCart(product, selectedSize, selectedColor, quantity)
-                            scope.launch {
-                                snackbarHostState.showSnackbar("¡Añadido al carrito con éxito!")
-                            }
-                        },
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .testTag("add_to_cart_btn"),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = EleganBurgundy
-                        ),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(EleganBurgundy)
-                        )
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingBag,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Añadir",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                        OutlinedButton(
+                            onClick = {
+                                onAddToCart(product, selectedSize, selectedColor, quantity)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("¡Añadido al carrito con éxito!")
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .testTag("add_to_cart_btn"),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = EleganBurgundy
+                            ),
+                            border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                                brush = androidx.compose.ui.graphics.SolidColor(EleganBurgundy)
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Añadir",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
-                    Button(
-                        onClick = {
-                            onBuyNow(product, selectedSize, selectedColor, quantity)
-                        },
-                        modifier = Modifier
-                            .weight(1.2f)
-                            .fillMaxHeight()
-                            .testTag("buy_now_btn"),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = EleganBurgundy,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text(
-                            text = "Comprar Ahora",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Button(
+                            onClick = {
+                                onBuyNow(product, selectedSize, selectedColor, quantity)
+                            },
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .fillMaxHeight()
+                                .testTag("buy_now_btn"),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EleganBurgundy,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = "Comprar Ahora",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

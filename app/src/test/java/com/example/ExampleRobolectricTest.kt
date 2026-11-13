@@ -61,4 +61,28 @@ class ExampleRobolectricTest {
     controller.setup()
     org.junit.Assert.assertNotNull(controller.get())
   }
+
+  @Test
+  fun `test remoteBearerToken ignores local guest and rejected tokens`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    com.example.data.remote.MobileSession.clear(context)
+
+    com.example.data.remote.MobileSession.loginClientLocally(context)
+    org.junit.Assert.assertNull(com.example.data.remote.MobileSession.remoteBearerToken(context))
+    org.junit.Assert.assertEquals(false, com.example.data.remote.MobileSession.hasRemoteSession(context))
+
+    val fakeJwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.sig"
+    com.example.data.remote.MobileSession.save(
+      context,
+      com.example.data.remote.AuthResponse(
+        token = fakeJwt,
+        user = com.example.data.remote.AuthUser(id = "u1", name = "Cliente", role = "customer")
+      )
+    )
+    assertEquals("Bearer $fakeJwt", com.example.data.remote.MobileSession.remoteBearerToken(context))
+
+    com.example.data.remote.MobileSession.markRemoteSessionRejected()
+    org.junit.Assert.assertNull(com.example.data.remote.MobileSession.remoteBearerToken(context))
+    com.example.data.remote.MobileSession.clear(context)
+  }
 }

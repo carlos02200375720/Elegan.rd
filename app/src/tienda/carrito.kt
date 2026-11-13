@@ -24,8 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Remove
@@ -123,14 +123,15 @@ fun CarritoScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 3.dp
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -179,17 +180,21 @@ fun CarritoScreen(
                     }
                 }
             }
+                EleganTopBarShadow()
+            }
         },
         bottomBar = {
             if (cartItems.isNotEmpty()) {
-                Surface(
-                    color = Color.White,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 14.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    EleganBottomBarShadow()
+                    Surface(
+                        color = Color.White,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                    ) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -238,12 +243,13 @@ fun CarritoScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
                     }
+                }
                 }
             }
         },

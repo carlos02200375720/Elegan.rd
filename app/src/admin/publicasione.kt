@@ -89,6 +89,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.Announcement
 import com.example.data.model.Product
 import com.example.data.model.StoreCategory
+import com.example.ui.EleganTopBarShadow
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
@@ -150,14 +151,15 @@ fun PublicacionesScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 2.dp
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp),
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -220,6 +222,8 @@ fun PublicacionesScreen(
                         )
                     }
                 }
+            }
+                EleganTopBarShadow()
             }
         },
         containerColor = Color(0xFFF9F7F5)

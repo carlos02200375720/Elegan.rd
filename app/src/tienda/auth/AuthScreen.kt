@@ -89,6 +89,7 @@ import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganGold
 import com.example.ui.theme.EleganIvory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -136,6 +137,8 @@ fun AuthScreen(
                         val displayName = name.ifBlank { "Cliente Elegan" }
                         try {
                             EleganApiClient.auth.register(RegisterRequest(displayName, email, password))
+                        } catch (netEx: CancellationException) {
+                            throw netEx
                         } catch (netEx: Exception) {
                             Log.w("Auth", "Servidor no disponible para registro (${netEx.message}), registrando localmente.")
                             MobileSession.registerLocalUser(context, displayName, email, password)
@@ -143,6 +146,8 @@ fun AuthScreen(
                     } else {
                         try {
                             EleganApiClient.auth.login(LoginRequest(email, password))
+                        } catch (netEx: CancellationException) {
+                            throw netEx
                         } catch (netEx: Exception) {
                             Log.w("Auth", "Servidor no disponible para login (${netEx.message}), verificando credenciales locales.")
                             MobileSession.loginLocalUser(context, email, password)
@@ -150,6 +155,8 @@ fun AuthScreen(
                     }
                     MobileSession.save(context, response)
                     onAuthSuccess()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e("Auth", "Error de autenticación", e)
                     errorMessage = mapAuthApiError(e)
@@ -498,14 +505,18 @@ fun attemptAutoSignIn(
     scope: CoroutineScope
 ) {
     val savedUser = MobileSession.user(context)
-    val savedToken = MobileSession.bearerToken(context)
-    if (savedUser != null && savedToken != null) {
+    if (savedUser != null) {
+        val remoteToken = MobileSession.remoteBearerToken(context)
+        if (remoteToken == null) {
+            onAuthSuccess()
+            return
+        }
         scope.launch {
             try {
-                if (!savedToken.contains("local_jwt_")) {
-                    EleganApiClient.auth.currentUser(savedToken)
-                }
+                EleganApiClient.auth.currentUser(remoteToken)
                 onAuthSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 401) {
                     MobileSession.clear(context)
@@ -513,7 +524,7 @@ fun attemptAutoSignIn(
                 } else {
                     onAuthSuccess()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 onAuthSuccess()
             }
         }
@@ -529,7 +540,9 @@ fun signOutUser(
 ) {
     scope.launch {
         try {
-            MobileSession.bearerToken(context)?.let { EleganApiClient.auth.logout(it) }
+            MobileSession.remoteBearerToken(context)?.let { EleganApiClient.auth.logout(it) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w("Auth", "No se pudo cerrar la sesión remota: ${e.message}")
         }

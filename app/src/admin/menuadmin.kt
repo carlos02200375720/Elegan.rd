@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.EleganTopBarShadow
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
@@ -161,14 +162,15 @@ fun MenuAdminScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                color = Color.White,
-                tonalElevation = 0.dp,
-                shadowElevation = 2.dp
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    color = Color.White,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -232,6 +234,8 @@ fun MenuAdminScreen(
                         }
                     }
                 }
+            }
+                EleganTopBarShadow()
             }
         },
         containerColor = Color(0xFFF9F7F5)
@@ -726,7 +730,7 @@ fun MenuAdminScreen(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = EleganBurgundy
                     ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                    border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                         brush = androidx.compose.ui.graphics.SolidColor(EleganBurgundy)
                     )
                 ) {
