@@ -1,6 +1,5 @@
 package com.example.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Product
 import com.example.data.model.PublicationComment
+import com.example.ui.components.EleganNotificationHost
+import com.example.ui.components.EleganNotificationState
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganCharcoal
 
@@ -62,7 +64,7 @@ fun PublicationCommentsBottomSheet(
     onDismiss: () -> Unit,
     onSubmitComment: (String, String, String, (Result<Unit>) -> Unit) -> Unit
 ) {
-    val context = LocalContext.current
+    val commentsNotifier = remember { EleganNotificationState() }
     var newCommentText by remember { mutableStateOf("") }
     // skipPartiallyExpanded = true garantiza que abra completamente y no a medias
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -70,46 +72,80 @@ fun PublicationCommentsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White
+        containerColor = Color.White,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(34.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFD5CFC7))
+                )
+            }
+        }
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f)
-                .padding(horizontal = 20.dp, vertical = 8.dp)
                 .navigationBarsPadding()
                 .imePadding()
         ) {
-            // Barra superior del panel
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(horizontal = 16.dp)
+            ) {
+            // Cabecera compacta del panel
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Comentarios de Clientes",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = EleganCharcoal,
-                        fontFamily = FontFamily.Serif
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Comentarios de Clientes",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EleganCharcoal,
+                            fontFamily = FontFamily.Serif
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Cerrar")
+                    Text(
+                        text = product.name,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 11.sp,
+                            color = EleganBurgundy,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_comments_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cerrar",
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
-            Text(
-                text = product.name,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = EleganBurgundy,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFEEE8E0))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Lista de comentarios con scroll completo
             LazyColumn(
@@ -162,7 +198,7 @@ fun PublicationCommentsBottomSheet(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 40.dp),
+                                .padding(vertical = 32.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
@@ -183,19 +219,26 @@ fun PublicationCommentsBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Barra inferior de envío adaptada al teclado
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = newCommentText,
                     onValueChange = { newCommentText = it },
-                    placeholder = { Text("Escribe un comentario como $displayName...", fontSize = 13.sp) },
+                    placeholder = {
+                        Text(
+                            text = "Escribe un comentario...",
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .testTag("comment_input_field"),
@@ -214,13 +257,9 @@ fun PublicationCommentsBottomSheet(
                             newCommentText = ""
                             onSubmitComment(product.id, displayName, textToSubmit) { result ->
                                 if (result.isSuccess) {
-                                    Toast.makeText(context, "Comentario publicado", Toast.LENGTH_SHORT).show()
+                                    commentsNotifier.show("Comentario publicado")
                                 } else {
-                                    Toast.makeText(
-                                        context,
-                                        "No se pudo publicar el comentario",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    commentsNotifier.show("No se pudo publicar el comentario")
                                 }
                             }
                         }
@@ -238,6 +277,14 @@ fun PublicationCommentsBottomSheet(
                     )
                 }
             }
+            }
+
+            EleganNotificationHost(
+                state = commentsNotifier,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 76.dp)
+            )
         }
     }
 }

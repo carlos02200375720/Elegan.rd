@@ -35,6 +35,14 @@ export const SupportMessageCollectionSchema = {
         maxLength: 4000,
         description: "Texto del mensaje enviado"
       },
+      mediaUrl: {
+        bsonType: "string",
+        description: "URL opcional de imagen o video adjunto"
+      },
+      mediaType: {
+        bsonType: "string",
+        description: "Tipo de medio adjunto (image o video)"
+      },
       createdAt: {
         bsonType: "date",
         description: "Fecha y hora de envío del mensaje"
@@ -48,12 +56,15 @@ export const SupportMessageIndexes = [
 ];
 
 export function createSupportMessageDocument(data = {}) {
+  const mediaUrl = String(data.mediaUrl || "").trim();
+  const mediaType = String(data.mediaType || "").trim();
   return {
     _id: String(data.id || data._id || randomUUID()),
     userId: String(data.userId),
     sender: data.sender || "user",
     senderName: String(data.senderName || "Cliente").trim(),
     text: String(data.text || "").trim(),
+    ...(mediaUrl ? { mediaUrl, mediaType: mediaType === "video" ? "video" : "image" } : {}),
     createdAt: data.createdAt ? new Date(data.createdAt) : new Date()
   };
 }

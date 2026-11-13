@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -172,7 +174,11 @@ fun VerificasionScreen(
                             color = EleganCharcoal,
                             fontFamily = FontFamily.Serif
                         ),
-                        modifier = Modifier.align(Alignment.Center)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 56.dp)
                     )
                 }
             }
@@ -190,62 +196,71 @@ fun VerificasionScreen(
                         .fillMaxWidth()
                         .height(55.dp)
                 ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 3.dp),
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Button(
-                        onClick = {
-                            if (!isDeliveryFormValid()) {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Por favor completa los datos de entrega requeridos.")
-                                }
-                                return@Button
-                            }
-                            when (selectedPayment) {
-                                cardPayPalOption -> {
-                                    showPayPalPage = true
-                                }
-                                cashOnDeliveryOption -> {
-                                    showCashOnDeliveryPage = true
-                                }
-                                bankTransferOption -> {
-                                    showBankTransferPage = true
-                                }
-                                else -> {
-                                    isSubmitting = true
-                                    onConfirmOrder(customerName, email, phone, address, city, selectedPayment, "")
-                                }
-                            }
-                        },
+                    val isCompactBar = maxWidth < 350.dp
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .testTag("confirm_order_btn"),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = EleganBurgundy,
-                            contentColor = Color.White
-                        ),
-                        enabled = !isSubmitting
+                            .fillMaxSize()
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = if (isCompactBar) 12.dp else 16.dp, vertical = 3.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        if (isSubmitting) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Confirmar y Pagar $${String.format("%.2f", total)}",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
+                        Button(
+                            onClick = {
+                                if (!isDeliveryFormValid()) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Por favor completa los datos de entrega requeridos.")
+                                    }
+                                    return@Button
+                                }
+                                when (selectedPayment) {
+                                    cardPayPalOption -> {
+                                        showPayPalPage = true
+                                    }
+                                    cashOnDeliveryOption -> {
+                                        showCashOnDeliveryPage = true
+                                    }
+                                    bankTransferOption -> {
+                                        showBankTransferPage = true
+                                    }
+                                    else -> {
+                                        isSubmitting = true
+                                        onConfirmOrder(customerName, email, phone, address, city, selectedPayment, "")
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .testTag("confirm_order_btn"),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EleganBurgundy,
+                                contentColor = Color.White
+                            ),
+                            enabled = !isSubmitting
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Confirmar y Pagar $${String.format("%.2f", total)}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = if (isCompactBar) 14.sp else 15.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -255,14 +270,28 @@ fun VerificasionScreen(
         },
         containerColor = Color.White
     ) { padding ->
-        LazyColumn(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .testTag("verificasion_screen"),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
+            val isCompact = maxWidth < 350.dp
+            val isWide = maxWidth >= 600.dp
+            val horizontalPad = when {
+                isCompact -> 12.dp
+                isWide -> 24.dp
+                else -> 16.dp
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 680.dp)
+                    .testTag("verificasion_screen"),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(if (isCompact) 14.dp else 18.dp)
+            ) {
             item {
                 Row(
                     modifier = Modifier
@@ -714,6 +743,7 @@ fun VerificasionScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
         }
     }
 

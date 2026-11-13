@@ -345,7 +345,7 @@ object MobileSession {
         val accounts = getStoredAccounts(context)
         val existing = accounts.find { it.email.equals(SUPER_ADMIN_EMAIL, ignoreCase = true) }
         val adminUser = AuthUser(
-            id = existing?.id ?: UUID.randomUUID().toString(),
+            id = existing?.id ?: "local_admin_elegan",
             email = SUPER_ADMIN_EMAIL,
             name = existing?.name ?: "Carlos García (Administrador)",
             photoUrl = existing?.photoUrl ?: "",
@@ -360,7 +360,7 @@ object MobileSession {
 
     fun loginClientLocally(context: Context): AuthResponse {
         val clientUser = AuthUser(
-            id = UUID.randomUUID().toString(),
+            id = "local_client_elegan",
             email = "cliente.elegan@gmail.com",
             name = "Cliente Elegan",
             photoUrl = "",

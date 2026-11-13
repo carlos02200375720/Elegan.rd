@@ -20,7 +20,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +38,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -149,6 +153,7 @@ private class PayPalJsBridge(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun PaypalScreen(
@@ -301,75 +306,93 @@ fun PaypalScreen(
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 EleganBottomBarShadow()
-                Surface(
-                    color = Color.White,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(55.dp)
+            Surface(
+                color = Color.White,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(55.dp)
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                    val isCompactBar = maxWidth < 350.dp
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = Color(0xFF2E7D32),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isSubmittingOrder) "Confirmando pedido..." else "Cifrado SSL por PayPal",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = EleganCharcoal,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onBack,
-                        enabled = !isSubmittingOrder,
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                        border = BorderStroke(1.dp, EleganBurgundy.copy(alpha = 0.5f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = EleganBurgundy),
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .testTag("paypal_cancel_bottom_btn")
+                            .fillMaxSize()
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = if (isCompactBar) 12.dp else 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "Cambiar método",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isSubmittingOrder) "Confirmando pedido..." else "Cifrado SSL por PayPal",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = EleganCharcoal,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = if (isCompactBar) 11.5.sp else 12.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = onBack,
+                            enabled = !isSubmittingOrder,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = if (isCompactBar) 10.dp else 14.dp, vertical = 0.dp),
+                            border = BorderStroke(1.dp, EleganBurgundy.copy(alpha = 0.5f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = EleganBurgundy),
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .testTag("paypal_cancel_bottom_btn")
+                        ) {
+                            Text(
+                                text = "Cambiar método",
+                                fontSize = if (isCompactBar) 11.5.sp else 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }
             }
         }
     ) { padding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color.White)
+                .background(Color.White),
+            contentAlignment = Alignment.TopCenter
         ) {
+            val isCompact = maxWidth < 350.dp
+            val isWide = maxWidth >= 600.dp
+            val horizontalPad = when {
+                isCompact -> 12.dp
+                isWide -> 24.dp
+                else -> 16.dp
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .widthIn(max = 680.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 // Resumen del pedido que se desplaza con el scroll general
@@ -379,7 +402,7 @@ fun PaypalScreen(
                     border = BorderStroke(1.dp, Color(0xFFE5DDD5)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = horizontalPad, vertical = 12.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
@@ -430,9 +453,9 @@ fun PaypalScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        Row(
+                        FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
@@ -489,7 +512,7 @@ fun PaypalScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .heightIn(min = 240.dp)
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {

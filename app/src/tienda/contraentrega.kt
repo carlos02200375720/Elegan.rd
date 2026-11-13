@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -179,46 +181,55 @@ fun ContraEntregaScreen(
                         .fillMaxWidth()
                         .height(55.dp)
                 ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 3.dp),
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Button(
-                        onClick = onConfirmOrder,
-                        enabled = hasAcceptedResponsibility && !isSubmitting,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = EleganBurgundy,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFD6CEC7),
-                            disabledContentColor = Color.White.copy(alpha = 0.85f)
-                        ),
+                    val isCompactBar = maxWidth < 350.dp
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .testTag("confirm_contraentrega_btn")
+                            .fillMaxSize()
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = if (isCompactBar) 12.dp else 16.dp, vertical = 3.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        if (isSubmitting) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Confirmar Pedido Contra Entrega",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
+                        Button(
+                            onClick = onConfirmOrder,
+                            enabled = hasAcceptedResponsibility && !isSubmitting,
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EleganBurgundy,
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFFD6CEC7),
+                                disabledContentColor = Color.White.copy(alpha = 0.85f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .testTag("confirm_contraentrega_btn")
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Confirmar Pedido Contra Entrega",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = if (isCompactBar) 13.sp else 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -226,25 +237,40 @@ fun ContraEntregaScreen(
             }
         }
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            // Encabezado informativo principal
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFFFAF8F5),
-                border = BorderStroke(1.dp, Color(0xFFE5DDD5)),
-                modifier = Modifier.fillMaxWidth()
+            val isCompact = maxWidth < 350.dp
+            val isWide = maxWidth >= 600.dp
+            val horizontalPad = when {
+                isCompact -> 12.dp
+                isWide -> 24.dp
+                else -> 20.dp
+            }
+            val cardPad = if (isCompact) 12.dp else 16.dp
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 680.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = horizontalPad, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(if (isCompact) 12.dp else 14.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.Top
+                // Encabezado informativo principal
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFFAF8F5),
+                    border = BorderStroke(1.dp, Color(0xFFE5DDD5)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
+                    Row(
+                        modifier = Modifier.padding(cardPad),
+                        verticalAlignment = Alignment.Top
+                    ) {
                     Box(
                         modifier = Modifier
                             .size(42.dp)
@@ -498,6 +524,7 @@ fun ContraEntregaScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+        }
         }
     }
 }

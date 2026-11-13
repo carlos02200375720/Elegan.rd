@@ -106,7 +106,13 @@ export function formatOrderResponse(doc) {
   const { _id, ...rest } = doc;
   return {
     ...rest,
-    id: String(_id)
+    id: String(_id),
+    email: rest.email || rest.customerEmail || "",
+    phone: rest.phone || rest.customerPhone || "",
+    address: rest.address || rest.shippingAddress || "",
+    createdAt: rest.createdAt instanceof Date
+      ? rest.createdAt.toISOString()
+      : (rest.createdAt || null)
   };
 }
 

@@ -3,9 +3,11 @@ import { db } from "../db.js";
 import { cleanObject, sendError } from "../middleware/auth.js";
 import { ANNOUNCEMENTS_COLLECTION_NAME, formatAnnouncementResponse } from "../modelo/index.js";
 
-export async function getAnnouncements(_req, res) {
+export async function getAnnouncements(req, res) {
   try {
-    const items = await db.collection(ANNOUNCEMENTS_COLLECTION_NAME).find({ isActive: true }).sort({ createdAt: -1 }).toArray();
+    const includeInactive = String(req.query?.includeInactive || "").toLowerCase() === "true";
+    const filter = includeInactive ? {} : { isActive: true };
+    const items = await db.collection(ANNOUNCEMENTS_COLLECTION_NAME).find(filter).sort({ createdAt: -1 }).toArray();
     res.json({ items: items.map(formatAnnouncementResponse) });
   } catch (error) {
     sendError(res, error, "announcements list failed");

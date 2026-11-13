@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,7 +40,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Badge
@@ -78,6 +79,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -131,23 +134,32 @@ fun PerfilScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = Color.White
     ) { padding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
                 .padding(padding)
         ) {
+            val isCompact = maxWidth < 350.dp
+            val isWide = maxWidth >= 600.dp
+            val horizontalPad = when {
+                isCompact -> 12.dp
+                isWide -> 24.dp
+                else -> 16.dp
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.White)
                     .testTag("perfil_screen"),
                 state = listState,
+                horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(if (isCompact) 12.dp else 16.dp)
             ) {
                 item {
-                    Column {
+                    Column(modifier = Modifier.fillMaxWidth().widthIn(max = 680.dp)) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -158,7 +170,12 @@ fun PerfilScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(top = 50.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
+                                .padding(
+                                    top = if (isCompact) 44.dp else 50.dp,
+                                    start = if (isCompact) 14.dp else 20.dp,
+                                    end = if (isCompact) 14.dp else 20.dp,
+                                    bottom = if (isCompact) 14.dp else 20.dp
+                                ),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val photoUrl = user?.photoUrl?.toString() ?: userProfile?.photoUrl
@@ -167,7 +184,7 @@ fun PerfilScreen(
                                     model = photoUrl,
                                     contentDescription = "Foto de perfil",
                                     modifier = Modifier
-                                        .size(88.dp)
+                                        .size(if (isCompact) 76.dp else 88.dp)
                                         .clip(CircleShape),
                                     contentScale = ContentScale.Crop
                                 )
@@ -176,7 +193,7 @@ fun PerfilScreen(
                                     painter = painterResource(id = R.drawable.ic_avatar_gold),
                                     contentDescription = "Foto de perfil",
                                     modifier = Modifier
-                                        .size(88.dp)
+                                        .size(if (isCompact) 76.dp else 88.dp)
                                         .clip(CircleShape),
                                     contentScale = ContentScale.Fit
                                 )
@@ -184,18 +201,46 @@ fun PerfilScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            Text(
-                                text = user?.name ?: userProfile?.displayName ?: "Caballero Elegan",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EleganCharcoal,
-                                    fontFamily = FontFamily.Serif
+                            val displayName = (user?.name ?: userProfile?.displayName ?: "Caballero Elegan").trim()
+                            BoxWithConstraints(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val adaptiveFontSize = when {
+                                    maxWidth < 310.dp && displayName.length > 22 -> 16.sp
+                                    maxWidth < 340.dp && displayName.length > 22 -> 18.sp
+                                    displayName.length > 28 -> 18.sp
+                                    displayName.length > 20 -> 20.sp
+                                    else -> 22.sp
+                                }
+                                Text(
+                                    text = displayName,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontSize = adaptiveFontSize,
+                                        lineHeight = (adaptiveFontSize.value + 5f).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EleganCharcoal,
+                                        fontFamily = FontFamily.Serif
+                                    )
                                 )
-                            )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
                                 text = user?.email ?: userProfile?.email ?: "",
-                                style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color.Gray,
+                                    fontSize = if (isCompact) 13.sp else 14.sp
+                                )
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -217,10 +262,12 @@ fun PerfilScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = if (isSuperAdmin) "SUPER ADMINISTRADOR" else "MIEMBRO CLUB ELEGAN",
-                                        fontSize = 11.sp,
+                                        fontSize = if (isCompact) 10.sp else 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
-                                        letterSpacing = 1.sp
+                                        letterSpacing = 1.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -234,7 +281,8 @@ fun PerfilScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = horizontalPad)
                             .testTag("profile_sections_container"),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(16.dp),
@@ -244,13 +292,14 @@ fun PerfilScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                                    .padding(horizontal = 4.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
                                 ProfileMenuItem(
                                     label = "Guardados",
                                     icon = Icons.Default.Bookmark,
                                     testTag = "profile_saved_menu",
+                                    modifier = Modifier.weight(1f),
                                     onClick = { selectedProfileSection = "saved" },
                                     selected = selectedProfileSection == "saved"
                                 )
@@ -258,6 +307,7 @@ fun PerfilScreen(
                                     label = "Pedidos",
                                     icon = Icons.AutoMirrored.Filled.ReceiptLong,
                                     testTag = "profile_orders_menu",
+                                    modifier = Modifier.weight(1f),
                                     onClick = { selectedProfileSection = "orders" },
                                     selected = selectedProfileSection == "orders"
                                 )
@@ -265,27 +315,16 @@ fun PerfilScreen(
                                     label = "Entrega",
                                     icon = Icons.Default.LocationOn,
                                     testTag = "profile_delivery_menu",
+                                    modifier = Modifier.weight(1f),
                                     onClick = { selectedProfileSection = "delivery" },
                                     selected = selectedProfileSection == "delivery"
-                                )
-                                ProfileMenuItem(
-                                    label = "Ajustes",
-                                    icon = Icons.Default.Settings,
-                                    testTag = "profile_settings_menu",
-                                    onClick = {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                "La configuración estará disponible próximamente"
-                                            )
-                                        }
-                                    }
                                 )
                             }
                             HorizontalDivider(color = Color(0xFFEAE5E0))
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp)
+                                    .padding(vertical = 16.dp)
                             ) {
                                 when (selectedProfileSection) {
                                     "saved" -> SavedPublicationsGrid(
@@ -408,56 +447,42 @@ fun PerfilScreen(
                 // Atajos y herramientas fuera de las pestañas del perfil.
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = horizontalPad),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF26292E)),
                         onClick = onNavigateToChats
                     ) {
                         Row(
-                            modifier = Modifier.padding(18.dp),
+                            modifier = Modifier.padding(if (isCompact) 14.dp else 18.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(Icons.Default.SupportAgent, contentDescription = null, tint = EleganGold)
-                            Spacer(modifier = Modifier.width(14.dp))
+                            Spacer(modifier = Modifier.width(if (isCompact) 10.dp else 14.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Soporte & Asesoría VIP", color = Color.White, fontWeight = FontWeight.Bold)
-                                Text("Chatea en directo con Elegan Concierge", color = Color(0xFFBBBBBB), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    "Soporte & Asesoría VIP",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    "Chatea en directo con Elegan Concierge",
+                                    color = Color(0xFFBBBBBB),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = EleganGold)
                         }
                     }
                 }
 
-                if (isSuperAdmin) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("profile_admin_publicar_card"),
-                            colors = CardDefaults.cardColors(containerColor = EleganBurgundyDark),
-                            onClick = onNavigateToPublicar
-                        ) {
-                            Text(
-                                "Publicar Producto o Anuncio",
-                                modifier = Modifier.padding(18.dp),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("profile_admin_menu_card"),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            onClick = onNavigateToMenuAdmin
-                        ) {
-                            Text(
-                                "Menú Administrativo",
-                                modifier = Modifier.padding(18.dp),
-                                color = EleganCharcoal,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
+                // Atajos y herramientas fuera de las pestañas del perfil.
 
                 // Sign out button
                 item {
@@ -466,7 +491,8 @@ fun PerfilScreen(
                         onClick = onSignOut,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = horizontalPad)
                             .height(48.dp)
                             .testTag("sign_out_button"),
                         colors = ButtonDefaults.textButtonColors(
@@ -618,8 +644,13 @@ fun OrderHistoryItemCard(order: Order, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = EleganBurgundyDark
-                    )
+                    ),
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -630,6 +661,7 @@ fun OrderHistoryItemCard(order: Order, modifier: Modifier = Modifier) {
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF2E7D32),
+                        maxLines = 1,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -654,18 +686,24 @@ fun OrderHistoryItemCard(order: Order, modifier: Modifier = Modifier) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Método: ${order.paymentMethod}",
-                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray),
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Total: $${String.format("%.2f", order.total)}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = EleganBurgundy
-                    )
+                    ),
+                    maxLines = 1
                 )
             }
     }

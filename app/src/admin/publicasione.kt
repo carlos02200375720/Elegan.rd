@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -160,284 +161,312 @@ fun PublicacionesScreen(
                     tonalElevation = 0.dp,
                     shadowElevation = 0.dp
                 ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("publicasione_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Regresar a Menú Admin",
-                            tint = EleganCharcoal
-                        )
-                    }
+                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                        val isCompactTop = maxWidth < 360.dp
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = if (isCompactTop) 4.dp else 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = onBack,
+                                modifier = Modifier.testTag("publicasione_back_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Regresar a Menú Admin",
+                                    tint = EleganCharcoal
+                                )
+                            }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(if (isCompactTop) 2.dp else 4.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Control de Publicaciones",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal,
-                                fontFamily = FontFamily.Serif
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Administrar catálogo y anuncios",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color.Gray,
-                                fontSize = 11.sp
-                            )
-                        )
-                    }
-
-                    // Button to add new publication
-                    Button(
-                        onClick = onNavigateToPublicar,
-                        colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("publicasione_btn_nueva_publicacion")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Publicar",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 12.dp)
+                            ) {
+                                Text(
+                                    text = "Control de Publicaciones",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontSize = if (isCompactTop) 15.sp else 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EleganCharcoal,
+                                        fontFamily = FontFamily.Serif
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Administrar catálogo y anuncios",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color.Gray,
+                                        fontSize = if (isCompactTop) 10.sp else 11.sp
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
-            }
                 EleganTopBarShadow()
             }
         },
         containerColor = Color(0xFFF9F7F5)
     ) { innerPadding ->
-        LazyColumn(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .testTag("publicasione_screen_list"),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // KPI Summary Cards
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Total publicaciones
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "TOTAL",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Gray,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${products.size + announcements.size}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal
-                            )
-                            Text(
-                                text = "Publicaciones",
-                                fontSize = 11.sp,
-                                color = Color.Gray
-                            )
-                        }
-                    }
+            val isCompact = maxWidth < 360.dp
+            val horizontalPad = if (isCompact) 10.dp else 16.dp
+            val verticalGap = if (isCompact) 12.dp else 16.dp
 
-                    // En Stock
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        shape = RoundedCornerShape(12.dp)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("publicasione_screen_list"),
+                contentPadding = PaddingValues(horizontal = horizontalPad, vertical = verticalGap),
+                verticalArrangement = Arrangement.spacedBy(verticalGap)
+            ) {
+                // KPI Summary Cards
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(if (isCompact) 6.dp else 8.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "PRODUCTOS",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EleganBurgundy,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${products.count { it.inStock }}/${products.size}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EleganBurgundy
-                            )
-                            Text(
-                                text = "En Stock",
-                                fontSize = 11.sp,
-                                color = Color(0xFF2E7D32)
-                            )
-                        }
-                    }
+                        val kpiPad = if (isCompact) 9.dp else 12.dp
+                        val kpiLabelSize = if (isCompact) 9.sp else 10.sp
+                        val kpiLetterSpacing = if (isCompact) 0.4.sp else 1.sp
+                        val kpiNumberSize = if (isCompact) 17.sp else 20.sp
+                        val kpiSubSize = if (isCompact) 10.sp else 11.sp
 
-                    // Campañas Activas
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "ANUNCIOS",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EleganGold,
-                                letterSpacing = 1.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${announcements.count { it.isActive }}/${announcements.size}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EleganCharcoal
-                            )
-                            Text(
-                                text = "Activos",
-                                fontSize = 11.sp,
-                                color = Color(0xFF2E7D32)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Search Bar
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("publicasione_search_input"),
-                    placeholder = {
-                        Text(
-                            text = "Buscar por nombre, código o categoría...",
-                            fontSize = 13.sp,
-                            color = Color.Gray
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar",
-                            tint = Color.Gray
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = "Limpiar búsqueda",
-                                    tint = Color.Gray
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(kpiPad)) {
+                                Text(
+                                    text = "TOTAL",
+                                    fontSize = kpiLabelSize,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray,
+                                    letterSpacing = kpiLetterSpacing,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${products.size + announcements.size}",
+                                    fontSize = kpiNumberSize,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Publicaciones",
+                                    fontSize = kpiSubSize,
+                                    color = Color.Gray,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = EleganBurgundy,
-                        unfocusedBorderColor = Color(0xFFE2E2E2)
-                    )
-                )
-            }
 
-            // Tabs Selector
-            item {
-                Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(12.dp),
-                    shadowElevation = 1.dp
-                ) {
-                    TabRow(
-                        selectedTabIndex = selectedTab,
-                        containerColor = Color.White,
-                        contentColor = EleganBurgundy,
-                        indicator = { tabPositions ->
-                            if (selectedTab < tabPositions.size) {
-                                TabRowDefaults.SecondaryIndicator(
-                                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(kpiPad)) {
+                                Text(
+                                    text = "PRODUCTOS",
+                                    fontSize = kpiLabelSize,
+                                    fontWeight = FontWeight.Bold,
                                     color = EleganBurgundy,
-                                    height = 3.dp
+                                    letterSpacing = kpiLetterSpacing,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${products.count { it.inStock }}/${products.size}",
+                                    fontSize = kpiNumberSize,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganBurgundy,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "En Stock",
+                                    fontSize = kpiSubSize,
+                                    color = Color(0xFF2E7D32),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
-                    ) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            modifier = Modifier.testTag("publicasione_tab_todo"),
-                            text = {
+
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(kpiPad)) {
                                 Text(
-                                    text = "Todo (${filteredProducts.size + filteredAnnouncements.size})",
-                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
+                                    text = "ANUNCIOS",
+                                    fontSize = kpiLabelSize,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganGold,
+                                    letterSpacing = kpiLetterSpacing,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${announcements.count { it.isActive }}/${announcements.size}",
+                                    fontSize = kpiNumberSize,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganCharcoal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Activos",
+                                    fontSize = kpiSubSize,
+                                    color = Color(0xFF2E7D32),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                        )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            modifier = Modifier.testTag("publicasione_tab_productos"),
-                            text = {
-                                Text(
-                                    text = "Productos (${filteredProducts.size})",
-                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        )
-                        Tab(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            modifier = Modifier.testTag("publicasione_tab_anuncios"),
-                            text = {
-                                Text(
-                                    text = "Anuncios (${filteredAnnouncements.size})",
-                                    fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        )
+                        }
                     }
                 }
-            }
+
+                // Search Bar
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("publicasione_search_input"),
+                        placeholder = {
+                            Text(
+                                text = "Buscar por nombre, código o categoría...",
+                                fontSize = if (isCompact) 12.sp else 13.sp,
+                                color = Color.Gray,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Buscar",
+                                tint = Color.Gray
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = "Limpiar búsqueda",
+                                        tint = Color.Gray
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = EleganBurgundy,
+                            unfocusedBorderColor = Color(0xFFE2E2E2)
+                        )
+                    )
+                }
+
+                // Tabs Selector
+                item {
+                    val tabFontSize = if (isCompact) 11.sp else 13.sp
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(12.dp),
+                        shadowElevation = 1.dp
+                    ) {
+                        TabRow(
+                            selectedTabIndex = selectedTab,
+                            containerColor = Color.White,
+                            contentColor = EleganBurgundy,
+                            indicator = { tabPositions ->
+                                if (selectedTab < tabPositions.size) {
+                                    TabRowDefaults.SecondaryIndicator(
+                                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                        color = EleganBurgundy,
+                                        height = 3.dp
+                                    )
+                                }
+                            }
+                        ) {
+                            Tab(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                modifier = Modifier.testTag("publicasione_tab_todo"),
+                                text = {
+                                    Text(
+                                        text = "Todo (${filteredProducts.size + filteredAnnouncements.size})",
+                                        fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = tabFontSize,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            )
+                            Tab(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                modifier = Modifier.testTag("publicasione_tab_productos"),
+                                text = {
+                                    Text(
+                                        text = "Productos (${filteredProducts.size})",
+                                        fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = tabFontSize,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            )
+                            Tab(
+                                selected = selectedTab == 2,
+                                onClick = { selectedTab = 2 },
+                                modifier = Modifier.testTag("publicasione_tab_anuncios"),
+                                text = {
+                                    Text(
+                                        text = "Anuncios (${filteredAnnouncements.size})",
+                                        fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = tabFontSize,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
 
             // Category Chips (for Todo & Productos)
             if (selectedTab != 2) {
@@ -648,6 +677,7 @@ fun PublicacionesScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+        }
     }
 
     // Product Deletion Dialog
@@ -830,71 +860,46 @@ private fun ProductAdminCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                // Product Thumbnail with Aspect Ratio & Image Count Badges
-                Box(
-                    modifier = Modifier
-                        .size(86.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFF0F0F0))
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 330.dp
+            val thumbSize = if (isCompact) 72.dp else 86.dp
+            val cardPad = if (isCompact) 11.dp else 14.dp
+
+            Column(modifier = Modifier.padding(cardPad)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    AsyncImage(
-                        model = product.imageUrl.ifBlank { product.images.firstOrNull() ?: "" },
-                        contentDescription = product.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    // Format Badge (1:1, 3:4, etc.)
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.65f),
-                        shape = RoundedCornerShape(topStart = 0.dp, bottomEnd = 6.dp),
-                        modifier = Modifier.align(Alignment.TopStart)
+                    Box(
+                        modifier = Modifier
+                            .size(thumbSize)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF0F0F0))
                     ) {
-                        Text(
-                            text = product.mediaFormat.ifBlank { "1:1" },
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        AsyncImage(
+                            model = product.imageUrl.ifBlank { product.images.firstOrNull() ?: "" },
+                            contentDescription = product.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
-                    }
 
-                    // Multi-image or Video indicator
-                    if (product.isVideo) {
                         Surface(
-                            color = EleganBurgundy,
-                            shape = RoundedCornerShape(topStart = 6.dp),
-                            modifier = Modifier.align(Alignment.BottomEnd)
+                            color = Color.Black.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(topStart = 0.dp, bottomEnd = 6.dp),
+                            modifier = Modifier.align(Alignment.TopStart)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Videocam,
-                                    contentDescription = "Video",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(10.dp)
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text(
-                                    text = "VIDEO",
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
+                            Text(
+                                text = product.mediaFormat.ifBlank { "1:1" },
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
                         }
-                    } else {
-                        val extraImagesCount = if (product.images.size > 1) product.images.size else 0
-                        if (extraImagesCount > 1) {
+
+                        if (product.isVideo) {
                             Surface(
-                                color = EleganBurgundy.copy(alpha = 0.9f),
+                                color = EleganBurgundy,
                                 shape = RoundedCornerShape(topStart = 6.dp),
                                 modifier = Modifier.align(Alignment.BottomEnd)
                             ) {
@@ -903,150 +908,189 @@ private fun ProductAdminCard(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Collections,
-                                        contentDescription = null,
+                                        imageVector = Icons.Default.Videocam,
+                                        contentDescription = "Video",
                                         tint = Color.White,
-                                        modifier = Modifier.size(8.dp)
+                                        modifier = Modifier.size(10.dp)
                                     )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Text(
-                                        text = "$extraImagesCount",
-                                        fontSize = 9.sp,
+                                        text = "VIDEO",
+                                        fontSize = 8.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
                                     )
                                 }
                             }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Info Column
-                Column(modifier = Modifier.weight(1f)) {
-                    // Category & Featured
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            color = EleganBurgundy.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = product.category.uppercase(),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EleganBurgundy,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-
-                        if (product.isFeatured) {
-                            Surface(
-                                color = EleganGold.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        } else {
+                            val extraImagesCount = if (product.images.size > 1) product.images.size else 0
+                            if (extraImagesCount > 1) {
+                                Surface(
+                                    color = EleganBurgundy.copy(alpha = 0.9f),
+                                    shape = RoundedCornerShape(topStart = 6.dp),
+                                    modifier = Modifier.align(Alignment.BottomEnd)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Destacado",
-                                        tint = EleganGold,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text(
-                                        text = "DESTACADO",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = EleganCharcoal
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Collections,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(8.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            text = "$extraImagesCount",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.width(if (isCompact) 10.dp else 12.dp))
 
-                    Text(
-                        text = product.name,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Surface(
+                                    color = EleganBurgundy.copy(alpha = 0.08f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = product.category.uppercase(),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EleganBurgundy,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                            if (product.isFeatured) {
+                                Surface(
+                                    color = EleganGold.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "Destacado",
+                                            tint = EleganGold,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            text = "DESTACADO",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EleganCharcoal,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
-                    Text(
-                        text = "$${String.format("%.2f", product.price)} USD",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = EleganBurgundy,
-                            fontFamily = FontFamily.Serif
-                        )
-                    )
-                }
-            }
+                        Spacer(modifier = Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = Color(0xFFF0F0F0), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action Row: Stock Status Switch & Delete Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Stock Switch Control
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.testTag("toggle_stock_product_${product.id}")
-                ) {
-                    Switch(
-                        checked = product.inStock,
-                        onCheckedChange = { onToggleStock(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF2E7D32),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.LightGray
-                        ),
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        color = if (product.inStock) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
                         Text(
-                            text = if (product.inStock) "EN STOCK" else "AGOTADO",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (product.inStock) Color(0xFF2E7D32) else Color(0xFFC62828),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            text = product.name,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontSize = if (isCompact) 13.sp else 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EleganCharcoal
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "$${String.format("%.2f", product.price)} USD",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = if (isCompact) 15.sp else 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = EleganBurgundy,
+                                fontFamily = FontFamily.Serif
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
-                // Delete Action Button
-                IconButton(
-                    onClick = onDeleteClick,
-                    modifier = Modifier.testTag("delete_product_btn_${product.id}")
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = Color(0xFFF0F0F0), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Eliminar Producto",
-                        tint = Color(0xFFD32F2F)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("toggle_stock_product_${product.id}")
+                    ) {
+                        Switch(
+                            checked = product.inStock,
+                            onCheckedChange = { onToggleStock(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF2E7D32),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.LightGray
+                            ),
+                            modifier = Modifier.testTag("toggle_stock_product_switch_${product.id}")
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            color = if (product.inStock) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = if (product.inStock) "EN STOCK" else "AGOTADO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (product.inStock) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.testTag("delete_product_btn_${product.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Eliminar Producto",
+                            tint = Color(0xFFD32F2F)
+                        )
+                    }
                 }
             }
         }
@@ -1067,194 +1111,203 @@ private fun AnnouncementAdminCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                // Thumbnail or Type Icon
-                Box(
-                    modifier = Modifier
-                        .size(86.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(
-                            when (announcement.type) {
-                                "descuento" -> Color(0xFFFFF3E0)
-                                "coleccion" -> Color(0xFFEDE7F6)
-                                else -> Color(0xFFE3F2FD)
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 330.dp
+            val thumbSize = if (isCompact) 72.dp else 86.dp
+            val cardPad = if (isCompact) 11.dp else 14.dp
+
+            Column(modifier = Modifier.padding(cardPad)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    if (announcement.imageUrl.isNotBlank()) {
-                        AsyncImage(
-                            model = announcement.imageUrl,
-                            contentDescription = announcement.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            imageVector = when (announcement.type) {
-                                "descuento" -> Icons.Default.LocalOffer
-                                "coleccion" -> Icons.Default.Collections
-                                else -> Icons.Default.Campaign
-                            },
-                            contentDescription = null,
-                            tint = EleganBurgundy,
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-                    if (announcement.isVideo) {
-                        Surface(
-                            color = EleganBurgundy,
-                            shape = RoundedCornerShape(topStart = 6.dp),
-                            modifier = Modifier.align(Alignment.BottomEnd)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Videocam,
-                                    contentDescription = "Video",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(10.dp)
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text(
-                                    text = "VIDEO",
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Info Column
-                Column(modifier = Modifier.weight(1f)) {
-                    // Type Badge
-                    Surface(
-                        color = when (announcement.type) {
-                            "descuento" -> EleganGold.copy(alpha = 0.25f)
-                            "coleccion" -> Color(0xFFE1BEE7)
-                            else -> EleganBurgundy.copy(alpha = 0.1f)
-                        },
-                        shape = RoundedCornerShape(6.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(thumbSize)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                when (announcement.type) {
+                                    "descuento" -> Color(0xFFFFF3E0)
+                                    "coleccion" -> Color(0xFFEDE7F6)
+                                    else -> Color(0xFFE3F2FD)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = announcement.type.uppercase(),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = when (announcement.type) {
-                                "descuento" -> Color(0xFFB78103)
-                                "coleccion" -> Color(0xFF6A1B9A)
-                                else -> EleganBurgundy
-                            },
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = announcement.title,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = announcement.message,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.Gray,
-                            fontSize = 12.sp
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    if (announcement.discountCode.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (announcement.imageUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = announcement.imageUrl,
+                                contentDescription = announcement.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
                             Icon(
-                                imageVector = Icons.Default.Discount,
+                                imageVector = when (announcement.type) {
+                                    "descuento" -> Icons.Default.LocalOffer
+                                    "coleccion" -> Icons.Default.Collections
+                                    else -> Icons.Default.Campaign
+                                },
                                 contentDescription = null,
                                 tint = EleganBurgundy,
-                                modifier = Modifier.size(12.dp)
+                                modifier = Modifier.size(36.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        if (announcement.isVideo) {
+                            Surface(
+                                color = EleganBurgundy,
+                                shape = RoundedCornerShape(topStart = 6.dp),
+                                modifier = Modifier.align(Alignment.BottomEnd)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Videocam,
+                                        contentDescription = "Video",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = "VIDEO",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(if (isCompact) 10.dp else 12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Surface(
+                            color = when (announcement.type) {
+                                "descuento" -> EleganGold.copy(alpha = 0.25f)
+                                "coleccion" -> Color(0xFFE1BEE7)
+                                else -> EleganBurgundy.copy(alpha = 0.1f)
+                            },
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
                             Text(
-                                text = "Cupón: ${announcement.discountCode} (-${announcement.discountPercent.toInt()}%)",
-                                fontSize = 11.sp,
+                                text = announcement.type.uppercase(),
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = EleganBurgundy
+                                color = when (announcement.type) {
+                                    "descuento" -> Color(0xFFB78103)
+                                    "coleccion" -> Color(0xFF6A1B9A)
+                                    else -> EleganBurgundy
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = announcement.title,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontSize = if (isCompact) 13.sp else 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EleganCharcoal
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = announcement.message,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color.Gray,
+                                fontSize = 12.sp
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        if (announcement.discountCode.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Discount,
+                                    contentDescription = null,
+                                    tint = EleganBurgundy,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Cupón: ${announcement.discountCode} (-${announcement.discountPercent.toInt()}%)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganBurgundy,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = Color(0xFFF0F0F0), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = Color(0xFFF0F0F0), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(6.dp))
 
-            // Action Row: Active Switch & Delete Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Active Switch Control
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.testTag("toggle_active_announcement_${announcement.id}")
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Switch(
-                        checked = announcement.isActive,
-                        onCheckedChange = { onToggleActive(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF2E7D32),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.LightGray
-                        ),
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        color = if (announcement.isActive) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
-                        shape = RoundedCornerShape(6.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("toggle_active_announcement_${announcement.id}")
                     ) {
-                        Text(
-                            text = if (announcement.isActive) "ACTIVO EN TIENDA" else "PAUSADO",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (announcement.isActive) Color(0xFF2E7D32) else Color(0xFFE65100),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        Switch(
+                            checked = announcement.isActive,
+                            onCheckedChange = { onToggleActive(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF2E7D32),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.LightGray
+                            ),
+                            modifier = Modifier.testTag("toggle_active_announcement_switch_${announcement.id}")
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            color = if (announcement.isActive) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = if (announcement.isActive) "ACTIVO EN TIENDA" else "PAUSADO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (announcement.isActive) Color(0xFF2E7D32) else Color(0xFFE65100),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.testTag("delete_announcement_btn_${announcement.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Eliminar Anuncio",
+                            tint = Color(0xFFD32F2F)
                         )
                     }
-                }
-
-                // Delete Action Button
-                IconButton(
-                    onClick = onDeleteClick,
-                    modifier = Modifier.testTag("delete_announcement_btn_${announcement.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Eliminar Anuncio",
-                        tint = Color(0xFFD32F2F)
-                    )
                 }
             }
         }
@@ -1272,71 +1325,104 @@ private fun EmptyPublicationsView(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 330.dp
+            Column(
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF5F5F5)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = if (isCompact) 18.dp else 28.dp, vertical = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.FilterList,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = if (searchQuery.isNotEmpty()) "Sin resultados para tu búsqueda" else "No hay publicaciones en esta sección",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = EleganCharcoal
-                )
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = if (searchQuery.isNotEmpty())
-                    "Intenta buscar con otros términos o limpia el filtro actual."
-                else
-                    "Comienza a publicar nuevos productos o campañas para tus clientes.",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                ),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (searchQuery.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = onClearFilter,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Limpiar Filtros", color = EleganCharcoal)
-                    }
-                }
-                Button(
-                    onClick = onNavigateToPublicar,
-                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
-                    shape = RoundedCornerShape(8.dp)
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF5F5F5)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Nueva Publicación", color = Color.White)
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = if (searchQuery.isNotEmpty()) "Sin resultados para tu búsqueda" else "No hay publicaciones en esta sección",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = EleganCharcoal
+                    ),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (searchQuery.isNotEmpty())
+                        "Intenta buscar con otros términos o limpia el filtro actual."
+                    else
+                        "Comienza a publicar nuevos productos o campañas para tus clientes.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    ),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isCompact && searchQuery.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        OutlinedButton(
+                            onClick = onClearFilter,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Limpiar Filtros", color = EleganCharcoal)
+                        }
+                        Button(
+                            onClick = onNavigateToPublicar,
+                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Nueva Publicación", color = Color.White)
+                        }
+                    }
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (searchQuery.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = onClearFilter,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Limpiar Filtros", color = EleganCharcoal, maxLines = 1)
+                            }
+                        }
+                        Button(
+                            onClick = onNavigateToPublicar,
+                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Nueva Publicación", color = Color.White, maxLines = 1)
+                        }
+                    }
                 }
             }
         }

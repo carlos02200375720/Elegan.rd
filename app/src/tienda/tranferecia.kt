@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,9 +18,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +61,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -176,46 +180,54 @@ fun TranfereciaScreen(
                         .fillMaxWidth()
                         .height(55.dp)
                 ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 3.dp),
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Button(
-                        onClick = onConfirmPayment,
-                        enabled = paymentProofUri != null && !isSubmitting,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = EleganBurgundy,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFD6CEC7),
-                            disabledContentColor = Color.White.copy(alpha = 0.85f)
-                        ),
+                    val isCompactBar = maxWidth < 350.dp
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .testTag("confirm_bank_transfer_btn")
+                            .fillMaxSize()
+                            .widthIn(max = 680.dp)
+                            .padding(horizontal = if (isCompactBar) 12.dp else 16.dp, vertical = 3.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        if (isSubmitting) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Confirmar Pago",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
+                        Button(
+                            onClick = onConfirmPayment,
+                            enabled = paymentProofUri != null && !isSubmitting,
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EleganBurgundy,
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFFD6CEC7),
+                                disabledContentColor = Color.White.copy(alpha = 0.85f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight()
+                                .testTag("confirm_bank_transfer_btn")
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Confirmar Pago",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
@@ -223,13 +235,27 @@ fun TranfereciaScreen(
             }
         }
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
+            val isCompact = maxWidth < 350.dp
+            val isWide = maxWidth >= 600.dp
+            val horizontalPad = when {
+                isCompact -> 12.dp
+                isWide -> 24.dp
+                else -> 20.dp
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 680.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = horizontalPad, vertical = 16.dp)
+            ) {
             Text(
                 text = "Transfiere el monto total a cualquiera de las siguientes cuentas bancarias y sube la imagen del comprobante para confirmar tu pago.",
                 style = MaterialTheme.typography.bodySmall.copy(
@@ -257,7 +283,10 @@ fun TranfereciaScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.AccountBalance,
                                         contentDescription = null,
@@ -270,10 +299,13 @@ fun TranfereciaScreen(
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = EleganCharcoal
-                                        )
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                                 if (account.accountType.isNotBlank()) {
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
                                         color = EleganGold.copy(alpha = 0.16f)
@@ -285,6 +317,7 @@ fun TranfereciaScreen(
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 10.sp
                                             ),
+                                            maxLines = 1,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                         )
                                     }
@@ -397,7 +430,7 @@ fun TranfereciaScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(126.dp)
+                        .heightIn(min = if (isCompact) 114.dp else 126.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFFFAF8F5))
                         .border(1.5.dp, EleganBurgundy.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
@@ -426,13 +459,17 @@ fun TranfereciaScreen(
                             text = "Cargar imagen de evidencia del pago",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = EleganBurgundy
+                                color = EleganBurgundy,
+                                textAlign = TextAlign.Center
                             )
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "Toca para seleccionar la captura de tu transferencia",
-                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
                         )
                     }
                 }
@@ -461,7 +498,10 @@ fun TranfereciaScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = null,
@@ -474,9 +514,12 @@ fun TranfereciaScreen(
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Color(0xFF2E7D32),
                                         fontWeight = FontWeight.Bold
-                                    )
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
+                            Spacer(modifier = Modifier.width(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(
                                     onClick = onPickPaymentProof,
@@ -516,6 +559,7 @@ fun TranfereciaScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
         }
     }
 }

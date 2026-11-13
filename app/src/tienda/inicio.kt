@@ -1,14 +1,15 @@
 package com.example.ui
 
 import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +36,7 @@ import com.example.data.model.PublicationStats
 import com.example.data.model.StoreCategory
 import com.example.data.model.UserProfile
 import com.example.data.remote.MobileSession
+import com.example.ui.components.LocalEleganNotifier
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -62,6 +65,7 @@ fun InicioScreen(
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    val notifier = LocalEleganNotifier.current
     val videoProductIds = remember(featuredProducts) {
         featuredProducts.asSequence()
             .filter { it.hasVideo && it.videoUrl.isNotBlank() }
@@ -175,34 +179,52 @@ fun InicioScreen(
             onNavigateToCart = onNavigateToCart
         )
 
-        LazyColumn(
-            state = listState,
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .testTag("inicio_screen"),
-            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // Hero Luxury Banner
-            item(key = "hero_banner") {
-                InicioHeroBanner(
-                    onNavigateToCatalogo = onNavigateToCatalogo,
-                    onNavigateToMenu = onNavigateToMenu
-                )
+            val isExpanded = maxWidth >= 600.dp
+            val feedItemModifier = if (isExpanded) {
+                Modifier.fillMaxWidth().widthIn(max = 620.dp)
+            } else {
+                Modifier.fillMaxWidth()
+            }
+            val categoriesModifier = if (isExpanded) {
+                Modifier.fillMaxWidth().widthIn(max = 840.dp)
+            } else {
+                Modifier.fillMaxWidth()
             }
 
-            // Carrusel de historias de categorías (formato 9:16)
-            item(key = "categories_section") {
-                CategoryStoriesSection(
-                    onNavigateToCatalogo = onNavigateToCatalogo,
-                    onNavigateToMenu = onNavigateToMenu
-                )
-            }
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("inicio_screen"),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
+                // Hero Luxury Banner
+                item(key = "hero_banner") {
+                    InicioHeroBanner(
+                        onNavigateToCatalogo = onNavigateToCatalogo,
+                        onNavigateToMenu = onNavigateToMenu
+                    )
+                }
 
-            // Separador antes del feed de publicaciones
-            item(key = "feed_spacer") {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+                // Carrusel de historias de categorías (formato 9:16)
+                item(key = "categories_section") {
+                    CategoryStoriesSection(
+                        onNavigateToCatalogo = onNavigateToCatalogo,
+                        onNavigateToMenu = onNavigateToMenu,
+                        modifier = categoriesModifier
+                    )
+                }
+
+                // Separador antes del feed de publicaciones
+                item(key = "feed_spacer") {
+                    Spacer(modifier = Modifier.height(if (maxWidth < 360.dp) 12.dp else 16.dp))
+                }
 
             // Feed de publicaciones estilo Instagram / TikTok
             itemsIndexed(
@@ -223,19 +245,17 @@ fun InicioScreen(
                 val currentSaveCount = stats?.savesCount?.toInt() ?: 0
                 val isPostFocused = prod.hasVideo && (focusedProductId == prod.id)
 
-                val onLikeAction = remember(prod.id, onToggleLike) {
+                val onLikeAction = remember(prod.id, onToggleLike, notifier) {
                     {
                         onToggleLike(prod.id) { result ->
-                            Toast.makeText(
-                                context,
+                            notifier?.show(
                                 if (result.isSuccess) {
                                     if (result.getOrNull() == true) "Te gusta esta publicación"
                                     else "Quitaste tu like"
                                 } else {
                                     "No se pudo actualizar el like"
-                                },
-                                Toast.LENGTH_SHORT
-                            ).show()
+                                }
+                            )
                         }
                     }
                 }
@@ -245,33 +265,29 @@ fun InicioScreen(
                         onOpenComments(prod.id)
                     }
                 }
-                val onSaveAction = remember(prod.id, isSaved, onToggleSaveProduct) {
+                val onSaveAction = remember<() -> Unit>(prod.id, isSaved, onToggleSaveProduct, notifier) {
                     {
                         val willSave = !isSaved
                         if (onToggleSaveProduct != null) {
                             onToggleSaveProduct(prod.id) { result ->
-                                Toast.makeText(
-                                    context,
+                                notifier?.show(
                                     if (result.isSuccess) {
                                         if (willSave) "Publicación guardada en tu perfil"
                                         else "Publicación eliminada de guardados"
                                     } else {
                                         "No se pudo actualizar la publicación guardada"
-                                    },
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                    }
+                                )
                             }
                         } else {
                             localSavedProductIds = if (willSave) localSavedProductIds + prod.id else localSavedProductIds - prod.id
-                            Toast.makeText(
-                                context,
-                                if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            notifier?.show(
+                                if (willSave) "Publicación guardada en tu perfil" else "Publicación eliminada de guardados"
+                            )
                         }
                     }
                 }
-                val onShareAction = remember(prod, onRecordShare) {
+                val onShareAction = remember(prod, onRecordShare, notifier) {
                     {
                         onRecordShare(prod.id) { result ->
                             if (result.isSuccess) {
@@ -284,11 +300,7 @@ fun InicioScreen(
                                 }
                                 context.startActivity(Intent.createChooser(sendIntent, "Compartir publicación"))
                             } else {
-                                Toast.makeText(
-                                    context,
-                                    "No se pudo registrar el compartido",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                notifier?.show("No se pudo registrar el compartido")
                             }
                         }
                     }
@@ -311,19 +323,24 @@ fun InicioScreen(
                     onCommentClick = onCommentAction,
                     onSaveClick = onSaveAction,
                     onShareClick = onShareAction,
-                    onProductClick = onProductAction
+                    onProductClick = onProductAction,
+                    modifier = feedItemModifier
                 )
             }
 
             // Tarjeta Elegan Concierge VIP
             item(key = "concierge_vip_card") {
-                ConciergeVipCard(onNavigateToChats = onNavigateToChats)
+                ConciergeVipCard(
+                    onNavigateToChats = onNavigateToChats,
+                    modifier = feedItemModifier
+                )
             }
 
             // Propuestas de valor y garantías
             item(key = "value_props_section") {
-                InicioValuePropsSection()
+                InicioValuePropsSection(modifier = feedItemModifier)
             }
+        }
         }
     }
 

@@ -5,6 +5,7 @@ import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -46,6 +47,7 @@ import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +56,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -69,7 +72,8 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.example.admin.MenuAdminScreen
 import com.example.admin.PublicacionesScreen
-import com.example.admin.PublicarScreen
+import com.example.admin.PublicarAnuncioScreen
+import com.example.admin.PublicarProductoScreen
 import com.example.data.model.Announcement
 import com.example.data.model.Product
 import com.example.data.remote.AuthUser
@@ -77,17 +81,20 @@ import com.example.data.remote.EleganApiClient
 import com.example.data.remote.MobileSession
 import com.example.ui.CarritoScreen
 import com.example.ui.CatalogoScreen
+import com.example.ui.CategoriaScreen
 import com.example.ui.ChatsScreen
 import com.example.ui.EleganBottomBarShadow
 import com.example.ui.GraciaScreen
 import com.example.ui.InicioScreen
-import com.example.ui.MenuScreen
 import com.example.ui.PerfilScreen
 import com.example.ui.ProductoScreen
 import com.example.ui.VerificasionScreen
 import com.example.ui.auth.AuthScreen
 import com.example.ui.auth.attemptAutoSignIn
 import com.example.ui.auth.signOutUser
+import com.example.ui.components.EleganNotificationHost
+import com.example.ui.components.EleganNotificationState
+import com.example.ui.components.LocalEleganNotifier
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganTheme
 import com.example.ui.viewmodel.EleganViewModel
@@ -97,7 +104,7 @@ import kotlinx.coroutines.withContext
 
 enum class Screen {
     INICIO,
-    MENU,
+    CATEGORIA,
     CATALOGO,
     PRODUCTO,
     CARRITO,
@@ -105,7 +112,8 @@ enum class Screen {
     GRACIA,
     PERFIL,
     CHATS,
-    PUBLICAR,
+    PUBLICAR_PRODUCTO,
+    PUBLICAR_ANUNCIO,
     MENU_ADMIN,
     PUBLICASIONE
 }
@@ -248,6 +256,9 @@ fun AppContent(
 ) {
     var currentScreen by remember { mutableStateOf(Screen.INICIO) }
     var previousScreen by remember { mutableStateOf(Screen.INICIO) }
+    var adminMenuReturnScreen by remember { mutableStateOf(Screen.INICIO) }
+    var chatsReturnScreen by remember { mutableStateOf(Screen.INICIO) }
+    var openedFromAdminMenu by remember { mutableStateOf(false) }
 
     // Checkout verification parameters
     var checkoutSubtotal by remember { mutableDoubleStateOf(0.0) }
@@ -274,10 +285,35 @@ fun AppContent(
     val lastOrderDetails by viewModel.lastOrderDetails.collectAsState()
 
     fun navigateTo(screen: Screen) {
+        if (screen == Screen.MENU_ADMIN && currentScreen != Screen.PUBLICAR_PRODUCTO && currentScreen != Screen.PUBLICAR_ANUNCIO && currentScreen != Screen.PUBLICASIONE && currentScreen != Screen.CATEGORIA && currentScreen != Screen.CHATS) {
+            adminMenuReturnScreen = currentScreen
+        }
+        if (screen == Screen.CHATS && currentScreen != Screen.CARRITO && currentScreen != Screen.CHATS) {
+            chatsReturnScreen = currentScreen
+        }
+        openedFromAdminMenu = false
         previousScreen = currentScreen
         currentScreen = screen
     }
 
+    fun navigateFromAdminMenu(screen: Screen) {
+        if (screen == Screen.CHATS) {
+            chatsReturnScreen = Screen.MENU_ADMIN
+        }
+        openedFromAdminMenu = true
+        previousScreen = Screen.MENU_ADMIN
+        currentScreen = screen
+    }
+
+    fun closeAdminMenu() {
+        openedFromAdminMenu = false
+        previousScreen = Screen.MENU_ADMIN
+        currentScreen = adminMenuReturnScreen
+    }
+
+    val eleganNotifier = remember { EleganNotificationState() }
+
+    CompositionLocalProvider(LocalEleganNotifier provides eleganNotifier) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -310,6 +346,110 @@ fun AppContent(
                             ),
                             initialContentExit = slideOutHorizontally(
                                 targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    targetState == Screen.CHATS && initialState != Screen.CARRITO -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.CHATS && targetState != Screen.CARRITO -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.MENU_ADMIN && openedFromAdminMenu && targetState != Screen.CATALOGO -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    targetState == Screen.CATEGORIA ||
+                        targetState == Screen.PUBLICAR_PRODUCTO ||
+                        targetState == Screen.PUBLICAR_ANUNCIO ||
+                        targetState == Screen.PUBLICASIONE -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.CATEGORIA ||
+                        initialState == Screen.PUBLICAR_PRODUCTO ||
+                        initialState == Screen.PUBLICAR_ANUNCIO ||
+                        initialState == Screen.PUBLICASIONE -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    targetState == Screen.MENU_ADMIN -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> -fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.MENU_ADMIN -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> -fullWidth },
                                 animationSpec = tween(durationMillis = 280)
                             ),
                             targetContentZIndex = -1f,
@@ -400,6 +540,34 @@ fun AppContent(
                             sizeTransform = SizeTransform(clip = false)
                         )
                     }
+                    targetState == Screen.CATALOGO -> {
+                        ContentTransform(
+                            targetContentEnter = slideInHorizontally(
+                                initialOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 320)
+                            ),
+                            initialContentExit = fadeOut(
+                                animationSpec = tween(durationMillis = 320),
+                                targetAlpha = 0.99f
+                            ),
+                            targetContentZIndex = 1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
+                    initialState == Screen.CATALOGO -> {
+                        ContentTransform(
+                            targetContentEnter = fadeIn(
+                                animationSpec = tween(durationMillis = 280),
+                                initialAlpha = 0.99f
+                            ),
+                            initialContentExit = slideOutHorizontally(
+                                targetOffsetX = { fullWidth -> fullWidth },
+                                animationSpec = tween(durationMillis = 280)
+                            ),
+                            targetContentZIndex = -1f,
+                            sizeTransform = SizeTransform(clip = false)
+                        )
+                    }
                     else -> {
                         ContentTransform(
                             targetContentEnter = EnterTransition.None,
@@ -444,7 +612,7 @@ fun AppContent(
                         when (screen) {
                             Screen.INICIO -> {
                                 InicioScreen(
-                                    featuredProducts = products,
+                                    featuredProducts = products.filter { it.inStock },
                                     userProfile = userProfile,
                                     cartItemCount = cartItems.sumOf { it.quantity },
                                     savedProductIds = savedProductIds,
@@ -472,19 +640,22 @@ fun AppContent(
                                         viewModel.selectProduct(prod)
                                         navigateTo(Screen.PRODUCTO)
                                     },
-                                    onNavigateToMenu = { navigateTo(Screen.MENU) },
-                                    onNavigateToCategoryMenu = { navigateTo(Screen.MENU) },
+                                    onNavigateToMenu = { navigateTo(Screen.CATEGORIA) },
+                                    onNavigateToCategoryMenu = { navigateTo(Screen.CATEGORIA) },
                                     onNavigateToChats = { navigateTo(Screen.CHATS) },
                                     onNavigateToCart = { navigateTo(Screen.CARRITO) }
                                 )
                             }
 
                             Screen.CATALOGO -> {
+                                BackHandler {
+                                    navigateTo(Screen.INICIO)
+                                }
                                 CatalogoScreen(
-                                    products = products,
+                                    products = products.filter { it.inStock },
                                     selectedCategory = selectedCategory,
                                     onCategoryChange = { viewModel.setCategory(it) },
-                                    onNavigateToMenu = { navigateTo(Screen.MENU) },
+                                    onNavigateToMenu = { navigateTo(Screen.CATEGORIA) },
                                     onProductClick = { prod ->
                                         viewModel.selectProduct(prod)
                                         navigateTo(Screen.PRODUCTO)
@@ -517,7 +688,7 @@ fun AppContent(
                                     onExploreClick = { navigateTo(Screen.INICIO) },
                                     onSaveProfile = { ph, ad, ct -> viewModel.saveProfile(ph, ad, ct) },
                                     onNavigateToChats = { navigateTo(Screen.CHATS) },
-                                    onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
+                                    onNavigateToPublicar = { navigateTo(Screen.PUBLICAR_PRODUCTO) },
                                     onNavigateToMenuAdmin = { navigateTo(Screen.MENU_ADMIN) },
                                     onSignOut = onSignOut
                                 )
@@ -535,8 +706,8 @@ fun AppContent(
                         .windowInsetsPadding(ScaffoldDefaults.contentWindowInsets)
                 ) {
                     when (screen) {
-                Screen.MENU -> {
-                    MenuScreen(
+                Screen.CATEGORIA -> {
+                    CategoriaScreen(
                         products = products,
                         onCategorySelected = { cat ->
                             viewModel.setCategory(cat)
@@ -641,16 +812,24 @@ fun AppContent(
                         messages = messages,
                         cartItemCount = cartItems.sumOf { it.quantity },
                         onNavigateToCart = { navigateTo(Screen.CARRITO) },
-                        onSendMessage = { text -> viewModel.sendSupportMessage(text) },
+                        onSendMessage = { text, mediaUri, mediaType ->
+                            viewModel.sendSupportMessage(text, mediaUri, mediaType)
+                        },
+                        onBack = { navigateTo(chatsReturnScreen) }
+                    )
+                }
+
+                Screen.PUBLICAR_PRODUCTO -> {
+                    PublicarProductoScreen(
+                        onPublishProduct = { prod: Product, onResult: (Result<Unit>) -> Unit ->
+                            viewModel.publishProduct(prod, onResult)
+                        },
                         onBack = { navigateTo(previousScreen) }
                     )
                 }
 
-                Screen.PUBLICAR -> {
-                    PublicarScreen(
-                        onPublishProduct = { prod: Product, onResult: (Result<Unit>) -> Unit ->
-                            viewModel.publishProduct(prod, onResult)
-                        },
+                Screen.PUBLICAR_ANUNCIO -> {
+                    PublicarAnuncioScreen(
                         onPublishAnnouncement = { ann: Announcement ->
                             viewModel.publishAnnouncement(ann)
                         },
@@ -660,15 +839,16 @@ fun AppContent(
 
                 Screen.MENU_ADMIN -> {
                     MenuAdminScreen(
-                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
-                        onNavigateToPublicaciones = { navigateTo(Screen.PUBLICASIONE) },
-                        onNavigateToPerfil = { navigateTo(Screen.PERFIL) },
-                        onNavigateToInicio = { navigateTo(Screen.INICIO) },
-                        onNavigateToCatalogo = { navigateTo(Screen.CATALOGO) },
-                        onNavigateToCategorias = { navigateTo(Screen.MENU) },
-                        onNavigateToChats = { navigateTo(Screen.CHATS) },
-                        onNavigateToCart = { navigateTo(Screen.CARRITO) },
-                        onBack = { navigateTo(previousScreen) }
+                        onNavigateToPublicarProducto = { navigateFromAdminMenu(Screen.PUBLICAR_PRODUCTO) },
+                        onNavigateToPublicarAnuncio = { navigateFromAdminMenu(Screen.PUBLICAR_ANUNCIO) },
+                        onNavigateToPublicaciones = { navigateFromAdminMenu(Screen.PUBLICASIONE) },
+                        onNavigateToPerfil = { navigateFromAdminMenu(Screen.PERFIL) },
+                        onNavigateToInicio = { navigateFromAdminMenu(Screen.INICIO) },
+                        onNavigateToCatalogo = { navigateFromAdminMenu(Screen.CATALOGO) },
+                        onNavigateToCategorias = { navigateFromAdminMenu(Screen.CATEGORIA) },
+                        onNavigateToChats = { navigateFromAdminMenu(Screen.CHATS) },
+                        onNavigateToCart = { navigateFromAdminMenu(Screen.CARRITO) },
+                        onBack = { closeAdminMenu() }
                     )
                 }
 
@@ -680,7 +860,7 @@ fun AppContent(
                         onToggleProductStock = { prodId, inStock -> viewModel.toggleProductStock(prodId, inStock) },
                         onDeleteAnnouncement = { annId -> viewModel.deleteAnnouncement(annId) },
                         onToggleAnnouncementActive = { annId, active -> viewModel.toggleAnnouncementActive(annId, active) },
-                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR) },
+                        onNavigateToPublicar = { navigateTo(Screen.PUBLICAR_PRODUCTO) },
                         onBack = { navigateTo(Screen.MENU_ADMIN) }
                     )
                 }
@@ -690,6 +870,20 @@ fun AppContent(
                 }
             }
         }
+
+        val hasBottomBarOverlay = currentScreen == Screen.INICIO ||
+            currentScreen == Screen.CATALOGO ||
+            currentScreen == Screen.PERFIL ||
+            currentScreen == Screen.PRODUCTO
+
+        EleganNotificationHost(
+            state = eleganNotifier,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = if (hasBottomBarOverlay) 72.dp else 24.dp)
+        )
+    }
     }
 }
 

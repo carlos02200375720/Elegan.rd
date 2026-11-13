@@ -133,6 +133,8 @@ data class SupportMessage(
     val sender: String = "user", // "user" or "support"
     val senderName: String = "",
     val text: String = "",
+    val mediaUrl: String = "",
+    val mediaType: String = "", // "image", "video", or ""
     val createdAt: String? = null
 )
 

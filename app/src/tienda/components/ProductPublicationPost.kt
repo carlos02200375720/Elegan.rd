@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -63,6 +65,7 @@ import com.example.ui.getProductMediaItems
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganCharcoal
 import com.example.ui.theme.EleganGold
+import com.example.ui.theme.EleganLikeRed
 
 @Composable
 fun ProductPublicationPost(
@@ -332,7 +335,7 @@ fun ProductPublicationPost(
                     Icon(
                         imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = "Me gusta",
-                        tint = if (isLiked) EleganBurgundy else EleganCharcoal,
+                        tint = if (isLiked) EleganLikeRed else EleganCharcoal,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -463,39 +466,61 @@ fun ProductPublicationPost(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(bottom = 12.dp)
             ) {
-                Button(
-                    onClick = onProductClick,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EleganBurgundy,
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("post_buy_btn_${product.id}")
+                val isCompactPost = maxWidth < 330.dp
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(if (isCompactPost) 6.dp else 8.dp)
                 ) {
-                    Text(
-                        text = "Comprar Producto",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                }
+                    Button(
+                        onClick = onProductClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = EleganBurgundy,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = if (isCompactPost) 10.dp else 16.dp,
+                            vertical = 10.dp
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("post_buy_btn_${product.id}")
+                    ) {
+                        Text(
+                            text = "Comprar Producto",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = if (isCompactPost) 12.sp else 13.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-                OutlinedButton(
-                    onClick = onProductClick,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = EleganBurgundy
-                    ),
-                    modifier = Modifier.testTag("post_details_btn_${product.id}")
-                ) {
-                    Text("Ver Detalle", fontSize = 13.sp)
+                    OutlinedButton(
+                        onClick = onProductClick,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = if (isCompactPost) 10.dp else 16.dp,
+                            vertical = 10.dp
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = EleganBurgundy
+                        ),
+                        modifier = Modifier.testTag("post_details_btn_${product.id}")
+                    ) {
+                        Text(
+                            text = "Ver Detalle",
+                            fontSize = if (isCompactPost) 12.sp else 13.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }

@@ -88,7 +88,7 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
+            started = SharingStarted.Eagerly,
             initialValue = emptySet()
         )
 
@@ -103,18 +103,6 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = emptyList()
     )
 
-    val publicationStats: StateFlow<Map<String, PublicationStats>> =
-        repository.observePublicationStats()
-            .catch { error ->
-                Log.e("EleganViewModel", "No se pudieron cargar las estadísticas de publicaciones.", error)
-                emit(emptyMap())
-            }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000L),
-                initialValue = emptyMap()
-            )
-
     val likedPublicationIds: StateFlow<Set<String>> =
         repository.observeLikedPublicationIds()
             .catch { error ->
@@ -123,8 +111,43 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
             }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000L),
+                started = SharingStarted.Eagerly,
                 initialValue = emptySet()
+            )
+
+    val publicationStats: StateFlow<Map<String, PublicationStats>> =
+        combine(
+            repository.observePublicationStats(),
+            savedProductIds,
+            likedPublicationIds
+        ) { statsMap, savedIds, likedIds ->
+            if (savedIds.isEmpty() && likedIds.isEmpty()) {
+                statsMap
+            } else {
+                val adjusted = statsMap.toMutableMap()
+                savedIds.forEach { productId ->
+                    val existing = adjusted[productId] ?: PublicationStats(id = productId)
+                    if (existing.savesCount < 1L) {
+                        adjusted[productId] = existing.copy(savesCount = 1L)
+                    }
+                }
+                likedIds.forEach { productId ->
+                    val existing = adjusted[productId] ?: PublicationStats(id = productId)
+                    if (existing.likesCount < 1L) {
+                        adjusted[productId] = existing.copy(likesCount = 1L)
+                    }
+                }
+                adjusted
+            }
+        }
+            .catch { error ->
+                Log.e("EleganViewModel", "No se pudieron cargar las estadísticas de publicaciones.", error)
+                emit(emptyMap())
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000L),
+                initialValue = emptyMap()
             )
 
     private val _commentsProductId = MutableStateFlow<String?>(null)
@@ -149,7 +172,7 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         .catch { emit(emptyList()) }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
@@ -377,11 +400,11 @@ class EleganViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun sendSupportMessage(text: String) {
-        if (text.isBlank()) return
+    fun sendSupportMessage(text: String, mediaUri: String = "", mediaType: String = "") {
+        if (text.isBlank() && mediaUri.isBlank()) return
         viewModelScope.launch {
             try {
-                repository.sendSupportMessage(text, viewModelScope)
+                repository.sendSupportMessage(text, mediaUri, mediaType, viewModelScope)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

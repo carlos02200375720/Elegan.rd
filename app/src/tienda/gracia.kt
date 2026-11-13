@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -83,111 +85,133 @@ fun GraciaScreen(
         orderDetails?.phone?.takeIf { it.isNotBlank() }
     ).joinToString(" • ")
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 20.dp)
             .testTag("gracia_screen"),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentAlignment = Alignment.TopCenter
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Box(
-            modifier = Modifier
-                .size(104.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            EleganGold.copy(alpha = 0.3f),
-                            EleganBurgundy.copy(alpha = 0.15f)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background(EleganBurgundy),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Éxito",
-                    tint = Color.White,
-                    modifier = Modifier.size(46.dp)
-                )
-            }
+        val isCompact = maxWidth < 350.dp
+        val isWide = maxWidth >= 600.dp
+        val horizontalPad = when {
+            isCompact -> 12.dp
+            isWide -> 24.dp
+            else -> 16.dp
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = "¡GRACIAS POR TU COMPRA!",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = EleganBurgundyDark,
-                fontFamily = FontFamily.Serif,
-                textAlign = TextAlign.Center,
-                letterSpacing = 1.sp
-            )
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = if (isBankTransfer) {
-                "Tu pedido ha sido registrado exitosamente. Su pago está siendo verificado con el comprobante de transferencia bancaria enviado."
-            } else {
-                "Tu pedido ha sido confirmado y registrado exitosamente en el sistema de Elegan."
-            },
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF555555),
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp
-            ),
+        Column(
             modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .testTag("gracia_status_message")
-        )
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, Color(0xFFEDE6DF)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                .fillMaxSize()
+                .widthIn(max = 620.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = horizontalPad, vertical = if (isCompact) 14.dp else 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(if (isCompact) 6.dp else 12.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(if (isCompact) 84.dp else 96.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                EleganGold.copy(alpha = 0.3f),
+                                EleganBurgundy.copy(alpha = 0.15f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isCompact) 62.dp else 72.dp)
+                        .clip(CircleShape)
+                        .background(EleganBurgundy),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Código de Pedido:",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Éxito",
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isCompact) 38.dp else 44.dp)
                     )
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFF6EFEA)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(if (isCompact) 14.dp else 18.dp))
+
+            Text(
+                text = "¡GRACIAS POR TU COMPRA!",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = EleganBurgundyDark,
+                    fontFamily = FontFamily.Serif,
+                    textAlign = TextAlign.Center,
+                    fontSize = if (isCompact) 22.sp else 26.sp,
+                    lineHeight = if (isCompact) 28.sp else 32.sp,
+                    letterSpacing = 1.sp
+                )
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = if (isBankTransfer) {
+                    "Tu pedido ha sido registrado exitosamente. Su pago está siendo verificado con el comprobante de transferencia bancaria enviado."
+                } else {
+                    "Tu pedido ha sido confirmado y registrado exitosamente en el sistema de Elegan."
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF555555),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 21.sp,
+                    fontSize = if (isCompact) 13.5.sp else 14.sp
+                ),
+                modifier = Modifier
+                    .padding(horizontal = if (isCompact) 4.dp else 8.dp)
+                    .testTag("gracia_status_message")
+            )
+
+            Spacer(modifier = Modifier.height(if (isCompact) 16.dp else 20.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFFEDE6DF)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(if (isCompact) 14.dp else 18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = displayOrderId,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EleganBurgundyDark
-                            ),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            text = "Código de Pedido:",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFF6EFEA)
+                        ) {
+                            Text(
+                                text = displayOrderId,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = EleganBurgundyDark
+                                ),
+                                maxLines = 1,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
-                }
 
                 if (isBankTransfer) {
                     Spacer(modifier = Modifier.height(14.dp))
@@ -458,13 +482,13 @@ fun GraciaScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(if (isCompact) 18.dp else 22.dp))
 
         Button(
             onClick = onNavigateToInicio,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(if (isCompact) 48.dp else 52.dp)
                 .testTag("gracia_keep_shopping_btn"),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
@@ -474,16 +498,22 @@ fun GraciaScreen(
         ) {
             Icon(Icons.Default.ShoppingBag, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Seguir Comprando", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(
+                text = "Seguir Comprando",
+                fontWeight = FontWeight.Bold,
+                fontSize = if (isCompact) 14.sp else 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedButton(
             onClick = onNavigateToPerfil,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .height(if (isCompact) 46.dp else 50.dp)
                 .testTag("gracia_view_orders_btn"),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -495,7 +525,12 @@ fun GraciaScreen(
         ) {
             Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Ver mis Pedidos", fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "Ver mis Pedidos",
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -504,7 +539,7 @@ fun GraciaScreen(
             onClick = onNavigateToChats,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
+                .height(if (isCompact) 46.dp else 50.dp)
                 .testTag("gracia_contact_support_btn"),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -516,9 +551,15 @@ fun GraciaScreen(
         ) {
             Icon(Icons.Default.SupportAgent, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Consultar con Elegan Concierge", fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "Consultar con Elegan Concierge",
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+        }
     }
 }

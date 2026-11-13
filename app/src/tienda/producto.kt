@@ -2,7 +2,6 @@ package com.example.ui
 
 import android.net.Uri
 import android.widget.MediaController
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -26,6 +25,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -45,7 +46,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -89,6 +89,7 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.data.model.Product
 import com.example.ui.components.EleganVideoPlayer
+import com.example.ui.components.LocalEleganNotifier
 import com.example.ui.theme.EleganBurgundy
 import com.example.ui.theme.EleganBurgundyDark
 import com.example.ui.theme.EleganCharcoal
@@ -124,6 +125,7 @@ fun ProductoScreen(
     var quantity by remember { mutableLongStateOf(1L) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val notifier = LocalEleganNotifier.current
 
     val mediaItems = remember(product) { getProductMediaItems(product) }
     val pagerState = rememberPagerState(pageCount = { mediaItems.size })
@@ -152,8 +154,12 @@ fun ProductoScreen(
                         OutlinedButton(
                             onClick = {
                                 onAddToCart(product, selectedSize, selectedColor, quantity)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("¡Añadido al carrito con éxito!")
+                                if (notifier != null) {
+                                    notifier.show("¡Añadido al carrito con éxito!")
+                                } else {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("¡Añadido al carrito con éxito!")
+                                    }
                                 }
                             },
                             modifier = Modifier
@@ -328,41 +334,16 @@ fun ProductoScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Precio colocado abajo del título de forma horizontal con sus valoraciones
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "$${String.format("%.2f", product.price)} USD",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF16A34A),
-                                    fontSize = 19.sp
-                                )
-                            )
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                repeat(5) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint = EleganGold,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${product.rating} (${product.reviewCount} valoraciones)",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                            }
-                        }
+                        // Precio en color vino de la marca sin texto USD ni valoraciones ficticias
+                        Text(
+                            text = "$${String.format("%.2f", product.price)}",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = EleganBurgundy,
+                                fontSize = 20.sp
+                            ),
+                            modifier = Modifier.testTag("producto_price_text")
+                        )
 
                         Spacer(modifier = Modifier.height(16.dp))
                         HorizontalDivider(color = Color(0xFFE5DDD5))
@@ -398,11 +379,13 @@ fun ProductoScreen(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            Row(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("size_selector_row")
                             ) {
-                                for (size in product.sizes) {
+                                items(product.sizes) { size ->
                                     val isSelected = size == selectedSize
                                     Box(
                                         modifier = Modifier
@@ -414,12 +397,14 @@ fun ProductoScreen(
                                                 shape = RoundedCornerShape(8.dp)
                                             )
                                             .clickable { selectedSize = size }
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                            .padding(horizontal = 16.dp, vertical = 10.dp)
                                             .testTag("size_chip_$size"),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = size,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 color = if (isSelected) Color.White else EleganCharcoal,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -441,11 +426,13 @@ fun ProductoScreen(
                                 )
                             )
                             Spacer(modifier = Modifier.height(10.dp))
-                            Row(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("color_selector_row")
                             ) {
-                                product.colors.forEach { color ->
+                                items(product.colors) { color ->
                                     val isSelected = color == selectedColor
                                     Box(
                                         modifier = Modifier
@@ -457,12 +444,14 @@ fun ProductoScreen(
                                                 shape = RoundedCornerShape(8.dp)
                                             )
                                             .clickable { selectedColor = color }
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                            .padding(horizontal = 16.dp, vertical = 10.dp)
                                             .testTag("color_chip_$color"),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = color,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 color = if (isSelected) Color.White else EleganCharcoal,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -617,16 +606,14 @@ fun ProductoScreen(
                             onClick = {
                                 val willSave = !isSaved
                                 onToggleSave { result ->
-                                    Toast.makeText(
-                                        context,
+                                    notifier?.show(
                                         if (result.isSuccess) {
                                             if (willSave) "Publicación guardada en tu perfil"
                                             else "Publicación eliminada de guardados"
                                         } else {
                                             "No se pudo actualizar la publicación guardada"
-                                        },
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                        }
+                                    )
                                 }
                             },
                             modifier = Modifier

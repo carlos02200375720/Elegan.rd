@@ -18,7 +18,10 @@ export async function getMessages(req, res) {
 export async function createMessage(req, res) {
   try {
     const value = String(req.body?.text || "").trim();
-    if (!value || value.length > 4000) {
+    const mediaUrl = String(req.body?.mediaUrl || "").trim();
+    const rawMediaType = String(req.body?.mediaType || "").trim().toLowerCase();
+    const mediaType = rawMediaType === "video" ? "video" : (mediaUrl ? "image" : "");
+    if ((!value && !mediaUrl) || value.length > 4000) {
       return res.status(400).json({ error: "INVALID_MESSAGE" });
     }
     const userId = String(req.user._id);
@@ -28,20 +31,23 @@ export async function createMessage(req, res) {
       sender: "user",
       senderName: String(req.user.name || "Cliente"),
       text: value,
+      ...(mediaUrl ? { mediaUrl, mediaType } : {}),
       createdAt: new Date()
     };
     await db.collection(SUPPORT_MESSAGES_COLLECTION_NAME).insertOne(item);
 
     const normalized = value.toLowerCase();
-    const reply = normalized.includes("envio") || normalized.includes("entrega")
-      ? "Gracias por tu consulta. Nuestro equipo de Elegan te ayudará con la información de entrega de tu pedido."
-      : normalized.includes("talla") || normalized.includes("medida")
-        ? "Gracias por escribirnos. Nuestro equipo puede orientarte con las tallas y medidas disponibles."
-        : normalized.includes("devolucion") || normalized.includes("cambio")
-          ? "Recibimos tu consulta sobre cambios o devoluciones. Un asesor de Elegan te dará seguimiento."
-          : normalized.includes("descuento") || normalized.includes("promocion")
-            ? "Gracias por consultar nuestras promociones. Revisa los anuncios y ofertas vigentes en la tienda."
-            : "Gracias por comunicarte con Elegan. Hemos recibido tu consulta y nuestro equipo te dará seguimiento.";
+    const reply = !value && mediaUrl
+      ? "Hemos recibido tu archivo multimedia. Un asesor de Elegan lo revisará enseguida para ayudarte."
+      : normalized.includes("envio") || normalized.includes("entrega")
+        ? "Gracias por tu consulta. Nuestro equipo de Elegan te ayudará con la información de entrega de tu pedido."
+        : normalized.includes("talla") || normalized.includes("medida")
+          ? "Gracias por escribirnos. Nuestro equipo puede orientarte con las tallas y medidas disponibles."
+          : normalized.includes("devolucion") || normalized.includes("cambio")
+            ? "Recibimos tu consulta sobre cambios o devoluciones. Un asesor de Elegan te dará seguimiento."
+            : normalized.includes("descuento") || normalized.includes("promocion")
+              ? "Gracias por consultar nuestras promociones. Revisa los anuncios y ofertas vigentes en la tienda."
+              : "Gracias por comunicarte con Elegan. Hemos recibido tu consulta y nuestro equipo te dará seguimiento.";
 
     await db.collection(SUPPORT_MESSAGES_COLLECTION_NAME).insertOne({
       _id: randomUUID(),

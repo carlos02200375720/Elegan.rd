@@ -4,15 +4,19 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,10 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -50,10 +56,9 @@ fun InicioHeroBanner(
     onNavigateToMenu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(300.dp)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -62,11 +67,41 @@ fun InicioHeroBanner(
                         Color(0xFF380710)
                     )
                 )
-            )
-            .padding(24.dp)
+            ),
+        contentAlignment = Alignment.Center
     ) {
+        val isCompact = maxWidth < 350.dp
+        val isExpanded = maxWidth >= 600.dp
+        val minBannerHeight = when {
+            isExpanded -> 312.dp
+            isCompact -> 252.dp
+            maxWidth >= 420.dp -> 296.dp
+            else -> 280.dp
+        }
+        val horizontalPad = when {
+            isExpanded -> 28.dp
+            isCompact -> 16.dp
+            else -> 24.dp
+        }
+        val verticalPad = if (isCompact) 18.dp else 24.dp
+        val logoCircleSize = if (isCompact) 40.dp else 44.dp
+        val headlineFontSize = when {
+            isExpanded -> 31.sp
+            isCompact -> 23.sp
+            else -> 28.sp
+        }
+        val headlineLineHeight = when {
+            isExpanded -> 36.sp
+            isCompact -> 28.sp
+            else -> 32.sp
+        }
+
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 760.dp)
+                .heightIn(min = minBannerHeight)
+                .padding(horizontal = horizontalPad, vertical = verticalPad),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Cabecera superior dentro del banner
@@ -75,41 +110,53 @@ fun InicioHeroBanner(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(logoCircleSize)
                             .clip(CircleShape)
                             .background(Color.White)
                             .padding(4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.icono),
+                            painter = painterResource(id = R.drawable.ic_elegan_gentleman),
                             contentDescription = "Logo Elegan",
-                            modifier = Modifier.size(28.dp)
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Spacer(modifier = Modifier.width(if (isCompact) 10.dp else 12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "ELEGAN",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 color = Color.White,
+                                fontSize = if (isCompact) 19.sp else 22.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 4.sp,
+                                letterSpacing = if (isCompact) 3.sp else 4.sp,
                                 fontFamily = FontFamily.Serif
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "Sartorial & Luxury Menswear",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = EleganGold,
-                                letterSpacing = 1.sp
-                            )
+                                fontSize = if (isCompact) 10.sp else 11.sp,
+                                letterSpacing = if (isCompact) 0.5.sp else 1.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 IconButton(
                     onClick = onNavigateToMenu,
@@ -126,8 +173,10 @@ fun InicioHeroBanner(
                 }
             }
 
+            Spacer(modifier = Modifier.height(if (isCompact) 16.dp else 22.dp))
+
             // Texto central y botones de acción
-            Column(modifier = Modifier.padding(bottom = 12.dp)) {
+            Column(modifier = Modifier.padding(bottom = if (isCompact) 4.dp else 8.dp)) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = EleganGold.copy(alpha = 0.25f),
@@ -136,10 +185,15 @@ fun InicioHeroBanner(
                     Text(
                         text = "NUEVA COLECCIÓN 2026",
                         color = EleganGold,
-                        fontSize = 11.sp,
+                        fontSize = if (isCompact) 10.sp else 11.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        letterSpacing = 2.sp
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(
+                            horizontal = if (isCompact) 8.dp else 10.dp,
+                            vertical = 4.dp
+                        ),
+                        letterSpacing = if (isCompact) 1.2.sp else 2.sp
                     )
                 }
 
@@ -147,15 +201,16 @@ fun InicioHeroBanner(
                     text = "Distinción &\nCarácter Propio",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         color = Color.White,
+                        fontSize = headlineFontSize,
                         fontWeight = FontWeight.ExtraBold,
-                        lineHeight = 32.sp,
+                        lineHeight = headlineLineHeight,
                         fontFamily = FontFamily.Serif
                     )
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 12.dp else 14.dp))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp)) {
                     Button(
                         onClick = { onNavigateToCatalogo("todo") },
                         colors = ButtonDefaults.buttonColors(
@@ -163,24 +218,35 @@ fun InicioHeroBanner(
                             contentColor = EleganCharcoal
                         ),
                         shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = if (isCompact) 12.dp else 18.dp,
+                            vertical = 10.dp
+                        ),
                         modifier = Modifier.testTag("explore_catalog_hero_btn")
                     ) {
                         Text(
                             text = "Ver Catálogo",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = if (isCompact) 12.sp else 13.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(if (isCompact) 14.dp else 16.dp)
                         )
                     }
 
                     OutlinedButton(
                         onClick = onNavigateToMenu,
                         shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = if (isCompact) 12.dp else 18.dp,
+                            vertical = 10.dp
+                        ),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Color.White
                         ),
@@ -188,7 +254,13 @@ fun InicioHeroBanner(
                             brush = Brush.horizontalGradient(listOf(Color.White, EleganGold))
                         )
                     ) {
-                        Text(text = "Categorías", fontSize = 13.sp)
+                        Text(
+                            text = "Categorías",
+                            fontSize = if (isCompact) 12.sp else 13.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }

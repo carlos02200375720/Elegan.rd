@@ -12,9 +12,15 @@ data class ApiStats(val stats: Map<String, PublicationStats> = emptyMap())
 data class ApiId(val id: String = "")
 data class ApiSuccess(val success: Boolean = false)
 data class SavedRequest(val saved: Boolean)
+data class ProductStockUpdateRequest(val inStock: Boolean)
+data class AnnouncementActiveUpdateRequest(val isActive: Boolean)
 data class QuantityRequest(val quantity: Long)
 data class CommentRequest(val displayName: String, val text: String)
-data class MessageRequest(val text: String)
+data class MessageRequest(
+    val text: String = "",
+    val mediaUrl: String = "",
+    val mediaType: String = ""
+)
 data class ShareResponse(val success: Boolean = false)
 data class LikeResponse(val liked: Boolean = false)
 data class SaveResponse(val saved: Boolean = false)
@@ -31,19 +37,19 @@ interface EleganStoreApi {
     suspend fun createProduct(@Header("Authorization") token: String, @Body product: Product): ApiId
 
     @PATCH("api/movil/products/{id}")
-    suspend fun updateProduct(@Header("Authorization") token: String, @Path("id") id: String, @Body product: Map<String, Any?>): ApiSuccess
+    suspend fun updateProduct(@Header("Authorization") token: String, @Path("id") id: String, @Body product: ProductStockUpdateRequest): ApiSuccess
 
     @DELETE("api/movil/products/{id}")
     suspend fun deleteProduct(@Header("Authorization") token: String, @Path("id") id: String): ApiSuccess
 
     @GET("api/movil/announcements")
-    suspend fun announcements(): ApiItems<Announcement>
+    suspend fun announcements(@Query("includeInactive") includeInactive: Boolean = true): ApiItems<Announcement>
 
     @POST("api/movil/announcements")
     suspend fun createAnnouncement(@Header("Authorization") token: String, @Body announcement: Announcement): ApiId
 
     @PATCH("api/movil/announcements/{id}")
-    suspend fun updateAnnouncement(@Header("Authorization") token: String, @Path("id") id: String, @Body announcement: Map<String, Any?>): ApiSuccess
+    suspend fun updateAnnouncement(@Header("Authorization") token: String, @Path("id") id: String, @Body announcement: AnnouncementActiveUpdateRequest): ApiSuccess
 
     @DELETE("api/movil/announcements/{id}")
     suspend fun deleteAnnouncement(@Header("Authorization") token: String, @Path("id") id: String): ApiSuccess

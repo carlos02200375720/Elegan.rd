@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
@@ -40,17 +41,65 @@ class EleganRepository(context: Context) {
     private val cartPrefs by lazy {
         appContext.getSharedPreferences("elegan_cart_cache", Context.MODE_PRIVATE)
     }
+    private val savedPrefs by lazy {
+        appContext.getSharedPreferences("elegan_saved_cache", Context.MODE_PRIVATE)
+    }
+    private val statsPrefs by lazy {
+        appContext.getSharedPreferences("elegan_stats_cache", Context.MODE_PRIVATE)
+    }
+    private val likesPrefs by lazy {
+        appContext.getSharedPreferences("elegan_likes_cache", Context.MODE_PRIVATE)
+    }
+    private val ordersPrefs by lazy {
+        appContext.getSharedPreferences("elegan_orders_cache", Context.MODE_PRIVATE)
+    }
+    private val publicationStatePrefs by lazy {
+        appContext.getSharedPreferences("elegan_publication_states", Context.MODE_PRIVATE)
+    }
+    private val productStockOverridesFlow by lazy {
+        MutableStateFlow(loadBooleanOverrideMap("product_stock_overrides"))
+    }
+    private val announcementActiveOverridesFlow by lazy {
+        MutableStateFlow(loadBooleanOverrideMap("announcement_active_overrides"))
+    }
     private val cartLoadMutex = Mutex()
+    private val savedLoadMutex = Mutex()
+    private val statsLoadMutex = Mutex()
+    private val likesLoadMutex = Mutex()
+    private val ordersLoadMutex = Mutex()
     @Volatile
-    private var isCartLoaded = false
+    private var loadedCartKey: String? = null
+    @Volatile
+    private var loadedSavedKey: String? = null
+    @Volatile
+    private var loadedStatsKey: String? = null
+    @Volatile
+    private var loadedLikesKey: String? = null
+    @Volatile
+    private var loadedOrdersKey: String? = null
 
     private val localCommentsCache = java.util.concurrent.ConcurrentHashMap<String, MutableList<PublicationComment>>()
     private val localStatsMap = java.util.concurrent.ConcurrentHashMap<String, PublicationStats>()
+    private val localStatsFlow = MutableStateFlow<Map<String, PublicationStats>>(emptyMap())
     private val localCartItems = java.util.concurrent.CopyOnWriteArrayList<CartItem>()
     private val localCartFlow = MutableStateFlow<List<CartItem>>(emptyList())
     private val localSavedProductIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val localSavedFlow = MutableStateFlow<Set<String>>(emptySet())
+    private val pendingSavedOps = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val localLikedPublicationIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val localLikedFlow = MutableStateFlow<Set<String>>(emptySet())
+    private val pendingLikeOps = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val localOrdersList = java.util.concurrent.CopyOnWriteArrayList<Order>()
+    private val localOrdersFlow = MutableStateFlow<List<Order>>(emptyList())
+    private val pendingOrderIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val localMessagesList = java.util.concurrent.CopyOnWriteArrayList<SupportMessage>()
+    private val localMessagesFlow = MutableStateFlow<List<SupportMessage>>(emptyList())
+    private val messagesPrefs by lazy {
+        appContext.getSharedPreferences("elegan_support_messages", Context.MODE_PRIVATE)
+    }
+    private val messagesLoadMutex = Mutex()
+    @Volatile
+    private var loadedMessagesKey: String? = null
     private val loggedRemoteErrors = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private fun clearRemoteError(key: String) {
@@ -72,19 +121,249 @@ class EleganRepository(context: Context) {
         }
     }
 
-    private fun cartCacheKey(): String = "cart_items_${optionalUserId() ?: "guest"}"
+    private fun userCacheKey(): String {
+        val user = MobileSession.user(appContext)
+        val email = user?.email?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        val id = user?.effectiveId?.trim()?.takeIf { it.isNotBlank() }
+        return email ?: id ?: "guest"
+    }
+
+    private fun cartCacheKey(): String = "cart_items_${userCacheKey()}"
+    private fun savedCacheKey(userKey: String = userCacheKey()): String = "saved_ids_$userKey"
+    private fun pendingSavedCacheKey(userKey: String = userCacheKey()): String = "pending_saved_$userKey"
+    private fun likesCacheKey(userKey: String = userCacheKey()): String = "liked_ids_$userKey"
+    private fun pendingLikesCacheKey(userKey: String = userCacheKey()): String = "pending_likes_$userKey"
+    private fun ordersCacheKey(userKey: String = userCacheKey()): String = "orders_list_$userKey"
+    private fun pendingOrdersCacheKey(userKey: String = userCacheKey()): String = "pending_orders_$userKey"
+    private fun statsCacheKey(userKey: String = userCacheKey()): String = "publication_stats_$userKey"
 
     private suspend fun ensureCartLoaded() {
-        if (isCartLoaded) return
+        val currentKey = userCacheKey()
+        if (loadedCartKey == currentKey) return
         cartLoadMutex.withLock {
-            if (isCartLoaded) return
+            if (loadedCartKey == currentKey) return
             val loaded = withContext(Dispatchers.IO) { loadPersistedCart() }
-            if (loaded.isNotEmpty() && localCartItems.isEmpty()) {
+            localCartItems.clear()
+            if (loaded.isNotEmpty()) {
                 localCartItems.addAll(loaded)
-                localCartFlow.value = localCartItems.toList()
             }
-            isCartLoaded = true
+            localCartFlow.value = localCartItems.toList()
+            loadedCartKey = currentKey
         }
+    }
+
+    private suspend fun ensureSavedLoaded() {
+        val currentKey = userCacheKey()
+        if (loadedSavedKey == currentKey) return
+        savedLoadMutex.withLock {
+            if (loadedSavedKey == currentKey) return
+            val (loadedIds, loadedPending) = withContext(Dispatchers.IO) {
+                loadPersistedSavedState(currentKey)
+            }
+            localSavedProductIds.clear()
+            localSavedProductIds.addAll(loadedIds)
+            pendingSavedOps.clear()
+            pendingSavedOps.putAll(loadedPending)
+            localSavedFlow.value = localSavedProductIds.toSet()
+            loadedSavedKey = currentKey
+        }
+    }
+
+    private fun loadPersistedSavedState(userKey: String): Pair<Set<String>, Map<String, Boolean>> {
+        val ids = mutableSetOf<String>()
+        val pending = mutableMapOf<String, Boolean>()
+        try {
+            val rawIds = savedPrefs.getString(savedCacheKey(userKey), null)
+            if (!rawIds.isNullOrBlank()) {
+                val array = JSONArray(rawIds)
+                for (i in 0 until array.length()) {
+                    val id = array.optString(i, "").trim()
+                    if (id.isNotBlank()) ids.add(id)
+                }
+            }
+            val rawPending = savedPrefs.getString(pendingSavedCacheKey(userKey), null)
+            if (!rawPending.isNullOrBlank()) {
+                val obj = JSONObject(rawPending)
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    if (k.isNotBlank()) pending[k] = obj.optBoolean(k, true)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron leer los productos guardados localmente: ${e.message}")
+        }
+        return ids to pending
+    }
+
+    private suspend fun savePersistedSavedState(userKey: String = userCacheKey()) {
+        val idsSnapshot = localSavedProductIds.toList()
+        val pendingSnapshot = pendingSavedOps.toMap()
+        withContext(Dispatchers.IO) {
+            try {
+                val idsArray = JSONArray()
+                idsSnapshot.forEach { idsArray.put(it) }
+                val pendingObj = JSONObject()
+                pendingSnapshot.forEach { (k, v) -> pendingObj.put(k, v) }
+                savedPrefs.edit()
+                    .putString(savedCacheKey(userKey), idsArray.toString())
+                    .putString(pendingSavedCacheKey(userKey), pendingObj.toString())
+                    .commit()
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudieron guardar los productos localmente: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun ensureLikesLoaded() {
+        val currentKey = userCacheKey()
+        if (loadedLikesKey == currentKey) return
+        likesLoadMutex.withLock {
+            if (loadedLikesKey == currentKey) return
+            val (loadedIds, loadedPending) = withContext(Dispatchers.IO) {
+                loadPersistedLikesState(currentKey)
+            }
+            localLikedPublicationIds.clear()
+            localLikedPublicationIds.addAll(loadedIds)
+            pendingLikeOps.clear()
+            pendingLikeOps.putAll(loadedPending)
+            localLikedFlow.value = localLikedPublicationIds.toSet()
+            loadedLikesKey = currentKey
+        }
+    }
+
+    private fun loadPersistedLikesState(userKey: String): Pair<Set<String>, Map<String, Boolean>> {
+        val ids = mutableSetOf<String>()
+        val pending = mutableMapOf<String, Boolean>()
+        try {
+            val rawIds = likesPrefs.getString(likesCacheKey(userKey), null)
+            if (!rawIds.isNullOrBlank()) {
+                val array = JSONArray(rawIds)
+                for (i in 0 until array.length()) {
+                    val id = array.optString(i, "").trim()
+                    if (id.isNotBlank()) ids.add(id)
+                }
+            }
+            val rawPending = likesPrefs.getString(pendingLikesCacheKey(userKey), null)
+            if (!rawPending.isNullOrBlank()) {
+                val obj = JSONObject(rawPending)
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    if (k.isNotBlank()) pending[k] = obj.optBoolean(k, true)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron leer los likes locales: ${e.message}")
+        }
+        return ids to pending
+    }
+
+    private suspend fun savePersistedLikesState(userKey: String = userCacheKey()) {
+        val idsSnapshot = localLikedPublicationIds.toList()
+        val pendingSnapshot = pendingLikeOps.toMap()
+        withContext(Dispatchers.IO) {
+            try {
+                val idsArray = JSONArray()
+                idsSnapshot.forEach { idsArray.put(it) }
+                val pendingObj = JSONObject()
+                pendingSnapshot.forEach { (k, v) -> pendingObj.put(k, v) }
+                likesPrefs.edit()
+                    .putString(likesCacheKey(userKey), idsArray.toString())
+                    .putString(pendingLikesCacheKey(userKey), pendingObj.toString())
+                    .commit()
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudieron guardar los likes localmente: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun ensureStatsLoaded() {
+        val currentKey = userCacheKey()
+        if (loadedStatsKey == currentKey) return
+        statsLoadMutex.withLock {
+            if (loadedStatsKey == currentKey) return
+            val loaded = withContext(Dispatchers.IO) { loadPersistedStats(currentKey) }
+            localStatsMap.clear()
+            localStatsMap.putAll(loaded)
+            reconcileSavedCountsLocked()
+            reconcileLikedCountsLocked()
+            localStatsFlow.value = localStatsMap.toMap()
+            loadedStatsKey = currentKey
+        }
+    }
+
+    private fun reconcileSavedCountsLocked() {
+        localSavedProductIds.forEach { productId ->
+            val current = localStatsMap[productId] ?: PublicationStats(id = productId)
+            if (current.savesCount < 1L) {
+                localStatsMap[productId] = current.copy(savesCount = 1L)
+            }
+        }
+    }
+
+    private fun reconcileLikedCountsLocked() {
+        localLikedPublicationIds.forEach { productId ->
+            val current = localStatsMap[productId] ?: PublicationStats(id = productId)
+            if (current.likesCount < 1L) {
+                localStatsMap[productId] = current.copy(likesCount = 1L)
+            }
+        }
+    }
+
+    private fun loadPersistedStats(userKey: String): Map<String, PublicationStats> {
+        val raw = statsPrefs.getString(statsCacheKey(userKey), null) ?: return emptyMap()
+        return try {
+            val obj = JSONObject(raw)
+            val result = mutableMapOf<String, PublicationStats>()
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val id = keys.next()
+                val item = obj.optJSONObject(id) ?: continue
+                result[id] = PublicationStats(
+                    id = id,
+                    likesCount = item.optLong("likesCount", 0L).coerceAtLeast(0L),
+                    commentsCount = item.optLong("commentsCount", 0L).coerceAtLeast(0L),
+                    sharesCount = item.optLong("sharesCount", 0L).coerceAtLeast(0L),
+                    savesCount = item.optLong("savesCount", 0L).coerceAtLeast(0L)
+                )
+            }
+            result
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron leer las estadísticas locales: ${e.message}")
+            emptyMap()
+        }
+    }
+
+    private suspend fun savePersistedStats(
+        snapshot: Map<String, PublicationStats>,
+        userKey: String = userCacheKey()
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val root = JSONObject()
+                snapshot.forEach { (id, stat) ->
+                    root.put(
+                        id,
+                        JSONObject().apply {
+                            put("likesCount", stat.likesCount)
+                            put("commentsCount", stat.commentsCount)
+                            put("sharesCount", stat.sharesCount)
+                            put("savesCount", stat.savesCount)
+                        }
+                    )
+                }
+                statsPrefs.edit().putString(statsCacheKey(userKey), root.toString()).commit()
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudieron guardar las estadísticas localmente: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun publishStatsState() {
+        val snapshot = localStatsMap.toMap()
+        localStatsFlow.value = snapshot
+        savePersistedStats(snapshot)
     }
 
     private fun loadPersistedCart(): List<CartItem> {
@@ -151,20 +430,59 @@ class EleganRepository(context: Context) {
     // PRODUCTS
     // -------------------------------------------------------------
 
-    fun observeProducts(): Flow<List<Product>> = flow {
-        val samples = getInitialSampleProducts()
-        emit(samples)
-        while (true) {
-            try {
-                val remote = api.products().items
-                clearRemoteError("products")
-                emit(if (remote.isEmpty()) samples else remote)
-            } catch (e: Exception) {
-                handleRemoteError("products", "No se pudo actualizar el catálogo", e)
+    private fun loadBooleanOverrideMap(key: String): Map<String, Boolean> {
+        val result = mutableMapOf<String, Boolean>()
+        try {
+            val raw = publicationStatePrefs.getString(key, null)
+            if (!raw.isNullOrBlank()) {
+                val obj = JSONObject(raw)
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val id = keys.next()
+                    if (id.isNotBlank()) {
+                        result[id] = obj.optBoolean(id, true)
+                    }
+                }
             }
-            delay(15000)
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron leer los estados locales ($key): ${e.message}")
         }
-    }.flowOn(Dispatchers.IO)
+        return result
+    }
+
+    private fun saveBooleanOverrideMap(key: String, map: Map<String, Boolean>) {
+        try {
+            val obj = JSONObject()
+            map.forEach { (id, state) -> obj.put(id, state) }
+            publicationStatePrefs.edit().putString(key, obj.toString()).commit()
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron guardar los estados locales ($key): ${e.message}")
+        }
+    }
+
+    fun observeProducts(): Flow<List<Product>> {
+        val remoteFlow = flow {
+            val samples = getInitialSampleProducts()
+            emit(samples)
+            while (true) {
+                try {
+                    val remote = api.products().items
+                    clearRemoteError("products")
+                    emit(if (remote.isEmpty()) samples else remote)
+                } catch (e: Exception) {
+                    handleRemoteError("products", "No se pudo actualizar el catálogo", e)
+                }
+                delay(15000)
+            }
+        }.flowOn(Dispatchers.IO)
+
+        return combine(remoteFlow, productStockOverridesFlow) { list, overrides ->
+            if (overrides.isEmpty()) list
+            else list.map { p ->
+                overrides[p.id]?.let { overrideStock -> p.copy(inStock = overrideStock) } ?: p
+            }
+        }
+    }
 
     suspend fun seedProductsIfEmpty() {
         // Los productos de muestra son un respaldo; no se insertan automáticamente en MongoDB.
@@ -285,27 +603,56 @@ class EleganRepository(context: Context) {
         return id
     }
 
-    fun observeAnnouncements(): Flow<List<Announcement>> = flow {
-        val samples = getInitialSampleAnnouncements()
-        emit(samples)
-        while (true) {
-            try {
-                val remote = api.announcements().items
-                clearRemoteError("announcements")
-                emit(if (remote.isEmpty()) samples else remote)
-            } catch (e: Exception) {
-                handleRemoteError("announcements", "No se pudieron actualizar los anuncios", e)
+    fun observeAnnouncements(): Flow<List<Announcement>> {
+        val remoteFlow = flow {
+            val samples = getInitialSampleAnnouncements()
+            emit(samples)
+            while (true) {
+                try {
+                    val remote = api.announcements(includeInactive = true).items
+                    clearRemoteError("announcements")
+                    emit(if (remote.isEmpty()) samples else remote)
+                } catch (e: Exception) {
+                    handleRemoteError("announcements", "No se pudieron actualizar los anuncios", e)
+                }
+                delay(15000)
             }
-            delay(15000)
+        }.flowOn(Dispatchers.IO)
+
+        return combine(remoteFlow, announcementActiveOverridesFlow) { list, overrides ->
+            if (overrides.isEmpty()) list
+            else list.map { ann ->
+                overrides[ann.id]?.let { overrideActive -> ann.copy(isActive = overrideActive) } ?: ann
+            }
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
     suspend fun deleteProduct(productId: String) {
         api.deleteProduct(requireRemoteToken(), productId)
     }
 
     suspend fun toggleProductStock(productId: String, inStock: Boolean) {
-        api.updateProduct(requireRemoteToken(), productId, mapOf("inStock" to inStock))
+        val updatedOverrides = productStockOverridesFlow.value + (productId to inStock)
+        productStockOverridesFlow.value = updatedOverrides
+        withContext(Dispatchers.IO) {
+            saveBooleanOverrideMap("product_stock_overrides", updatedOverrides)
+            val token = remoteToken() ?: return@withContext
+            try {
+                api.updateProduct(token, productId, ProductStockUpdateRequest(inStock = inStock))
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    Log.i("EleganRepository", "Producto $productId no existe en colección remota (404); estado guardado localmente.")
+                } else if (e.code() == 401) {
+                    MobileSession.markRemoteSessionRejected()
+                } else {
+                    Log.w("EleganRepository", "No se pudo sincronizar estado de producto $productId: HTTP ${e.code()}")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "Error de red al actualizar estado de producto $productId: ${e.message}")
+            }
+        }
     }
 
     suspend fun deleteAnnouncement(announcementId: String) {
@@ -313,7 +660,27 @@ class EleganRepository(context: Context) {
     }
 
     suspend fun toggleAnnouncementActive(announcementId: String, isActive: Boolean) {
-        api.updateAnnouncement(requireRemoteToken(), announcementId, mapOf("isActive" to isActive))
+        val updatedOverrides = announcementActiveOverridesFlow.value + (announcementId to isActive)
+        announcementActiveOverridesFlow.value = updatedOverrides
+        withContext(Dispatchers.IO) {
+            saveBooleanOverrideMap("announcement_active_overrides", updatedOverrides)
+            val token = remoteToken() ?: return@withContext
+            try {
+                api.updateAnnouncement(token, announcementId, AnnouncementActiveUpdateRequest(isActive = isActive))
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    Log.i("EleganRepository", "Anuncio $announcementId no existe en colección remota (404); estado guardado localmente.")
+                } else if (e.code() == 401) {
+                    MobileSession.markRemoteSessionRejected()
+                } else {
+                    Log.w("EleganRepository", "No se pudo sincronizar estado de anuncio $announcementId: HTTP ${e.code()}")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "Error de red al actualizar estado de anuncio $announcementId: ${e.message}")
+            }
+        }
     }
 
     fun getInitialSampleAnnouncements(): List<Announcement> = listOf(
@@ -391,16 +758,35 @@ class EleganRepository(context: Context) {
     }.flowOn(Dispatchers.IO)
 
     fun observeSavedProductIds(): Flow<Set<String>> = channelFlow {
+        ensureSavedLoaded()
+        ensureStatsLoaded()
         launch {
             while (true) {
+                ensureSavedLoaded()
                 val token = remoteToken()
                 if (token != null) {
                     try {
+                        if (pendingSavedOps.isNotEmpty()) {
+                            val pendingSnapshot = pendingSavedOps.toMap()
+                            pendingSnapshot.forEach { (pid, saved) ->
+                                api.setSaved(token, pid, SavedRequest(saved))
+                                pendingSavedOps.remove(pid, saved)
+                            }
+                            savePersistedSavedState()
+                        }
                         val remoteIds = api.saved(token).ids.toSet()
                         clearRemoteError("saved")
-                        if (remoteIds.isNotEmpty()) {
-                            localSavedProductIds.addAll(remoteIds)
+                        val pendingTrue = pendingSavedOps.filterValues { it }.keys
+                        val pendingFalse = pendingSavedOps.filterValues { !it }.keys
+                        val merged = (remoteIds + pendingTrue) - pendingFalse
+                        if (merged != localSavedProductIds) {
+                            localSavedProductIds.clear()
+                            localSavedProductIds.addAll(merged)
                             localSavedFlow.value = localSavedProductIds.toSet()
+                            savePersistedSavedState()
+                            ensureStatsLoaded()
+                            reconcileSavedCountsLocked()
+                            publishStatsState()
                         }
                     } catch (e: Exception) {
                         handleRemoteError("saved", "Servidor no disponible para sincronizar guardados", e)
@@ -414,16 +800,36 @@ class EleganRepository(context: Context) {
 
     suspend fun setProductSaved(productId: String, isSaved: Boolean) {
         require(productId.isNotBlank())
+        ensureSavedLoaded()
+        ensureStatsLoaded()
+
+        val wasSaved = productId in localSavedProductIds
         if (isSaved) {
             localSavedProductIds.add(productId)
         } else {
             localSavedProductIds.remove(productId)
         }
         localSavedFlow.value = localSavedProductIds.toSet()
+        pendingSavedOps[productId] = isSaved
+        savePersistedSavedState()
+
+        if (wasSaved != isSaved) {
+            val current = localStatsMap[productId] ?: PublicationStats(id = productId)
+            val updatedSaves = if (isSaved) {
+                current.savesCount + 1L
+            } else {
+                (current.savesCount - 1L).coerceAtLeast(0L)
+            }
+            localStatsMap[productId] = current.copy(savesCount = updatedSaves)
+            publishStatsState()
+        }
+
         val token = remoteToken()
         if (token != null) {
             try {
                 api.setSaved(token, productId, SavedRequest(isSaved))
+                pendingSavedOps.remove(productId, isSaved)
+                savePersistedSavedState()
                 clearRemoteError("saved_write")
             } catch (e: Exception) {
                 handleRemoteError("saved_write", "No se pudo sincronizar guardado remoto", e)
@@ -431,66 +837,161 @@ class EleganRepository(context: Context) {
         }
     }
 
-    fun observePublicationStats(): Flow<Map<String, PublicationStats>> = flow {
-        while (true) {
-            val combined = localStatsMap.toMutableMap()
-            try {
-                val stats = api.publicationStats().stats.mapValues { (id, value) -> value.copy(id = id) }
-                clearRemoteError("stats")
-                stats.forEach { (id, remoteStat) ->
-                    val local = combined[id] ?: PublicationStats(id = id)
-                    combined[id] = remoteStat.copy(
-                        commentsCount = maxOf(remoteStat.commentsCount, local.commentsCount),
-                        likesCount = maxOf(remoteStat.likesCount, local.likesCount),
-                        sharesCount = maxOf(remoteStat.sharesCount, local.sharesCount),
-                        savesCount = maxOf(remoteStat.savesCount, local.savesCount)
-                    )
+    fun observePublicationStats(): Flow<Map<String, PublicationStats>> = channelFlow {
+        ensureSavedLoaded()
+        ensureLikesLoaded()
+        ensureStatsLoaded()
+        launch {
+            while (true) {
+                ensureSavedLoaded()
+                ensureLikesLoaded()
+                ensureStatsLoaded()
+                try {
+                    val stats = api.publicationStats().stats.mapValues { (id, value) -> value.copy(id = id) }
+                    clearRemoteError("stats")
+                    var changed = false
+                    stats.forEach { (id, remoteStat) ->
+                        val local = localStatsMap[id] ?: PublicationStats(id = id)
+                        val isSavedLocally = id in localSavedProductIds
+                        val hasPendingSave = pendingSavedOps.containsKey(id)
+                        val mergedSaves = if (hasPendingSave) {
+                            local.savesCount
+                        } else if (isSavedLocally) {
+                            maxOf(remoteStat.savesCount, local.savesCount, 1L)
+                        } else {
+                            maxOf(remoteStat.savesCount, local.savesCount)
+                        }
+                        val isLikedLocally = id in localLikedPublicationIds
+                        val hasPendingLike = pendingLikeOps.containsKey(id)
+                        val mergedLikes = if (hasPendingLike) {
+                            local.likesCount
+                        } else if (isLikedLocally) {
+                            maxOf(remoteStat.likesCount, local.likesCount, 1L)
+                        } else {
+                            maxOf(remoteStat.likesCount, local.likesCount)
+                        }
+                        val merged = remoteStat.copy(
+                            commentsCount = maxOf(remoteStat.commentsCount, local.commentsCount),
+                            likesCount = mergedLikes,
+                            sharesCount = maxOf(remoteStat.sharesCount, local.sharesCount),
+                            savesCount = mergedSaves
+                        )
+                        if (localStatsMap[id] != merged) {
+                            localStatsMap[id] = merged
+                            changed = true
+                        }
+                    }
+                    if (changed) {
+                        publishStatsState()
+                    }
+                } catch (e: Exception) {
+                    handleRemoteError("stats", "No se pudieron cargar estadísticas", e)
                 }
-            } catch (e: Exception) {
-                handleRemoteError("stats", "No se pudieron cargar estadísticas", e)
+                delay(10000)
             }
-            emit(combined.toMap())
-            delay(10000)
         }
+        localStatsFlow.collect { send(it) }
     }.flowOn(Dispatchers.IO)
 
-    fun observeLikedPublicationIds(): Flow<Set<String>> = flow {
-        while (true) {
-            val token = remoteToken()
-            if (token != null) {
-                try {
-                    val liked = api.liked(token).ids.toSet()
-                    clearRemoteError("likes")
-                    emit(liked)
-                } catch (e: Exception) {
-                    handleRemoteError("likes", "No se pudieron cargar likes", e)
-                    emit(emptySet())
+    fun observeLikedPublicationIds(): Flow<Set<String>> = channelFlow {
+        ensureLikesLoaded()
+        ensureStatsLoaded()
+        launch {
+            while (true) {
+                ensureLikesLoaded()
+                val token = remoteToken()
+                if (token != null) {
+                    try {
+                        var remoteIds = api.liked(token).ids.toSet()
+                        if (pendingLikeOps.isNotEmpty()) {
+                            val pendingSnapshot = pendingLikeOps.toMap()
+                            pendingSnapshot.forEach { (pid, desiredLiked) ->
+                                val isRemoteLiked = pid in remoteIds
+                                if (isRemoteLiked != desiredLiked) {
+                                    val resultLiked = api.toggleLike(token, pid).liked
+                                    remoteIds = if (resultLiked) remoteIds + pid else remoteIds - pid
+                                }
+                                pendingLikeOps.remove(pid, desiredLiked)
+                            }
+                            savePersistedLikesState()
+                        }
+                        clearRemoteError("likes")
+                        val pendingTrue = pendingLikeOps.filterValues { it }.keys
+                        val pendingFalse = pendingLikeOps.filterValues { !it }.keys
+                        val merged = (remoteIds + pendingTrue) - pendingFalse
+                        if (merged != localLikedPublicationIds) {
+                            localLikedPublicationIds.clear()
+                            localLikedPublicationIds.addAll(merged)
+                            localLikedFlow.value = localLikedPublicationIds.toSet()
+                            savePersistedLikesState()
+                            ensureStatsLoaded()
+                            reconcileLikedCountsLocked()
+                            publishStatsState()
+                        }
+                    } catch (e: Exception) {
+                        handleRemoteError("likes", "No se pudieron cargar likes", e)
+                    }
                 }
-            } else {
-                emit(emptySet())
+                delay(15000)
             }
-            delay(15000)
         }
+        localLikedFlow.collect { send(it) }
     }.flowOn(Dispatchers.IO)
 
     suspend fun togglePublicationLike(productId: String): Boolean {
         require(productId.isNotBlank())
+        ensureLikesLoaded()
+        ensureStatsLoaded()
+
+        val wasLiked = productId in localLikedPublicationIds
+        val targetLiked = !wasLiked
+        if (targetLiked) {
+            localLikedPublicationIds.add(productId)
+        } else {
+            localLikedPublicationIds.remove(productId)
+        }
+        localLikedFlow.value = localLikedPublicationIds.toSet()
+        pendingLikeOps[productId] = targetLiked
+        savePersistedLikesState()
+
+        val current = localStatsMap[productId] ?: PublicationStats(id = productId)
+        val updatedLikes = if (targetLiked) {
+            current.likesCount + 1L
+        } else {
+            (current.likesCount - 1L).coerceAtLeast(0L)
+        }
+        localStatsMap[productId] = current.copy(likesCount = updatedLikes)
+        publishStatsState()
+
         val token = remoteToken()
-        return if (token != null) {
+        if (token != null) {
             try {
-                val liked = api.toggleLike(token, productId).liked
+                val remoteLiked = api.toggleLike(token, productId).liked
                 clearRemoteError("like_write")
-                val current = localStatsMap[productId] ?: PublicationStats(id = productId)
-                val newLikes = if (liked) current.likesCount + 1 else (current.likesCount - 1).coerceAtLeast(0)
-                localStatsMap[productId] = current.copy(likesCount = newLikes)
-                liked
+                pendingLikeOps.remove(productId, targetLiked)
+                if (remoteLiked != targetLiked) {
+                    if (remoteLiked) {
+                        localLikedPublicationIds.add(productId)
+                    } else {
+                        localLikedPublicationIds.remove(productId)
+                    }
+                    localLikedFlow.value = localLikedPublicationIds.toSet()
+                    val latest = localStatsMap[productId] ?: PublicationStats(id = productId)
+                    val correctedCount = if (remoteLiked) {
+                        maxOf(latest.likesCount, 1L)
+                    } else {
+                        (latest.likesCount - 1L).coerceAtLeast(0L)
+                    }
+                    localStatsMap[productId] = latest.copy(likesCount = correctedCount)
+                    publishStatsState()
+                }
+                savePersistedLikesState()
+                return remoteLiked
             } catch (e: Exception) {
                 handleRemoteError("like_write", "Error en like remoto", e)
-                true
             }
-        } else {
-            true
         }
+        return targetLiked
     }
 
     fun observePublicationComments(productId: String): Flow<List<PublicationComment>> = flow {
@@ -546,8 +1047,10 @@ class EleganRepository(context: Context) {
         }
 
         // 2. Incrementar contador local de comentarios
+        ensureStatsLoaded()
         val currentStat = localStatsMap[productId] ?: PublicationStats(id = productId)
         localStatsMap[productId] = currentStat.copy(commentsCount = currentStat.commentsCount + 1)
+        publishStatsState()
 
         // 3. Sincronizar con el servidor en segundo plano
         val token = remoteToken() ?: "Bearer guest"
@@ -562,8 +1065,10 @@ class EleganRepository(context: Context) {
 
     suspend fun recordPublicationShare(productId: String) {
         require(productId.isNotBlank())
+        ensureStatsLoaded()
         val currentStat = localStatsMap[productId] ?: PublicationStats(id = productId)
         localStatsMap[productId] = currentStat.copy(sharesCount = currentStat.sharesCount + 1)
+        publishStatsState()
         val token = remoteToken() ?: "Bearer guest"
         try {
             api.share(token, productId)
@@ -671,23 +1176,163 @@ class EleganRepository(context: Context) {
         }
     }
 
-    fun observeOrders(): Flow<List<Order>> = flow {
-        while (true) {
-            val token = remoteToken()
-            if (token != null) {
-                try {
-                    val items = api.orders(token).items
-                    clearRemoteError("orders")
-                    emit(items)
-                } catch (e: Exception) {
-                    handleRemoteError("orders", "No se pudieron cargar órdenes", e)
-                    emit(emptyList())
-                }
-            } else {
-                emit(emptyList())
+    private suspend fun ensureOrdersLoaded() {
+        val currentKey = userCacheKey()
+        if (loadedOrdersKey == currentKey) return
+        ordersLoadMutex.withLock {
+            if (loadedOrdersKey == currentKey) return
+            val (loadedOrders, loadedPending) = withContext(Dispatchers.IO) {
+                loadPersistedOrdersState(currentKey)
             }
-            delay(15000)
+            localOrdersList.clear()
+            if (loadedOrders.isNotEmpty()) {
+                localOrdersList.addAll(loadedOrders)
+            }
+            pendingOrderIds.clear()
+            pendingOrderIds.addAll(loadedPending)
+            localOrdersFlow.value = localOrdersList.toList()
+            loadedOrdersKey = currentKey
         }
+    }
+
+    private fun loadPersistedOrdersState(userKey: String): Pair<List<Order>, Set<String>> {
+        val orders = mutableListOf<Order>()
+        val pending = mutableSetOf<String>()
+        try {
+            val rawOrders = ordersPrefs.getString(ordersCacheKey(userKey), null)
+            if (!rawOrders.isNullOrBlank()) {
+                val array = JSONArray(rawOrders)
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    orders.add(
+                        Order(
+                            id = obj.optString("id", ""),
+                            userId = obj.optString("userId", ""),
+                            customerName = obj.optString("customerName", ""),
+                            email = obj.optString("email", ""),
+                            phone = obj.optString("phone", ""),
+                            address = obj.optString("address", ""),
+                            city = obj.optString("city", ""),
+                            paymentMethod = obj.optString("paymentMethod", "Tarjeta"),
+                            paymentProofUrl = obj.optString("paymentProofUrl", ""),
+                            total = obj.optDouble("total", 0.0),
+                            itemCount = obj.optLong("itemCount", 1L).coerceAtLeast(1L),
+                            status = obj.optString("status", "confirmado"),
+                            itemsSummary = obj.optString("itemsSummary", ""),
+                            createdAt = obj.optString("createdAt", "").takeIf { it.isNotBlank() }
+                        )
+                    )
+                }
+            }
+            val rawPending = ordersPrefs.getString(pendingOrdersCacheKey(userKey), null)
+            if (!rawPending.isNullOrBlank()) {
+                val array = JSONArray(rawPending)
+                for (i in 0 until array.length()) {
+                    val id = array.optString(i, "").trim()
+                    if (id.isNotBlank()) pending.add(id)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron leer los pedidos locales: ${e.message}")
+        }
+        return orders to pending
+    }
+
+    private suspend fun savePersistedOrdersState(
+        ordersSnapshot: List<Order> = localOrdersList.toList(),
+        pendingSnapshot: Set<String> = pendingOrderIds.toSet(),
+        userKey: String = userCacheKey()
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val ordersArray = JSONArray()
+                ordersSnapshot.forEach { order ->
+                    ordersArray.put(
+                        JSONObject().apply {
+                            put("id", order.id)
+                            put("userId", order.userId)
+                            put("customerName", order.customerName)
+                            put("email", order.email)
+                            put("phone", order.phone)
+                            put("address", order.address)
+                            put("city", order.city)
+                            put("paymentMethod", order.paymentMethod)
+                            put("paymentProofUrl", order.paymentProofUrl)
+                            put("total", order.total)
+                            put("itemCount", order.itemCount)
+                            put("status", order.status)
+                            put("itemsSummary", order.itemsSummary)
+                            put("createdAt", order.createdAt.orEmpty())
+                        }
+                    )
+                }
+                val pendingArray = JSONArray()
+                pendingSnapshot.forEach { pendingArray.put(it) }
+                ordersPrefs.edit()
+                    .putString(ordersCacheKey(userKey), ordersArray.toString())
+                    .putString(pendingOrdersCacheKey(userKey), pendingArray.toString())
+                    .commit()
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudieron guardar los pedidos localmente: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun publishOrdersState() {
+        val snapshot = localOrdersList.toList()
+        localOrdersFlow.value = snapshot
+        savePersistedOrdersState(ordersSnapshot = snapshot)
+    }
+
+    fun observeOrders(): Flow<List<Order>> = channelFlow {
+        ensureOrdersLoaded()
+        launch {
+            while (true) {
+                ensureOrdersLoaded()
+                val token = remoteToken()
+                if (token != null) {
+                    try {
+                        if (pendingOrderIds.isNotEmpty()) {
+                            val pendingList = localOrdersList.filter { it.id in pendingOrderIds }
+                            for (pendingOrder in pendingList) {
+                                val createdId = api.createOrder(token, pendingOrder).id
+                                clearRemoteError("order_write")
+                                pendingOrderIds.remove(pendingOrder.id)
+                                if (createdId.isNotBlank() && createdId != pendingOrder.id) {
+                                    val idx = localOrdersList.indexOfFirst { it.id == pendingOrder.id }
+                                    if (idx >= 0) {
+                                        localOrdersList[idx] = localOrdersList[idx].copy(id = createdId)
+                                    }
+                                }
+                            }
+                            publishOrdersState()
+                        }
+
+                        val remoteItems = api.orders(token).items
+                        clearRemoteError("orders")
+                        val remoteIds = remoteItems.map { it.id }.toSet()
+                        val localOnly = localOrdersList.filter { local ->
+                            local.id !in remoteIds && (
+                                local.id in pendingOrderIds ||
+                                    local.id.startsWith("order_")
+                                )
+                        }
+                        val merged = (localOnly + remoteItems)
+                            .distinctBy { it.id }
+                            .sortedByDescending { it.createdAt.orEmpty() }
+                        if (merged != localOrdersList.toList()) {
+                            localOrdersList.clear()
+                            localOrdersList.addAll(merged)
+                            publishOrdersState()
+                        }
+                    } catch (e: Exception) {
+                        handleRemoteError("orders", "No se pudieron sincronizar pedidos remotos", e)
+                    }
+                }
+                delay(15000)
+            }
+        }
+        localOrdersFlow.collect { send(it) }
     }.flowOn(Dispatchers.IO)
 
     suspend fun createOrder(
@@ -695,8 +1340,15 @@ class EleganRepository(context: Context) {
         city: String, paymentMethod: String, total: Double, itemCount: Long, itemsSummary: String,
         paymentProofUri: String = ""
     ): String {
+        ensureCartLoaded()
+        ensureOrdersLoaded()
+
         val localId = "order_" + java.util.UUID.randomUUID().toString().take(8)
         val token = remoteToken()
+        val nowIso = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }.format(java.util.Date())
+
         val uploadedProofUrl = if (paymentProofUri.isNotBlank() && token != null) {
             try {
                 uploadProductFile(paymentProofUri, localId, "payment_proof")
@@ -709,79 +1361,326 @@ class EleganRepository(context: Context) {
         } else {
             paymentProofUri
         }
-        val order = Order(
-            id = localId, customerName = customerName, email = email, phone = phone,
-            address = address, city = city, paymentMethod = paymentMethod,
+
+        val initialOrder = Order(
+            id = localId,
+            userId = optionalUserId().orEmpty(),
+            customerName = customerName,
+            email = email,
+            phone = phone,
+            address = address,
+            city = city,
+            paymentMethod = paymentMethod,
             paymentProofUrl = uploadedProofUrl,
-            total = total, itemCount = itemCount, itemsSummary = itemsSummary
+            total = total,
+            itemCount = itemCount.coerceAtLeast(1L),
+            status = "confirmado",
+            itemsSummary = itemsSummary,
+            createdAt = nowIso
         )
-        val finalOrderId = if (token != null) {
-            try {
-                val createdId = api.createOrder(token, order).id
-                clearRemoteError("order_write")
-                createdId
-            } catch (e: Exception) {
-                handleRemoteError("order_write", "No se pudo crear orden en servidor", e)
-                localId
-            }
-        } else {
-            localId
-        }
+
+        val cartSnapshot = localCartItems.toList()
+        localOrdersList.add(0, initialOrder)
+        pendingOrderIds.add(localId)
+        publishOrdersState()
+
         localCartItems.clear()
         publishCartState()
+
+        var finalOrderId = localId
+        if (token != null) {
+            try {
+                // Garantizar que el carrito del servidor contenga los artículos antes de crear la orden remota
+                val remoteCart = try {
+                    api.cart(token).items
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                if (remoteCart.isEmpty() && cartSnapshot.isNotEmpty()) {
+                    for (cartItem in cartSnapshot) {
+                        try {
+                            api.addCartItem(token, cartItem)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+
+                val createdId = api.createOrder(token, initialOrder).id
+                clearRemoteError("order_write")
+                pendingOrderIds.remove(localId)
+                if (createdId.isNotBlank()) {
+                    finalOrderId = createdId
+                    val idx = localOrdersList.indexOfFirst { it.id == localId }
+                    if (idx >= 0) {
+                        localOrdersList[idx] = localOrdersList[idx].copy(id = createdId)
+                    }
+                }
+                publishOrdersState()
+            } catch (e: Exception) {
+                handleRemoteError("order_write", "No se pudo crear orden en servidor", e)
+            }
+        }
         return finalOrderId
     }
 
-    fun observeMessages(): Flow<List<SupportMessage>> = flow {
-        val currentUserId = optionalUserId().orEmpty()
-        val welcome = SupportMessage(
-            id = "welcome", userId = currentUserId, sender = "support",
-            senderName = "Concierge Elegan",
-            text = "¡Bienvenido a Elegan! Soy tu asesor personal de estilo y compras. ¿En qué podemos ayudarte hoy?"
-        )
-        if (localMessagesList.isEmpty()) {
-            localMessagesList.add(welcome)
+    private fun messagesCacheKey(userKey: String = userCacheKey()): String = "support_messages_$userKey"
+
+    private suspend fun ensureMessagesLoaded() {
+        val currentKey = userCacheKey()
+        if (loadedMessagesKey == currentKey) return
+        messagesLoadMutex.withLock {
+            if (loadedMessagesKey == currentKey) return
+            val currentUserId = optionalUserId().orEmpty()
+            val welcome = SupportMessage(
+                id = "welcome",
+                userId = currentUserId,
+                sender = "support",
+                senderName = "Concierge Elegan",
+                text = "¡Bienvenido a Elegan! Soy tu asesor personal de estilo y compras. ¿En qué podemos ayudarte hoy?"
+            )
+            val loaded = withContext(Dispatchers.IO) { loadPersistedMessages(currentKey) }
+            localMessagesList.clear()
+            if (loaded.isNotEmpty()) {
+                localMessagesList.addAll(loaded)
+            } else {
+                localMessagesList.add(welcome)
+            }
+            localMessagesFlow.value = localMessagesList.toList()
+            loadedMessagesKey = currentKey
         }
-        emit(localMessagesList.toList())
-        while (true) {
-            val token = remoteToken()
-            if (token != null) {
-                try {
-                    val items = api.messages(token).items
-                    clearRemoteError("messages")
-                    if (items.isNotEmpty()) {
-                        val merged = (localMessagesList + items).distinctBy { it.id }.sortedBy { it.createdAt ?: "" }
-                        localMessagesList.clear()
-                        localMessagesList.addAll(merged)
-                    }
-                } catch (e: Exception) {
-                    handleRemoteError("messages", "No se pudieron cargar mensajes del servidor", e)
+    }
+
+    private fun loadPersistedMessages(userKey: String): List<SupportMessage> {
+        val raw = messagesPrefs.getString(messagesCacheKey(userKey), null) ?: return emptyList()
+        return try {
+            val array = JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    add(
+                        SupportMessage(
+                            id = obj.optString("id", ""),
+                            userId = obj.optString("userId", ""),
+                            sender = obj.optString("sender", "user"),
+                            senderName = obj.optString("senderName", ""),
+                            text = obj.optString("text", ""),
+                            mediaUrl = obj.optString("mediaUrl", ""),
+                            mediaType = obj.optString("mediaType", ""),
+                            createdAt = obj.optString("createdAt", "").takeIf { it.isNotBlank() }
+                        )
+                    )
                 }
             }
-            emit(localMessagesList.toList())
-            delay(10000)
+        } catch (e: Exception) {
+            Log.w("EleganRepository", "No se pudieron leer los mensajes locales: ${e.message}")
+            emptyList()
         }
+    }
+
+    private suspend fun savePersistedMessages(userKey: String = userCacheKey()) {
+        val snapshot = localMessagesList.toList()
+        withContext(Dispatchers.IO) {
+            try {
+                val array = JSONArray()
+                for (msg in snapshot) {
+                    array.put(
+                        JSONObject().apply {
+                            put("id", msg.id)
+                            put("userId", msg.userId)
+                            put("sender", msg.sender)
+                            put("senderName", msg.senderName)
+                            put("text", msg.text)
+                            put("mediaUrl", msg.mediaUrl)
+                            put("mediaType", msg.mediaType)
+                            put("createdAt", msg.createdAt.orEmpty())
+                        }
+                    )
+                }
+                messagesPrefs.edit().putString(messagesCacheKey(userKey), array.toString()).commit()
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudieron guardar los mensajes localmente: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun publishMessagesState() {
+        localMessagesFlow.value = localMessagesList.toList()
+        savePersistedMessages()
+    }
+
+    private suspend fun persistSupportMediaLocally(source: String, msgId: String, isVideo: Boolean): String {
+        if (source.isBlank() || source.startsWith("http://") || source.startsWith("https://")) return source
+        return withContext(Dispatchers.IO) {
+            try {
+                val uri = Uri.parse(source)
+                if (uri.scheme == "file" && uri.path?.let { File(it).exists() } == true) {
+                    return@withContext source
+                }
+                val ext = if (isVideo) "mp4" else "jpg"
+                val dir = File(appContext.filesDir, "support_media").apply { if (!exists()) mkdirs() }
+                val destFile = File(dir, "${msgId}.$ext")
+                val input = when (uri.scheme) {
+                    "content" -> appContext.contentResolver.openInputStream(uri)
+                    "file" -> File(uri.path ?: "").takeIf { it.exists() }?.inputStream()
+                    else -> File(source).takeIf { it.exists() }?.inputStream()
+                }
+                if (input != null) {
+                    input.use { src ->
+                        destFile.outputStream().use { dst -> src.copyTo(dst) }
+                    }
+                    Uri.fromFile(destFile).toString()
+                } else {
+                    source
+                }
+            } catch (e: Exception) {
+                Log.w("EleganRepository", "No se pudo copiar medio local del chat: ${e.message}")
+                source
+            }
+        }
+    }
+
+    fun observeMessages(): Flow<List<SupportMessage>> = channelFlow {
+        ensureMessagesLoaded()
+        launch {
+            while (true) {
+                ensureMessagesLoaded()
+                val token = remoteToken()
+                if (token != null) {
+                    try {
+                        val items = api.messages(token).items
+                        clearRemoteError("messages")
+                        if (items.isNotEmpty()) {
+                            val merged = (localMessagesList + items)
+                                .distinctBy { it.id }
+                                .sortedBy { it.createdAt ?: "" }
+                            localMessagesList.clear()
+                            localMessagesList.addAll(merged)
+                            publishMessagesState()
+                        }
+                    } catch (e: Exception) {
+                        handleRemoteError("messages", "No se pudieron cargar mensajes del servidor", e)
+                    }
+                }
+                delay(10000)
+            }
+        }
+        localMessagesFlow.collect { send(it) }
     }.flowOn(Dispatchers.IO)
 
-    suspend fun sendSupportMessage(text: String, scope: CoroutineScope) {
+    suspend fun sendSupportMessage(
+        text: String,
+        mediaUri: String = "",
+        mediaType: String = "",
+        scope: CoroutineScope
+    ) {
+        ensureMessagesLoaded()
         val clean = text.trim()
-        require(clean.isNotEmpty() && clean.length <= 4000)
+        val cleanMedia = mediaUri.trim()
+        require((clean.isNotEmpty() && clean.length <= 4000) || cleanMedia.isNotEmpty())
+        val msgId = java.util.UUID.randomUUID().toString()
+        val resolvedType = if (cleanMedia.isNotEmpty()) {
+            if (mediaType.equals("video", ignoreCase = true)) "video" else "image"
+        } else ""
+        val isVideo = resolvedType == "video"
+        val localMediaUrl = if (cleanMedia.isNotEmpty()) {
+            persistSupportMediaLocally(cleanMedia, msgId, isVideo)
+        } else ""
+
+        val nowIso = java.time.Instant.now().toString()
         val userMsg = SupportMessage(
-            id = java.util.UUID.randomUUID().toString(),
+            id = msgId,
             userId = optionalUserId().orEmpty(),
-            sender = "client",
+            sender = "user",
             senderName = MobileSession.user(appContext)?.name ?: "Cliente",
-            text = clean
+            text = clean,
+            mediaUrl = localMediaUrl,
+            mediaType = resolvedType,
+            createdAt = nowIso
         )
         localMessagesList.add(userMsg)
+        publishMessagesState()
+
         val token = remoteToken()
+        var syncedRemote = false
         if (token != null) {
             try {
-                api.sendMessage(token, MessageRequest(clean))
+                val uploadedMediaUrl = if (localMediaUrl.isNotBlank()) {
+                    try {
+                        uploadProductFile(
+                            source = localMediaUrl,
+                            productId = msgId,
+                            label = if (isVideo) "support_video" else "support_img"
+                        )
+                    } catch (e: Exception) {
+                        handleRemoteError("message_media_upload", "No se pudo subir archivo multimedia del chat", e)
+                        localMediaUrl
+                    }
+                } else ""
+
+                api.sendMessage(
+                    token,
+                    MessageRequest(
+                        text = clean,
+                        mediaUrl = uploadedMediaUrl,
+                        mediaType = resolvedType
+                    )
+                )
                 clearRemoteError("message_write")
+                syncedRemote = true
+
+                // Refrescar de inmediato para mostrar la respuesta del Concierge
+                val remoteItems = api.messages(token).items
+                if (remoteItems.isNotEmpty()) {
+                    val localById = localMessagesList.associateBy { it.id }
+                    val merged = (localMessagesList + remoteItems)
+                        .distinctBy { it.id }
+                        .map { item ->
+                            val localFallback = localById[item.id]
+                            if (item.mediaUrl.isBlank() && localFallback != null && localFallback.mediaUrl.isNotBlank()) {
+                                item.copy(mediaUrl = localFallback.mediaUrl, mediaType = localFallback.mediaType)
+                            } else item
+                        }
+                        .sortedBy { it.createdAt ?: "" }
+                    localMessagesList.clear()
+                    localMessagesList.addAll(merged)
+                    publishMessagesState()
+                }
             } catch (e: Exception) {
                 handleRemoteError("message_write", "No se pudo sincronizar mensaje remoto", e)
             }
+        }
+
+        if (!syncedRemote) {
+            val normalized = clean.lowercase()
+            val replyText = when {
+                clean.isEmpty() && localMediaUrl.isNotEmpty() ->
+                    "Hemos recibido tu archivo multimedia. Un asesor de Elegan lo revisará enseguida para ayudarte."
+                normalized.contains("envio") || normalized.contains("entrega") ->
+                    "Gracias por tu consulta. Nuestro equipo de Elegan te ayudará con la información de entrega de tu pedido."
+                normalized.contains("talla") || normalized.contains("medida") ->
+                    "Gracias por escribirnos. Nuestro equipo puede orientarte con las tallas y medidas disponibles."
+                normalized.contains("devolucion") || normalized.contains("cambio") ->
+                    "Recibimos tu consulta sobre cambios o devoluciones. Un asesor de Elegan te dará seguimiento."
+                normalized.contains("descuento") || normalized.contains("promocion") ->
+                    "Gracias por consultar nuestras promociones. Revisa los anuncios y ofertas vigentes en la tienda."
+                else ->
+                    "Gracias por comunicarte con Elegan. Hemos recibido tu consulta y nuestro equipo te dará seguimiento."
+            }
+            localMessagesList.add(
+                SupportMessage(
+                    id = java.util.UUID.randomUUID().toString(),
+                    userId = optionalUserId().orEmpty(),
+                    sender = "support",
+                    senderName = "Elegan Concierge",
+                    text = replyText,
+                    createdAt = java.time.Instant.now().plusMillis(1).toString()
+                )
+            )
+            publishMessagesState()
         }
     }
 

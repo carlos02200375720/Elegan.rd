@@ -12,18 +12,21 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,6 +81,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -167,135 +171,214 @@ fun AuthScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .imePadding()
     ) {
-        Column(
+        val isCompact = maxWidth < 350.dp
+        val isWide = maxWidth >= 600.dp
+        val isShortScreen = maxHeight < 640.dp
+
+        val horizontalPad = when {
+            isCompact -> 16.dp
+            isWide -> 32.dp
+            else -> 24.dp
+        }
+        val verticalPad = if (isCompact || isShortScreen) 12.dp else 20.dp
+        val topSpacer = when {
+            isCompact || isShortScreen -> 8.dp
+            isWide -> 28.dp
+            else -> 16.dp
+        }
+        val logoSize = when {
+            isCompact || isShortScreen -> 72.dp
+            isWide -> 92.dp
+            else -> 86.dp
+        }
+        val sectionSpacer = if (isCompact || isShortScreen) 18.dp else 26.dp
+        val fieldGap = if (isCompact || isShortScreen) 10.dp else 14.dp
+        val buttonHeight = if (isCompact) 46.dp else 48.dp
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Logotipo de Elegan
-            Box(
+            Column(
                 modifier = Modifier
-                    .size(86.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .widthIn(max = 460.dp)
+                    .padding(horizontal = horizontalPad, vertical = verticalPad),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_fg),
-                    contentDescription = "Logo Elegan",
-                    contentScale = ContentScale.Crop,
+                Spacer(modifier = Modifier.height(topSpacer))
+
+                // Logotipo de Elegan
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(logoSize)
                         .clip(CircleShape)
-                        .graphicsLayer(scaleX = 1.35f, scaleY = 1.35f)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_launcher_fg),
+                        contentDescription = "Logo Elegan",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .graphicsLayer(scaleX = 1.35f, scaleY = 1.35f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(if (isCompact || isShortScreen) 10.dp else 14.dp))
+
+                Text(
+                    text = "ELEGAN",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Serif,
+                        fontSize = if (isCompact) 24.sp else 28.sp,
+                        letterSpacing = if (isCompact) 3.sp else 4.sp,
+                        color = EleganBurgundyDark
+                    )
                 )
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = "ELEGAN",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Serif,
-                    letterSpacing = 4.sp,
-                    color = EleganBurgundyDark
+                Text(
+                    text = "Moda & Accesorios Masculinos de Lujo",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = if (isCompact) 11.5.sp else 12.sp,
+                        color = Color(0xFF777777),
+                        letterSpacing = if (isCompact) 0.5.sp else 1.sp
+                    )
                 )
-            )
 
-            Text(
-                text = "Moda & Accesorios Masculinos de Lujo",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF777777),
-                    letterSpacing = 1.sp
-                )
-            )
+                Spacer(modifier = Modifier.height(sectionSpacer))
 
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // Selector de pestaña: Iniciar Sesión / Crear Cuenta
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color.White,
-                contentColor = EleganBurgundy,
-                divider = {
-                    HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
-                },
-                indicator = { tabPositions ->
-                    if (selectedTab < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = EleganBurgundy,
-                            height = 3.dp
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = {
-                        selectedTab = 0
-                        errorMessage = null
+                // Selector de pestaña: Iniciar Sesión / Crear Cuenta
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.White,
+                    contentColor = EleganBurgundy,
+                    divider = {
+                        HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
                     },
-                    text = {
-                        Text(
-                            "Iniciar Sesión",
-                            fontSize = 14.sp,
-                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = {
-                        selectedTab = 1
-                        errorMessage = null
+                    indicator = { tabPositions ->
+                        if (selectedTab < tabPositions.size) {
+                            TabRowDefaults.SecondaryIndicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                color = EleganBurgundy,
+                                height = 3.dp
+                            )
+                        }
                     },
-                    text = {
-                        Text(
-                            "Crear Cuenta",
-                            fontSize = 14.sp,
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = {
+                            selectedTab = 0
+                            errorMessage = null
+                        },
+                        text = {
+                            Text(
+                                text = "Iniciar Sesión",
+                                fontSize = if (isCompact) 13.sp else 14.sp,
+                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = {
+                            selectedTab = 1
+                            errorMessage = null
+                        },
+                        text = {
+                            Text(
+                                text = "Crear Cuenta",
+                                fontSize = if (isCompact) 13.sp else 14.sp,
+                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(if (isCompact || isShortScreen) 18.dp else 24.dp))
+
+                // Campos del formulario
+                if (selectedTab == 1) {
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = {
+                            Text(
+                                text = "Nombre completo",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                tint = EleganBurgundy
+                            )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("auth_name_input"),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EleganBurgundy,
+                            unfocusedBorderColor = Color(0xFFDDD5CE)
                         )
-                    }
-                )
-            }
+                    )
 
-            Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(fieldGap))
+                }
 
-            // Campos del formulario
-            if (selectedTab == 1) {
                 OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    label = { Text("Nombre completo") },
+                    value = emailInput,
+                    onValueChange = { emailInput = it },
+                    label = {
+                        Text(
+                            text = "Correo electrónico",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     leadingIcon = {
                         Icon(
-                            Icons.Default.Person,
+                            Icons.Default.Email,
                             contentDescription = null,
                             tint = EleganBurgundy
                         )
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
+                        keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("auth_name_input"),
+                        .testTag("auth_email_input"),
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = EleganBurgundy,
@@ -303,83 +386,18 @@ fun AuthScreen(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            OutlinedTextField(
-                value = emailInput,
-                onValueChange = { emailInput = it },
-                label = { Text("Correo electrónico") },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Email,
-                        contentDescription = null,
-                        tint = EleganBurgundy
-                    )
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("auth_email_input"),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EleganBurgundy,
-                    unfocusedBorderColor = Color(0xFFDDD5CE)
-                )
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedTextField(
-                value = passwordInput,
-                onValueChange = { passwordInput = it },
-                label = { Text("Contraseña (mínimo 6 caracteres)") },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = EleganBurgundy
-                    )
-                },
-                trailingIcon = {
-                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                        Icon(
-                            imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = "Mostrar u ocultar contraseña",
-                            tint = Color(0xFF777777)
-                        )
-                    }
-                },
-                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = if (selectedTab == 1) ImeAction.Next else ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = { if (selectedTab == 0) submitAuth() }
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("auth_password_input"),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EleganBurgundy,
-                    unfocusedBorderColor = Color(0xFFDDD5CE)
-                )
-            )
-
-            if (selectedTab == 1) {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(fieldGap))
 
                 OutlinedTextField(
-                    value = confirmPasswordInput,
-                    onValueChange = { confirmPasswordInput = it },
-                    label = { Text("Confirmar contraseña") },
+                    value = passwordInput,
+                    onValueChange = { passwordInput = it },
+                    label = {
+                        Text(
+                            text = "Contraseña",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Lock,
@@ -387,113 +405,166 @@ fun AuthScreen(
                             tint = EleganBurgundy
                         )
                     },
+                    trailingIcon = {
+                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                            Icon(
+                                imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = "Mostrar u ocultar contraseña",
+                                tint = Color(0xFF777777)
+                            )
+                        }
+                    },
                     visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
+                        imeAction = if (selectedTab == 1) ImeAction.Next else ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { submitAuth() }
+                        onDone = { if (selectedTab == 0) submitAuth() }
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("auth_confirm_password_input"),
+                        .testTag("auth_password_input"),
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = EleganBurgundy,
                         unfocusedBorderColor = Color(0xFFDDD5CE)
                     )
                 )
-            }
 
-            // Mensaje de error si ocurre alguno
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF0F0)),
-                    border = BorderStroke(1.dp, Color(0xFFFFCCCC)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = Color(0xFFD32F2F),
-                            modifier = Modifier.size(20.dp)
+                if (selectedTab == 1) {
+                    Spacer(modifier = Modifier.height(fieldGap))
+
+                    OutlinedTextField(
+                        value = confirmPasswordInput,
+                        onValueChange = { confirmPasswordInput = it },
+                        label = {
+                            Text(
+                                text = "Confirmar contraseña",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = EleganBurgundy
+                            )
+                        },
+                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { submitAuth() }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("auth_confirm_password_input"),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EleganBurgundy,
+                            unfocusedBorderColor = Color(0xFFDDD5CE)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    )
+                }
+
+                // Mensaje de error si ocurre alguno
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(if (isCompact || isShortScreen) 12.dp else 16.dp))
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF0F0)),
+                        border = BorderStroke(1.dp, Color(0xFFFFCCCC)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFD32F2F),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = errorMessage ?: "",
+                                color = Color(0xFFD32F2F),
+                                fontSize = if (isCompact) 12.5.sp else 13.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(if (isCompact || isShortScreen) 18.dp else 24.dp))
+
+                // Botón principal
+                Button(
+                    onClick = { submitAuth() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = buttonHeight)
+                        .testTag("auth_submit_button"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EleganBurgundy,
+                        contentColor = Color.White
+                    ),
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
                         Text(
-                            text = errorMessage ?: "",
-                            color = Color(0xFFD32F2F),
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
+                            text = if (selectedTab == 1) "Crear Mi Cuenta Elegan" else "Iniciar Sesión",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = if (isCompact) 14.sp else 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(if (isCompact || isShortScreen) 10.dp else 14.dp))
 
-            // Botón principal
-            Button(
-                onClick = { submitAuth() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("auth_submit_button"),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EleganBurgundy,
-                    contentColor = Color.White
-                ),
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                OutlinedButton(
+                    onClick = {
+                        val guestUser = MobileSession.loginClientLocally(context)
+                        MobileSession.save(context, guestUser)
+                        onAuthSuccess()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = buttonHeight)
+                        .testTag("auth_guest_button"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.5.dp, EleganBurgundy),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = EleganBurgundy
                     )
-                } else {
+                ) {
                     Text(
-                        text = if (selectedTab == 1) "Crear Mi Cuenta Elegan" else "Iniciar Sesión",
+                        text = "Ingresar como Invitado",
+                        fontSize = if (isCompact) 14.sp else 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                Spacer(modifier = Modifier.height(if (isCompact || isShortScreen) 16.dp else 24.dp))
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedButton(
-                onClick = {
-                    val guestUser = MobileSession.loginClientLocally(context)
-                    MobileSession.save(context, guestUser)
-                    onAuthSuccess()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("auth_guest_button"),
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.5.dp, EleganBurgundy),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = EleganBurgundy
-                )
-            ) {
-                Text(
-                    text = "Ingresar como Invitado",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

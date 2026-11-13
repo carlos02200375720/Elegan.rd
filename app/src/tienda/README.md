@@ -9,7 +9,7 @@ Contiene todas las pantallas, componentes, temas y modelos de vista de la tienda
 - verificasion.kt
 - gracia.kt
 - chats.kt
-- menu.kt
+- categoria.kt
 - perfil.kt
 - auth/ (AuthScreen.kt)
 - components/ (EleganVideoPlayer.kt)

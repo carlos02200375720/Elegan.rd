@@ -15,6 +15,7 @@ val EleganMuted = Color(0xFF757575)
 val EleganBorder = Color(0xFFE5DFD7)
 val EleganSurfaceContainer = Color(0xFFF4EFEA)
 val EleganGreen = Color(0xFF1E7E34)
+val EleganLikeRed = Color(0xFFE53935)
 
 val DarkBurgundy = Color(0xFFFFB3B8)
 val DarkBurgundyContainer = Color(0xFF70001B)

@@ -5,18 +5,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -66,6 +68,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -158,7 +161,11 @@ fun CarritoScreen(
                             color = EleganCharcoal,
                             fontFamily = FontFamily.Serif
                         ),
-                        modifier = Modifier.align(Alignment.Center)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 56.dp)
                     )
 
                     val totalItems = cartItems.sumOf { it.quantity }
@@ -195,247 +202,287 @@ fun CarritoScreen(
                             .fillMaxWidth()
                             .height(60.dp)
                     ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            verticalArrangement = Arrangement.Center
+                        BoxWithConstraints(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Total a Pagar",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color.Gray,
-                                    fontSize = 11.sp
-                                )
-                            )
-                            Text(
-                                text = "$${String.format("%.2f", total)}",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EleganBurgundyDark,
-                                    fontSize = 16.sp
-                                )
-                            )
-                        }
+                            val isCompactBar = maxWidth < 350.dp
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .widthIn(max = 680.dp)
+                                    .padding(
+                                        horizontal = if (isCompactBar) 12.dp else 16.dp,
+                                        vertical = 8.dp
+                                    ),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = "Total a Pagar",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color.Gray,
+                                            fontSize = 11.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = "$${String.format("%.2f", total)}",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = EleganBurgundyDark,
+                                            fontSize = if (isCompactBar) 15.sp else 16.sp
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
 
-                        Button(
-                            onClick = {
-                                onNavigateToVerificasion(subtotal, discountAmount, shippingCost, total)
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = EleganBurgundy,
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                            modifier = Modifier
-                                .height(44.dp)
-                                .testTag("checkout_continue_btn")
-                        ) {
-                            Text(
-                                text = "Continuar",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Button(
+                                    onClick = {
+                                        onNavigateToVerificasion(subtotal, discountAmount, shippingCost, total)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = EleganBurgundy,
+                                        contentColor = Color.White
+                                    ),
+                                    contentPadding = PaddingValues(
+                                        horizontal = if (isCompactBar) 14.dp else 16.dp,
+                                        vertical = 0.dp
+                                    ),
+                                    modifier = Modifier
+                                        .height(44.dp)
+                                        .testTag("checkout_continue_btn")
+                                ) {
+                                    Text(
+                                        text = "Continuar",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                         }
                     }
-                }
                 }
             }
         },
         containerColor = Color.White
     ) { padding ->
-        if (cartItems.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFF3ECE4)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.RemoveShoppingCart,
-                            contentDescription = null,
-                            tint = EleganBurgundy,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = "Tu Carrito está Vacío",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal,
-                            fontFamily = FontFamily.Serif
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Explora nuestro catálogo para descubrir prendas exclusivas, boinas, calzado y fragancias.",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color.Gray,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        ),
-                        modifier = Modifier.padding(horizontal = 24.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Button(
-                        onClick = onExploreCatalog,
-                        colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.testTag("explore_catalog_from_empty_cart_btn")
-                    ) {
-                        Icon(Icons.Default.ShoppingBag, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Explorar Catálogo", fontWeight = FontWeight.Bold)
-                    }
-                }
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            val isCompact = maxWidth < 350.dp
+            val isWide = maxWidth >= 600.dp
+            val horizontalPad = when {
+                isCompact -> 12.dp
+                isWide -> 24.dp
+                else -> 16.dp
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-                    .testTag("cart_items_list"),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
 
-                items(cartItems, key = { it.id }) { item ->
-                    CartItemRow(
-                        item = item,
-                        onIncrease = { onUpdateQuantity(item.id, item.quantity + 1) },
-                        onDecrease = {
-                            if (item.quantity > 1) {
-                                onUpdateQuantity(item.id, item.quantity - 1)
-                            } else {
-                                onRemoveItem(item.id)
-                            }
-                        },
-                        onRemove = { onRemoveItem(item.id) }
-                    )
-                }
-
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(12.dp)
+            if (cartItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(if (isCompact) 20.dp else 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.widthIn(max = 440.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.ConfirmationNumber,
-                                    contentDescription = null,
-                                    tint = EleganGold,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Cupón de Descuento",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = EleganCharcoal
-                                    )
-                                )
-                            }
+                        Box(
+                            modifier = Modifier
+                                .size(if (isCompact) 86.dp else 100.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF3ECE4)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RemoveShoppingCart,
+                                contentDescription = null,
+                                tint = EleganBurgundy,
+                                modifier = Modifier.size(if (isCompact) 40.dp else 48.dp)
+                            )
+                        }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextField(
-                                    value = couponCode,
-                                    onValueChange = { couponCode = it.uppercase() },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("coupon_input"),
-                                    placeholder = { Text("Ej: ELEGAN10", fontSize = 13.sp) },
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = EleganBurgundy,
-                                        unfocusedBorderColor = Color(0xFFDDD5CE)
-                                    )
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = {
-                                        if (couponCode == "ELEGAN10" || couponCode == "VIP") {
-                                            discountPercent = 0.10
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("¡Cupón aplicado: 10% de descuento!")
-                                            }
-                                        } else {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Cupón inválido. Prueba con ELEGAN10")
-                                            }
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.testTag("apply_coupon_btn")
-                                ) {
-                                    Text("Aplicar", fontWeight = FontWeight.Bold)
-                                }
-                            }
+                        Text(
+                            text = "Tu Carrito está Vacío",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = EleganCharcoal,
+                                fontFamily = FontFamily.Serif,
+                                fontSize = if (isCompact) 20.sp else 22.sp
+                            ),
+                            textAlign = TextAlign.Center
+                        )
 
-                            if (discountPercent > 0.0) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "✓ 10% de descuento activado",
-                                    color = Color(0xFF1E7E34),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Explora nuestro catálogo para descubrir prendas exclusivas, boinas, calzado y fragancias.",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            ),
+                            modifier = Modifier.padding(horizontal = if (isCompact) 8.dp else 24.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Button(
+                            onClick = onExploreCatalog,
+                            colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("explore_catalog_from_empty_cart_btn")
+                        ) {
+                            Icon(Icons.Default.ShoppingBag, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Explorar Catálogo", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 680.dp)
+                        .testTag("cart_items_list"),
+                    contentPadding = PaddingValues(horizontal = horizontalPad, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 12.dp)
+                ) {
+                    item {
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+
+                    items(cartItems, key = { it.id }) { item ->
+                        CartItemRow(
+                            item = item,
+                            onIncrease = { onUpdateQuantity(item.id, item.quantity + 1) },
+                            onDecrease = {
+                                if (item.quantity > 1) {
+                                    onUpdateQuantity(item.id, item.quantity - 1)
+                                } else {
+                                    onRemoveItem(item.id)
+                                }
+                            },
+                            onRemove = { onRemoveItem(item.id) }
+                        )
+                    }
+
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(if (isCompact) 12.dp else 16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.ConfirmationNumber,
+                                        contentDescription = null,
+                                        tint = EleganGold,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Cupón de Descuento",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = EleganCharcoal
+                                        )
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = couponCode,
+                                        onValueChange = { couponCode = it.uppercase() },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("coupon_input"),
+                                        placeholder = { Text("Ej: ELEGAN10", fontSize = 13.sp, maxLines = 1) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = EleganBurgundy,
+                                            unfocusedBorderColor = Color(0xFFDDD5CE)
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(if (isCompact) 6.dp else 8.dp))
+                                    Button(
+                                        onClick = {
+                                            if (couponCode == "ELEGAN10" || couponCode == "VIP") {
+                                                discountPercent = 0.10
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("¡Cupón aplicado: 10% de descuento!")
+                                                }
+                                            } else {
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("Cupón inválido. Prueba con ELEGAN10")
+                                                }
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = EleganBurgundy),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(
+                                            horizontal = if (isCompact) 12.dp else 16.dp,
+                                            vertical = 10.dp
+                                        ),
+                                        modifier = Modifier.testTag("apply_coupon_btn")
+                                    ) {
+                                        Text("Aplicar", fontWeight = FontWeight.Bold, maxLines = 1)
+                                    }
+                                }
+
+                                if (discountPercent > 0.0) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "✓ 10% de descuento activado",
+                                        color = Color(0xFF1E7E34),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                 item {
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 8.dp),
                         colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(if (isCompact) 12.dp else 16.dp)) {
                             Text(
                                 text = "Resumen del Pedido",
                                 style = MaterialTheme.typography.titleMedium.copy(
@@ -500,9 +547,10 @@ fun CarritoScreen(
                 }
 
                 item {
-                    Spacer(modifier = Modifier.height(40.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
+        }
         }
     }
 }
@@ -522,105 +570,116 @@ fun CartItemRow(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompactCard = maxWidth < 330.dp
+            Row(
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFF3ECE4))
+                    .fillMaxWidth()
+                    .padding(if (isCompactCard) 10.dp else 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AsyncImage(
-                    model = item.imageUrl,
-                    contentDescription = item.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = EleganCharcoal
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (item.selectedSize.isNotBlank()) {
-                    Text(
-                        text = "Talla: ${item.selectedSize}",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                    )
-                }
-                if (item.selectedColor.isNotBlank()) {
-                    Text(
-                        text = "Color: ${item.selectedColor}",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "$${String.format("%.2f", item.price)}",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = EleganBurgundyDark
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFF6EFE9))
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .size(if (isCompactCard) 68.dp else 80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFF3ECE4))
                 ) {
-                    IconButton(
-                        onClick = onDecrease,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Menos", tint = EleganBurgundy, modifier = Modifier.size(16.dp))
-                    }
+                    AsyncImage(
+                        model = item.imageUrl,
+                        contentDescription = item.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
 
+                Spacer(modifier = Modifier.width(if (isCompactCard) 10.dp else 14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${item.quantity}",
+                        text = item.name,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EleganCharcoal
+                            fontWeight = FontWeight.SemiBold,
+                            color = EleganCharcoal,
+                            fontSize = if (isCompactCard) 13.sp else 14.sp
                         ),
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
-                    IconButton(
-                        onClick = onIncrease,
-                        modifier = Modifier.size(28.dp)
+                    if (item.selectedSize.isNotBlank()) {
+                        Text(
+                            text = "Talla: ${item.selectedSize}",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (item.selectedColor.isNotBlank()) {
+                        Text(
+                            text = "Color: ${item.selectedColor}",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "$${String.format("%.2f", item.price)}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = EleganBurgundyDark,
+                            fontSize = if (isCompactCard) 15.sp else 16.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFF6EFE9))
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Más", tint = EleganBurgundy, modifier = Modifier.size(16.dp))
+                        IconButton(
+                            onClick = onDecrease,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Menos", tint = EleganBurgundy, modifier = Modifier.size(16.dp))
+                        }
+
+                        Text(
+                            text = "${item.quantity}",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = EleganCharcoal
+                            ),
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+
+                        IconButton(
+                            onClick = onIncrease,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Más", tint = EleganBurgundy, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
-            }
 
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.testTag("remove_item_${item.id}")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = "Eliminar",
-                    tint = Color(0xFFB00020)
-                )
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier
+                        .size(if (isCompactCard) 40.dp else 48.dp)
+                        .testTag("remove_item_${item.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Eliminar",
+                        tint = Color(0xFFB00020)
+                    )
+                }
             }
         }
     }
@@ -639,7 +698,20 @@ fun SummaryRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = valueColor))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray),
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = valueColor
+            )
+        )
     }
 }

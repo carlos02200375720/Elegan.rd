@@ -27,14 +27,43 @@ export async function createOrder(req, res) {
     }
     const userId = String(req.user._id);
     const cartItems = await db.collection(CART_COLLECTION_NAME).find({ userId }).toArray();
-    if (!cartItems.length) return res.status(400).json({ error: "CART_EMPTY" });
+    const payloadSummary = String(data.itemsSummary || "").trim();
+    const payloadItems = Array.isArray(data.items) ? data.items : [];
 
-    const total = cartItems.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
-    const itemCount = cartItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-    const itemsSummary = cartItems.map(item => `${item.name} x${item.quantity}`).join(", ");
+    if (!cartItems.length && !payloadSummary && !payloadItems.length) {
+      return res.status(400).json({ error: "CART_EMPTY" });
+    }
+
+    const computedTotal = cartItems.reduce(
+      (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0),
+      0
+    );
+    const computedItemCount = cartItems.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+    const computedSummary = cartItems
+      .map(item => `${item.name} x${item.quantity}`)
+      .join(", ");
+
+    const total = Number(data.total) > 0 ? Number(data.total) : computedTotal;
+    const itemCount = Math.max(
+      1,
+      Math.trunc(Number(data.itemCount) || computedItemCount || payloadItems.length || 1)
+    );
+    const itemsSummary = payloadSummary || computedSummary;
+    const email = String(data.email || data.customerEmail || "").trim();
+    const phone = String(data.phone || data.customerPhone || "").trim();
+    const address = String(data.address || data.shippingAddress || "").trim();
 
     const item = {
       ...data,
+      email,
+      customerEmail: email,
+      phone,
+      customerPhone: phone,
+      address,
+      shippingAddress: address,
       total,
       itemCount,
       itemsSummary,
