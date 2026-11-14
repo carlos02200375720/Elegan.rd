@@ -109,7 +109,7 @@ fun ProductPublicationPost(
         getProductMediaItems(product)
     }
     val priceText = remember(product.price) {
-        "$${String.format("%.2f", product.price)} USD"
+        "$${String.format("%.2f", product.price)}"
     }
     val categoryLabel = remember(product.category) {
         "Boutique Oficial • ${product.category.replaceFirstChar { it.uppercase() }}"
@@ -304,7 +304,7 @@ fun ProductPublicationPost(
                     text = priceText,
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF137A3A)
+                        color = EleganBurgundy
                     ),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                 )

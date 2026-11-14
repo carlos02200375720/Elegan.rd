@@ -15,15 +15,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -79,6 +82,7 @@ class EleganRepository(context: Context) {
     private var loadedOrdersKey: String? = null
 
     private val localCommentsCache = java.util.concurrent.ConcurrentHashMap<String, MutableList<PublicationComment>>()
+    private val localCommentsUpdated = MutableSharedFlow<String>(extraBufferCapacity = 32)
     private val localStatsMap = java.util.concurrent.ConcurrentHashMap<String, PublicationStats>()
     private val localStatsFlow = MutableStateFlow<Map<String, PublicationStats>>(emptyMap())
     private val localCartItems = java.util.concurrent.CopyOnWriteArrayList<CartItem>()
@@ -997,17 +1001,38 @@ class EleganRepository(context: Context) {
     fun observePublicationComments(productId: String): Flow<List<PublicationComment>> = flow {
         require(productId.isNotBlank())
         val localList = localCommentsCache.computeIfAbsent(productId) { mutableListOf() }
-        emit(localList.toList())
+        emit(synchronized(localList) { localList.toList() })
 
         var lastSync = 0L
         while (true) {
             val now = System.currentTimeMillis()
             if (now - lastSync >= 10000L) {
                 try {
-                    val remoteItems = api.comments(productId).items
+                    val remoteItems = api.comments(productId).items.distinctBy { it.id }
                     clearRemoteError("comments_$productId")
-                    if (remoteItems.isNotEmpty()) {
-                        val merged = (localList + remoteItems).distinctBy { it.id }.sortedBy { it.createdAt ?: "" }
+                    synchronized(localList) {
+                        val unmatchedRemoteKeys = remoteItems
+                            .map { it.displayName.trim() to it.text.trim() }
+                            .toMutableList()
+
+                        val pendingLocal = localList.filter { localItem ->
+                            if (!localItem.id.startsWith("local_")) {
+                                false
+                            } else {
+                                val key = localItem.displayName.trim() to localItem.text.trim()
+                                val matchIdx = unmatchedRemoteKeys.indexOf(key)
+                                if (matchIdx >= 0) {
+                                    unmatchedRemoteKeys.removeAt(matchIdx)
+                                    false
+                                } else {
+                                    true
+                                }
+                            }
+                        }
+
+                        val merged = (remoteItems + pendingLocal)
+                            .distinctBy { it.id }
+                            .sortedBy { it.createdAt ?: "" }
                         localList.clear()
                         localList.addAll(merged)
                     }
@@ -1016,8 +1041,10 @@ class EleganRepository(context: Context) {
                     handleRemoteError("comments_$productId", "No se pudieron sincronizar comentarios remotos", e)
                 }
             }
-            emit(localList.toList())
-            delay(2000)
+            emit(synchronized(localList) { localList.toList() })
+            withTimeoutOrNull(2000L) {
+                localCommentsUpdated.first { it == productId }
+            }
         }
     }.flowOn(Dispatchers.IO)
 
@@ -1031,8 +1058,9 @@ class EleganRepository(context: Context) {
             timeZone = java.util.TimeZone.getTimeZone("UTC")
         }.format(java.util.Date())
 
+        val tempId = "local_${java.util.UUID.randomUUID()}"
         val newComment = PublicationComment(
-            id = java.util.UUID.randomUUID().toString(),
+            id = tempId,
             productId = productId,
             userId = userId,
             displayName = finalName,
@@ -1045,6 +1073,7 @@ class EleganRepository(context: Context) {
         synchronized(localList) {
             localList.add(newComment)
         }
+        localCommentsUpdated.tryEmit(productId)
 
         // 2. Incrementar contador local de comentarios
         ensureStatsLoaded()
@@ -1052,10 +1081,25 @@ class EleganRepository(context: Context) {
         localStatsMap[productId] = currentStat.copy(commentsCount = currentStat.commentsCount + 1)
         publishStatsState()
 
-        // 3. Sincronizar con el servidor en segundo plano
+        // 3. Sincronizar con el servidor en segundo plano y reconciliar ID real para evitar duplicados
         val token = remoteToken() ?: "Bearer guest"
         try {
-            api.addComment(token, productId, CommentRequest(finalName, clean))
+            val response = api.addComment(token, productId, CommentRequest(finalName, clean))
+            val serverId = response.id.trim()
+            if (serverId.isNotEmpty()) {
+                synchronized(localList) {
+                    val alreadySynced = localList.any { it.id == serverId }
+                    if (alreadySynced) {
+                        localList.removeAll { it.id == tempId }
+                    } else {
+                        val idx = localList.indexOfFirst { it.id == tempId }
+                        if (idx >= 0) {
+                            localList[idx] = localList[idx].copy(id = serverId)
+                        }
+                    }
+                }
+                localCommentsUpdated.tryEmit(productId)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
